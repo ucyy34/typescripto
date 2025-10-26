@@ -110,6 +110,10 @@ const API_CONFIG = {
       RECENT_ORDERS: '/dashboard/recent-orders',
       RECENT_PRODUCTS: '/dashboard/recent-products',
     },
+
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
+    },
   },
 
   // Request timeout

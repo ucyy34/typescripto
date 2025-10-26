@@ -841,11 +841,22 @@
 
                 <!-- Product Images -->
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image URL</label>
-                    <input type="url" id="productImage"
-                           placeholder="https://example.com/image.jpg (optional for now)"
-                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
-                    <small style="color: #666; font-size: 0.85rem;">Tip: Image upload feature coming soon. For now, use external image URLs.</small>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image</label>
+                    <div class="product-image-upload">
+                        <div class="upload-dropzone" id="productImageDropzone">
+                            <input type="file" id="productImageFile" accept="image/*" hidden>
+                            <button type="button" id="triggerProductImageUpload">📤 Upload Image</button>
+                            <p>Supported formats: JPG, PNG, WebP. Files are automatically converted to WebP.</p>
+                        </div>
+                        <div class="upload-preview" id="productImagePreview">
+                            <span>Henüz görsel seçilmedi</span>
+                        </div>
+                    </div>
+                    <div class="upload-fallback">
+                        <span>or paste an image URL</span>
+                        <input type="url" id="productImage" placeholder="https://example.com/image.jpg" />
+                    </div>
+                    <small style="color: #666; font-size: 0.85rem; display:block; margin-top:0.35rem;">Yüklediğiniz görseller Dosttan sunucularına kaydedilir ve otomatik olarak WebP formatına optimize edilir.</small>
                 </div>
 
                 <!-- Product Badges -->

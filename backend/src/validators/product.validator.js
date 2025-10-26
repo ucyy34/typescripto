@@ -42,6 +42,7 @@ const createProductSchema = Joi.object({
   }).optional(),
   attributes: Joi.object().optional().default({}),
   tags: Joi.array().items(Joi.string().max(50)).max(20).default([]),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).default([]),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -92,6 +93,7 @@ const updateProductSchema = Joi.object({
   }).optional(),
   attributes: Joi.object().optional(),
   tags: Joi.array().items(Joi.string().max(50)).max(20).optional(),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -162,6 +164,7 @@ const productQuerySchema = Joi.object({
       '-created_at'
     )
     .default('-created_at'),
+  includeAllStatuses: Joi.boolean().optional(),
 });
 
 module.exports = {

@@ -48,9 +48,31 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
+    const sanitizedData = { ...productData };
+
+    if (!sanitizedData.seo_title && sanitizedData.title) {
+      sanitizedData.seo_title = sanitizedData.title;
+    }
+
+    if (!sanitizedData.seo_description) {
+      if (sanitizedData.short_description) {
+        sanitizedData.seo_description = sanitizedData.short_description;
+      } else if (sanitizedData.description) {
+        sanitizedData.seo_description = sanitizedData.description.substring(0, 160);
+      }
+    }
+
+    if (!sanitizedData.meta_keywords || sanitizedData.meta_keywords.length === 0) {
+      if (Array.isArray(sanitizedData.tags) && sanitizedData.tags.length > 0) {
+        sanitizedData.meta_keywords = [...new Set(sanitizedData.tags.map((tag) => tag.toLowerCase()))];
+      } else {
+        sanitizedData.meta_keywords = [];
+      }
+    }
+
     // Create product
     const product = await Product.create({
-      ...productData,
+      ...sanitizedData,
       slug,
       status: 'pending', // Needs admin approval
     });
@@ -97,6 +119,11 @@ class ProductService {
     if (!includeInactive) {
       where.status = 'approved';
       where.is_active = true;
+      if (!where.stock || typeof where.stock !== 'object') {
+        where.stock = { [Op.gt]: 0 };
+      } else {
+        where.stock[Op.gt] = 0;
+      }
     }
 
     const product = await Product.findOne({
@@ -190,6 +217,11 @@ class ProductService {
     if (!status && !shouldIncludeAll) {
       where.status = 'approved';
       where.is_active = true;
+      if (!where.stock || typeof where.stock !== 'object') {
+        where.stock = { [Op.gt]: 0 };
+      } else {
+        where.stock[Op.gt] = 0;
+      }
     }
 
     // Parse sort
@@ -280,6 +312,27 @@ class ProductService {
     delete updateData.approved_at;
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
+
+    if (updateData.title && !Object.prototype.hasOwnProperty.call(updateData, 'seo_title')) {
+      updateData.seo_title = updateData.title;
+    }
+
+    if (
+      (updateData.short_description || updateData.description) &&
+      !Object.prototype.hasOwnProperty.call(updateData, 'seo_description')
+    ) {
+      updateData.seo_description =
+        updateData.short_description ||
+        (updateData.description ? updateData.description.substring(0, 160) : product.short_description || product.seo_description);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'tags')) {
+      if (Array.isArray(updateData.tags) && updateData.tags.length > 0) {
+        updateData.meta_keywords = [...new Set(updateData.tags.map((tag) => tag.toLowerCase()))];
+      } else {
+        updateData.meta_keywords = [];
+      }
+    }
 
     await product.update(updateData);
 

@@ -180,7 +180,9 @@ class VendorDashboard {
             const variantName = group.dataset.variantName;
             const selected = [];
             group.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
-                const labelText = input.nextSibling && input.nextSibling.textContent ? input.nextSibling.textContent.trim() : input.value;
+                const optionContainer = input.closest('.variant-option');
+                const labelElement = optionContainer?.querySelector('.variant-option-label');
+                const labelText = labelElement ? labelElement.textContent.trim() : input.value;
                 selected.push({ label: labelText, value: input.value });
             });
             if (selected.length > 0) {
@@ -1810,6 +1812,7 @@ class VendorDashboard {
         const closeModalFunc = () => {
             modal.style.display = 'none';
             productForm.reset();
+            this.clearProductFormState();
         };
 
         if (closeModal) {
@@ -1835,8 +1838,12 @@ class VendorDashboard {
             });
         }
 
-        // SEO character counters
+        // SEO helpers
         this.setupSEOCounters();
+        this.setupSeoSync();
+
+        // Image upload interactions
+        this.setupProductImageUpload();
 
         const categorySelect = document.getElementById('productCategory');
         if (categorySelect) {
@@ -1945,35 +1952,44 @@ class VendorDashboard {
             group.dataset.variantName = v.name;
 
             const labelEl = document.createElement('div');
-            labelEl.style.margin = '0.5rem 0';
+            labelEl.className = 'variant-group-title';
             labelEl.textContent = v.name + (v.is_required ? ' *' : '');
             group.appendChild(labelEl);
 
             const optionsWrap = document.createElement('div');
+            optionsWrap.className = 'variant-options';
+
             (v.options || []).forEach(opt => {
-                const lbl = document.createElement('label');
-                lbl.style.marginRight = '0.75rem';
+                const optionLabel = document.createElement('label');
+                optionLabel.className = 'variant-option';
+
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.name = `variant_${v.id}`;
                 input.value = opt.value;
-                lbl.appendChild(input);
-                const span = document.createElement('span');
-                span.textContent = opt.label || opt.value;
+
+                optionLabel.appendChild(input);
+
                 if (v.type === 'color' && opt.value) {
-                    span.style.display = 'inline-block';
-                    span.style.width = '14px';
-                    span.style.height = '14px';
-                    span.style.borderRadius = '50%';
-                    span.style.background = opt.value;
-                    span.style.marginLeft = '6px';
-                    span.title = opt.label || opt.value;
-                } else {
-                    span.style.marginLeft = '6px';
+                    const colorDot = document.createElement('span');
+                    colorDot.className = 'variant-color-dot';
+                    colorDot.style.background = opt.value;
+                    colorDot.title = opt.label || opt.value;
+                    optionLabel.appendChild(colorDot);
                 }
-                lbl.appendChild(span);
-                optionsWrap.appendChild(lbl);
+
+                const span = document.createElement('span');
+                span.className = 'variant-option-label';
+                span.textContent = opt.label || opt.value;
+                optionLabel.appendChild(span);
+
+                input.addEventListener('change', () => {
+                    optionLabel.classList.toggle('selected', input.checked);
+                });
+
+                optionsWrap.appendChild(optionLabel);
             });
+
             group.appendChild(optionsWrap);
             container.appendChild(group);
         });
@@ -1993,7 +2009,9 @@ class VendorDashboard {
             const categoryId = document.getElementById('productCategory').value;
             const priceInput = document.getElementById('productPrice').value;
             const stockInput = document.getElementById('productStock').value;
-            const imageUrl = document.getElementById('productImage').value.trim();
+            const imageUrlInput = document.getElementById('productImage');
+            const imageFileInput = document.getElementById('productImageFile');
+            const imageUrl = imageUrlInput ? imageUrlInput.value.trim() : '';
 
             console.log('[Vendor Dashboard] Form values:', {
                 title,
@@ -2055,8 +2073,33 @@ class VendorDashboard {
                 productData.description = description;
             }
 
-            if (imageUrl) {
-                productData.images = [imageUrl];
+            const submitBtn = document.querySelector('#productForm button[type="submit"]');
+            const originalText = submitBtn.textContent;
+
+            submitBtn.disabled = true;
+
+            let uploadedImageUrl = '';
+            const imageFile = imageFileInput?.files?.[0];
+
+            if (imageFile) {
+                submitBtn.textContent = '📤 Görsel yükleniyor...';
+
+                const uploadResponse = await this.apiClient.uploadProductImage(imageFile);
+
+                if (!uploadResponse.success || !uploadResponse.data?.url) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    this.showError(uploadResponse.message || 'Görsel yüklenirken bir hata oluştu.');
+                    return;
+                }
+
+                uploadedImageUrl = uploadResponse.data.url;
+            } else if (imageUrl) {
+                uploadedImageUrl = imageUrl;
+            }
+
+            if (uploadedImageUrl) {
+                productData.images = [uploadedImageUrl];
             }
 
             const selectedVariants = this.collectSelectedVariants();
@@ -2094,10 +2137,6 @@ class VendorDashboard {
 
             console.log('[Vendor Dashboard] Creating product with data:', productData);
 
-            // Show loading
-            const submitBtn = document.querySelector('#productForm button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
             submitBtn.textContent = '⏳ Oluşturuluyor...';
 
             // Call API
@@ -2114,6 +2153,7 @@ class VendorDashboard {
                 // Close modal
                 document.getElementById('productModal').style.display = 'none';
                 document.getElementById('productForm').reset();
+                this.clearProductFormState();
 
                 // Reload products
                 if (this.currentSection === 'products') {
@@ -2436,6 +2476,183 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Add setupSEOCounters method to VendorDashboard class
+VendorDashboard.prototype.setupSeoSync = function() {
+    const titleInput = document.getElementById('productTitle');
+    const shortDescInput = document.getElementById('productShortDesc');
+    const descriptionInput = document.getElementById('productDescription');
+    const seoTitleInput = document.getElementById('productSeoTitle');
+    const seoDescInput = document.getElementById('productSeoDescription');
+
+    if (!titleInput || !seoTitleInput || !seoDescInput) {
+        return;
+    }
+
+    let seoTitleDirty = false;
+    let seoDescDirty = false;
+
+    seoTitleInput.addEventListener('input', () => {
+        seoTitleDirty = seoTitleInput.value.trim().length > 0;
+    });
+
+    seoDescInput.addEventListener('input', () => {
+        seoDescDirty = seoDescInput.value.trim().length > 0;
+    });
+
+    const syncSeoTitle = () => {
+        if (!seoTitleDirty) {
+            seoTitleInput.value = titleInput.value.trim().substring(0, 200);
+            seoTitleInput.dispatchEvent(new Event('input'));
+        }
+    };
+
+    const syncSeoDescription = () => {
+        if (!seoDescDirty) {
+            const preferred = shortDescInput?.value.trim();
+            const fallback = descriptionInput?.value.trim();
+            const source = preferred || fallback || '';
+            seoDescInput.value = source.substring(0, 160);
+            seoDescInput.dispatchEvent(new Event('input'));
+        }
+    };
+
+    titleInput.addEventListener('input', syncSeoTitle);
+
+    if (shortDescInput) {
+        shortDescInput.addEventListener('input', syncSeoDescription);
+    }
+
+    if (descriptionInput) {
+        descriptionInput.addEventListener('input', () => {
+            if (!shortDescInput || !shortDescInput.value.trim()) {
+                syncSeoDescription();
+            }
+        });
+    }
+
+    // Initial sync when modal opens
+    syncSeoTitle();
+    syncSeoDescription();
+};
+
+VendorDashboard.prototype.setupProductImageUpload = function() {
+    const dropzone = document.getElementById('productImageDropzone');
+    const triggerBtn = document.getElementById('triggerProductImageUpload');
+    const fileInput = document.getElementById('productImageFile');
+    const preview = document.getElementById('productImagePreview');
+    const urlInput = document.getElementById('productImage');
+
+    if (!dropzone || !fileInput || !preview) {
+        return;
+    }
+
+    const resetPreview = () => {
+        preview.classList.remove('has-image');
+        preview.innerHTML = '<span>Henüz görsel seçilmedi</span>';
+    };
+
+    const renderPreview = (source) => {
+        preview.classList.add('has-image');
+        preview.innerHTML = `<img src="${source}" alt="Product preview">`;
+    };
+
+    const handleFile = (file) => {
+        if (!file || !file.type.startsWith('image/')) {
+            this.showError('Lütfen bir görsel dosyası seçin.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            renderPreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    if (triggerBtn) {
+        triggerBtn.addEventListener('click', () => fileInput.click());
+    }
+
+    fileInput.addEventListener('change', () => {
+        const [file] = fileInput.files;
+        if (file) {
+            handleFile(file);
+        } else if (!urlInput?.value) {
+            resetPreview();
+        }
+    });
+
+    dropzone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+            if (typeof DataTransfer !== 'undefined') {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(files[0]);
+                fileInput.files = dataTransfer.files;
+            }
+            handleFile(files[0]);
+        }
+    });
+
+    if (urlInput) {
+        urlInput.addEventListener('input', () => {
+            const value = urlInput.value.trim();
+            if (value) {
+                renderPreview(value);
+            } else if (!fileInput.files.length) {
+                resetPreview();
+            }
+        });
+    }
+
+    this.resetProductImagePreview = () => {
+        resetPreview();
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        if (urlInput) {
+            urlInput.value = '';
+        }
+        dropzone.classList.remove('dragover');
+    };
+};
+
+VendorDashboard.prototype.clearProductFormState = function() {
+    if (typeof this.resetProductImagePreview === 'function') {
+        this.resetProductImagePreview();
+    } else {
+        const preview = document.getElementById('productImagePreview');
+        if (preview) {
+            preview.classList.remove('has-image');
+            preview.innerHTML = '<span>Henüz görsel seçilmedi</span>';
+        }
+        const fileInput = document.getElementById('productImageFile');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        const urlInput = document.getElementById('productImage');
+        if (urlInput) {
+            urlInput.value = '';
+        }
+        const dropzone = document.getElementById('productImageDropzone');
+        dropzone?.classList.remove('dragover');
+    }
+
+    document.querySelectorAll('#variantContainer .variant-option.selected').forEach(option => {
+        option.classList.remove('selected');
+    });
+};
+
 VendorDashboard.prototype.setupSEOCounters = function() {
     const seoTitleInput = document.getElementById('productSeoTitle');
     const seoDescInput = document.getElementById('productSeoDescription');

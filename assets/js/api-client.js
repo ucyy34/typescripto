@@ -19,8 +19,12 @@ class ApiClient {
   /**
    * Build headers with authorization
    */
-  buildHeaders(customHeaders = {}) {
+  buildHeaders(customHeaders = {}, isFormData = false) {
     const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
+
+    if (isFormData) {
+      delete headers['Content-Type'];
+    }
 
     const token = this.getToken();
     if (token) {
@@ -114,11 +118,13 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+    const { isFormData = false, ...fetchOptions } = options;
+
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config = {
-        ...options,
-        headers: this.buildHeaders(options.headers),
+        ...fetchOptions,
+        headers: this.buildHeaders(fetchOptions.headers, isFormData),
         signal: controller.signal,
       };
 
@@ -218,6 +224,20 @@ class ApiClient {
   async delete(endpoint) {
     return this.request(endpoint, {
       method: 'DELETE',
+    });
+  }
+
+  /**
+   * Upload product image (auto WebP conversion on backend)
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
+      isFormData: true,
     });
   }
 
