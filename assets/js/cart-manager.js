@@ -50,14 +50,26 @@ class CartManager {
                     // Normalize backend items to frontend shape
                     const normalized = (response.data.items || []).map(item => this.normalizeBackendItem(item));
 
-                    if (allowRecovery && normalized.length === 0) {
+                    if (normalized.length === 0) {
                         const localCart = this.getLocalCart();
-                        if (localCart.length > 0) {
-                            console.warn('[CartManager] Backend cart empty but local cart has items - attempting recovery');
-                            await this.recoverBackendCartFromLocal(localCart);
 
-                            // After recovery attempt, fetch again without triggering recovery loop
-                            return await this.getCart(true, false);
+                        if (allowRecovery && localCart.length > 0) {
+                            console.warn('[CartManager] Backend cart empty but local cart has items - attempting recovery');
+                            const restoredCount = await this.recoverBackendCartFromLocal(localCart);
+
+                            if (restoredCount > 0) {
+                                console.log('[CartManager] Recovery restored', restoredCount, 'items - refetching cart');
+                                // After recovery attempt, fetch again without triggering recovery loop
+                                return await this.getCart(true, false);
+                            }
+
+                            console.warn('[CartManager] Recovery could not restore items - keeping local cart');
+                            return localCart;
+                        }
+
+                        if (!allowRecovery && localCart.length > 0) {
+                            console.warn('[CartManager] Backend cart still empty after recovery - falling back to local cart');
+                            return localCart;
                         }
                     }
 
@@ -155,20 +167,25 @@ class CartManager {
      */
     async recoverBackendCartFromLocal(localCart) {
         if (!this.isLoggedIn || !this.apiClient || !Array.isArray(localCart) || localCart.length === 0) {
-            return;
+            return 0;
         }
 
         try {
             console.warn('[CartManager] Recovering backend cart from local snapshot (items:', localCart.length, ')');
 
+            let restoredCount = 0;
+
             for (const item of localCart) {
                 if (!item || !item.product_id) continue;
 
                 try {
-                    await this.apiClient.post('/cart/items', {
+                    const response = await this.apiClient.post('/cart/items', {
                         product_id: item.product_id,
                         quantity: item.quantity || 1
                     });
+                    if (response?.success) {
+                        restoredCount += 1;
+                    }
                 } catch (itemError) {
                     console.error('[CartManager] Failed to restore item during recovery:', item.product_id, itemError);
                 }
@@ -177,8 +194,11 @@ class CartManager {
             if (window.apiCache) {
                 window.apiCache.clearPattern('/cart');
             }
+
+            return restoredCount;
         } catch (error) {
             console.error('[CartManager] Error during backend cart recovery:', error);
+            return 0;
         }
     }
 
