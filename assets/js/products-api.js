@@ -248,6 +248,10 @@ class ProductsPageAPI {
             container.appendChild(productElement);
         });
 
+        if (window.dostanApp && typeof window.dostanApp.refreshWishlistButtons === 'function') {
+            window.dostanApp.refreshWishlistButtons();
+        }
+
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {
             setTimeout(() => window.dostikAI.initializeProductBubbles(), 100);
