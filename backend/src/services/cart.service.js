@@ -8,22 +8,35 @@ const { Cart, Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 
+const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
+const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
+const DEFAULT_CACHE_MAX_ITEMS = 500;
+
 class CartService {
+  constructor() {
+    this.productCache = new Map();
+    this.cacheConfig = {
+      ttl: DEFAULT_PRODUCT_CACHE_TTL,
+      negativeTtl: DEFAULT_MISSING_PRODUCT_TTL,
+      maxItems: DEFAULT_CACHE_MAX_ITEMS,
+    };
+    this.debugEnabled = process.env.NODE_ENV !== 'production';
+  }
   /**
    * Get user's cart with populated product details
    * @param {string} userId - User ID
    * @returns {Promise<Object>} Cart with items and totals
    */
   async getUserCart(userId) {
-    console.log(`[CartService] getUserCart - userId: ${userId}`);
-    
     // Find or create cart for user
     const cart = await Cart.findOrCreateForUser(userId);
-    console.log(`[CartService] Cart: ${cart.id}, raw items: ${cart.items?.length || 0}`);
 
     // Get cart with populated product details
     const cartWithDetails = await this.populateCartItems(cart.items);
-    console.log(`[CartService] After populate: ${cartWithDetails.items?.length || 0} items`);
+
+    if (cartWithDetails.missingProductIds.length > 0) {
+      await this._pruneMissingProductsFromUserCart(cart, cartWithDetails.missingProductIds);
+    }
 
     return {
       id: cart.id,
@@ -42,6 +55,10 @@ class CartService {
     const guestCart = session.cart || { items: [] };
     const cartWithDetails = await this.populateCartItems(guestCart.items);
 
+    if (cartWithDetails.missingProductIds.length > 0) {
+      this._pruneMissingProductsFromSession(session, cartWithDetails.missingProductIds);
+    }
+
     return {
       items: cartWithDetails.items,
       totals: cartWithDetails.totals,
@@ -56,15 +73,11 @@ class CartService {
    * @returns {Promise<Object>} Updated cart
    */
   async addItemToUserCart(userId, productId, quantity) {
-    console.log(`[CartService] addItemToUserCart - userId: ${userId}, productId: ${productId}, qty: ${quantity}`);
-    
     // Validate product and stock
     const product = await this.validateProductAndStock(productId, quantity);
-    console.log(`[CartService] Product validated: ${product.title}`);
 
     // Get or create cart
     const cart = await Cart.findOrCreateForUser(userId);
-    console.log(`[CartService] Cart found/created: ${cart.id}, current items: ${cart.items?.length || 0}`);
 
     // Check if item already exists
     const items = cart.items || [];
@@ -75,21 +88,16 @@ class CartService {
       const newQuantity = existingItem.quantity + quantity;
       await this.validateProductAndStock(productId, newQuantity);
       existingItem.quantity = newQuantity;
-      console.log(`[CartService] Updated existing item, new qty: ${newQuantity}`);
     } else {
       // Add new item
       items.push({ product_id: productId, quantity });
-      console.log(`[CartService] Added new item, total items now: ${items.length}`);
     }
 
     // Persist items reliably (ensure JSONB update is detected)
-    console.log(`[CartService] About to save cart, items:`, JSON.stringify(items));
     cart.items = items;
     await cart.save({ fields: ['items'] });
-    console.log(`[CartService] Cart saved successfully`);
 
     const result = await this.getUserCart(userId);
-    console.log(`[CartService] Returning cart with ${result.items?.length || 0} items`);
     return result;
   }
 
@@ -331,32 +339,24 @@ class CartService {
       return {
         items: [],
         totals: { subtotal: 0, item_count: 0 },
+        missingProductIds: [],
       };
     }
 
     const productIds = items.map((item) => item.product_id);
-    const products = await Product.findAll({
-      where: { 
-        id: productIds
-        // Note: No status or is_active filters
-        // Users should see ALL items they added to cart
-        // Frontend will handle display based on availability
-      },
-      include: [
-        { model: Store, as: 'store', attributes: ['id', 'name', 'slug', 'status'] },
-        { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
-      ],
-    });
-
-    const productMap = new Map(products.map((p) => [p.id, p]));
+    const productMap = await this._getProductsWithCache(productIds);
 
     let subtotal = 0;
     let item_count = 0;
+    const missingProductIds = [];
 
     const populatedItems = items
       .map((item) => {
         const product = productMap.get(item.product_id);
-        if (!product) return null;
+        if (!product) {
+          missingProductIds.push(item.product_id);
+          return null;
+        }
 
         const itemTotal = parseFloat(product.price) * item.quantity;
         subtotal += itemTotal;
@@ -385,7 +385,148 @@ class CartService {
         subtotal: parseFloat(subtotal.toFixed(2)),
         item_count,
       },
+      missingProductIds,
     };
+  }
+
+  /**
+   * Retrieve product entities from cache, falling back to the database for misses.
+   * Results are cached with a short TTL to reduce repeated lookups when cart
+   * operations are chained (e.g. add → fetch → update).
+   * @param {Array<string>} productIds
+   * @returns {Promise<Map<string, Product|null>>}
+   * @private
+   */
+  async _getProductsWithCache(productIds) {
+    if (!productIds || productIds.length === 0) {
+      return new Map();
+    }
+
+    const now = Date.now();
+    const uniqueIds = [...new Set(productIds)];
+    const productsById = new Map();
+    const missingIds = [];
+
+    for (const id of uniqueIds) {
+      const cached = this._getCachedProduct(id, now);
+      if (cached !== undefined) {
+        productsById.set(id, cached);
+      } else {
+        missingIds.push(id);
+      }
+    }
+
+    if (missingIds.length > 0) {
+      const freshProducts = await Product.findAll({
+        where: {
+          id: missingIds,
+        },
+        include: [
+          { model: Store, as: 'store', attributes: ['id', 'name', 'slug', 'status'] },
+          { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+        ],
+      });
+
+      const foundIds = new Set();
+
+      for (const product of freshProducts) {
+        foundIds.add(product.id);
+        this._rememberProduct(product.id, product, this.cacheConfig.ttl, now);
+        productsById.set(product.id, product);
+      }
+
+      // Cache negative lookups briefly to avoid hammering the DB for missing IDs
+      for (const id of missingIds) {
+        if (!foundIds.has(id)) {
+          this._rememberProduct(id, null, this.cacheConfig.negativeTtl, now);
+          productsById.set(id, null);
+        }
+      }
+    }
+
+    // Map original order to preserve deterministic item ordering downstream
+    const orderedProducts = new Map();
+    for (const id of productIds) {
+      if (!orderedProducts.has(id)) {
+        orderedProducts.set(id, productsById.get(id) ?? null);
+      }
+    }
+
+    return orderedProducts;
+  }
+
+  _getCachedProduct(id, now) {
+    const entry = this.productCache.get(id);
+    if (!entry) {
+      return undefined;
+    }
+
+    if (entry.expiresAt <= now) {
+      this.productCache.delete(id);
+      return undefined;
+    }
+
+    return entry.product;
+  }
+
+  _rememberProduct(id, product, ttl, now) {
+    this._enforceCacheLimit();
+    this.productCache.set(id, {
+      product,
+      expiresAt: now + ttl,
+      cachedAt: now,
+    });
+  }
+
+  _enforceCacheLimit() {
+    if (this.productCache.size < this.cacheConfig.maxItems) {
+      return;
+    }
+
+    const overflow = this.productCache.size - this.cacheConfig.maxItems + 1;
+    for (let i = 0; i < overflow; i += 1) {
+      const oldestKey = this.productCache.keys().next().value;
+      if (oldestKey === undefined) {
+        break;
+      }
+      this.productCache.delete(oldestKey);
+    }
+  }
+
+  _debug(...args) {
+    if (this.debugEnabled) {
+      console.log('[CartService]', ...args);
+    }
+  }
+
+  async _pruneMissingProductsFromUserCart(cart, missingProductIds) {
+    if (!cart || !missingProductIds || missingProductIds.length === 0) {
+      return;
+    }
+
+    const items = cart.items || [];
+    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
+
+    if (filtered.length === items.length) {
+      return;
+    }
+
+    cart.items = filtered;
+    await cart.save({ fields: ['items'] });
+    this._debug(`Pruned ${items.length - filtered.length} missing products from user cart ${cart.id}`);
+  }
+
+  _pruneMissingProductsFromSession(session, missingProductIds) {
+    if (!session || !session.cart || !Array.isArray(session.cart.items)) {
+      return;
+    }
+
+    const before = session.cart.items.length;
+    session.cart.items = session.cart.items.filter((item) => !missingProductIds.includes(item.product_id));
+
+    if (session.cart.items.length !== before) {
+      this._debug(`Pruned ${before - session.cart.items.length} missing products from guest cart`);
+    }
   }
 }
 
