@@ -112,7 +112,10 @@ class ReviewService {
     const offset = (page - 1) * limit;
 
     const { count, rows: reviews } = await Review.findAndCountAll({
-      where: { store_id: storeId },
+      where: {
+        store_id: storeId,
+        status: 'approved',
+      },
       include: [
         {
           model: User,

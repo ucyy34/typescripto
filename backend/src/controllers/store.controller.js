@@ -23,8 +23,10 @@ class StoreController {
    * GET /api/v1/stores/:id
    */
   getStore = asyncHandler(async (req, res) => {
-    const includeInactive = req.user?.role === 'admin' || req.user?.id === req.params.userId;
-    const store = await storeService.getStoreById(req.params.id, includeInactive);
+    const requester = req.user
+      ? { id: req.user.id, role: req.user.role }
+      : null;
+    const store = await storeService.getStoreById(req.params.id, requester);
 
     return success(res, store, 'Store retrieved successfully');
   });
