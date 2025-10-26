@@ -10,6 +10,29 @@ const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
+const MAX_SEO_DESCRIPTION_LENGTH = 160;
+
+const sanitizeSeoText = (text, limit) => {
+  if (!text) return undefined;
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.substring(0, limit - 3).trim()}...`;
+};
+
+const deriveSeoDescription = (shortDescription, description) => {
+  return (
+    sanitizeSeoText(shortDescription, MAX_SEO_DESCRIPTION_LENGTH) ||
+    sanitizeSeoText(description, MAX_SEO_DESCRIPTION_LENGTH)
+  );
+};
+
+const assignIfValue = (target, key, value) => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+};
+
 class ProductService {
   /**
    * Create new product
@@ -48,12 +71,26 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
-    // Create product
-    const product = await Product.create({
+    const productPayload = {
       ...productData,
       slug,
       status: 'pending', // Needs admin approval
-    });
+    };
+
+    if (!productPayload.seo_title && productData.title) {
+      assignIfValue(productPayload, 'seo_title', sanitizeSeoText(productData.title, 200));
+    }
+
+    if (!productPayload.seo_description) {
+      assignIfValue(
+        productPayload,
+        'seo_description',
+        deriveSeoDescription(productData.short_description, productData.description)
+      );
+    }
+
+    // Create product
+    const product = await Product.create(productPayload);
 
     // Create variants if provided
     if (Array.isArray(productData.variants) && productData.variants.length > 0) {
@@ -97,6 +134,7 @@ class ProductService {
     if (!includeInactive) {
       where.status = 'approved';
       where.is_active = true;
+      where.stock = { [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -182,14 +220,20 @@ class ProductService {
     }
 
     if (in_stock) {
-      where.stock = { [Op.gt]: 0 };
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
     }
 
     // If no status filter and includeAllStatuses is not true, only show approved and active products
     // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
-    if (!status && !shouldIncludeAll) {
-      where.status = 'approved';
-      where.is_active = true;
+    if (!shouldIncludeAll) {
+      if (!status) {
+        where.status = 'approved';
+      }
+
+      if (!status || status === 'approved') {
+        where.is_active = true;
+        where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
+      }
     }
 
     // Parse sort
@@ -280,6 +324,49 @@ class ProductService {
     delete updateData.approved_at;
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
+
+    // Auto-fill SEO fields when not provided explicitly
+    const nextTitle = updateData.title ?? product.title;
+    const nextShortDescription = updateData.short_description ?? product.short_description;
+    const nextDescription = updateData.description ?? product.description;
+
+    if (updateData.seo_title === undefined) {
+      if (updateData.title) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(updateData.title, 200));
+      } else if (!product.seo_title && nextTitle) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(nextTitle, 200));
+      }
+    } else if (typeof updateData.seo_title === 'string') {
+      const trimmedSeoTitle = sanitizeSeoText(updateData.seo_title, 200);
+      if (trimmedSeoTitle === undefined) {
+        delete updateData.seo_title;
+      } else {
+        updateData.seo_title = trimmedSeoTitle;
+      }
+    }
+
+    if (updateData.seo_description === undefined) {
+      if (updateData.short_description || updateData.description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(updateData.short_description, updateData.description)
+        );
+      } else if (!product.seo_description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(nextShortDescription, nextDescription)
+        );
+      }
+    } else if (typeof updateData.seo_description === 'string') {
+      const trimmedSeoDescription = sanitizeSeoText(updateData.seo_description, MAX_SEO_DESCRIPTION_LENGTH);
+      if (trimmedSeoDescription === undefined) {
+        delete updateData.seo_description;
+      } else {
+        updateData.seo_description = trimmedSeoDescription;
+      }
+    }
 
     await product.update(updateData);
 
@@ -403,6 +490,7 @@ class ProductService {
       where: {
         status: 'approved',
         is_active: true,
+        stock: { [Op.gt]: 0 },
       },
       include: [
         { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },

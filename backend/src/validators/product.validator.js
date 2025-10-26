@@ -5,6 +5,14 @@
 
 const Joi = require('joi');
 
+const imageUrlSchema = Joi.string()
+  .trim()
+  .pattern(/^https?:\/\/.+|^\/uploads\/.+/, 'image url')
+  .messages({
+    'string.pattern.name': 'Images must be valid URLs or start with /uploads/',
+    'string.pattern.base': 'Images must be valid URLs or start with /uploads/',
+  });
+
 /**
  * Create product validation schema
  */
@@ -33,7 +41,7 @@ const createProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).default(0),
   low_stock_threshold: Joi.number().integer().min(0).default(10),
-  images: Joi.array().items(Joi.string().uri()).max(10).default([]),
+  images: Joi.array().items(imageUrlSchema).max(10).default([]),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -83,7 +91,7 @@ const updateProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
-  images: Joi.array().items(Joi.string().uri()).max(10).optional(),
+  images: Joi.array().items(imageUrlSchema).max(10).optional(),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -148,6 +156,7 @@ const productQuerySchema = Joi.object({
   max_price: Joi.number().min(0).optional(),
   in_stock: Joi.boolean().optional(),
   is_featured: Joi.boolean().optional(),
+  includeAllStatuses: Joi.boolean().optional(),
   sort: Joi.string()
     .valid(
       'title',
