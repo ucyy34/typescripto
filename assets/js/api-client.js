@@ -289,6 +289,13 @@ class ApiClient {
   }
 
   /**
+   * Get store by slug
+   */
+  async getStoreBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.BY_SLUG(slug));
+  }
+
+  /**
    * Get store by ID
    */
   async getStore(storeId) {
@@ -354,6 +361,13 @@ class ApiClient {
    */
   async getProducts(filters = {}) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BASE, filters);
+  }
+
+  /**
+   * Get product by slug
+   */
+  async getProductBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -432,6 +446,13 @@ class ApiClient {
    */
   async getTopLevelCategories() {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.TOP_LEVEL);
+  }
+
+  /**
+   * Get category by slug
+   */
+  async getCategoryBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

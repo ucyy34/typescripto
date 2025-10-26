@@ -8,6 +8,7 @@ class ProductDetailAPI {
         this.apiClient = new ApiClient();
         this.product = null;
         this.productId = this.getProductIdFromURL();
+        this.productSlug = this.getProductSlugFromURL();
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
@@ -79,8 +80,13 @@ class ProductDetailAPI {
         return params.get('id');
     }
 
+    getProductSlugFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('slug');
+    }
+
     async init() {
-        if (!this.productId) {
+        if (!this.productId && !this.productSlug) {
             this.showError('Product not found');
             return;
         }
@@ -100,10 +106,15 @@ class ProductDetailAPI {
             console.log('[Product Detail API] Loading product:', this.productId);
             this.showLoading();
 
-            const response = await this.apiClient.getProduct(this.productId);
+            const response = this.productSlug
+                ? await this.apiClient.getProductBySlug(this.productSlug)
+                : await this.apiClient.getProduct(this.productId);
 
             if (response.success && response.data) {
                 this.product = response.data;
+                if (!this.productId && this.product?.id) {
+                    this.productId = this.product.id;
+                }
                 console.log('[Product Detail API] Product loaded:', this.product);
                 this.renderProduct();
                 this.renderVariantsSection();
@@ -289,7 +300,10 @@ class ProductDetailAPI {
                         <span>⭐ ${Number(store.rating || 0).toFixed(1)} rating</span>
                         <span>📦 ${store.total_sales || 0} products sold</span>
                     </div>
-                    <a href="store.html?id=${store.id}" class="btn btn-secondary">Visit Store</a>
+                    <a href="products.html?storeId=${store.id}${store.slug ? `&storeSlug=${store.slug}` : ''}"
+                       class="btn btn-secondary">
+                        Visit Store
+                    </a>
                 </div>
             </div>
         `;

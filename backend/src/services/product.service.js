@@ -122,19 +122,40 @@ class ProductService {
    * @returns {Promise<Product>}
    */
   async getProductById(productId, includeInactive = false) {
-    // Try cache first
-    const cacheKey = `product:${productId}`;
-    const cached = await cache.get(cacheKey);
-    if (cached && !includeInactive) {
-      return cached;
+    return this.fetchProductWithCache({ id: productId }, includeInactive, `product:${productId}`);
+  }
+
+  /**
+   * Get product by slug
+   * @param {string} slug
+   * @param {boolean} includeInactive
+   * @returns {Promise<Product>}
+   */
+  async getProductBySlug(slug, includeInactive = false) {
+    return this.fetchProductWithCache({ slug }, includeInactive, `product:slug:${slug}`);
+  }
+
+  /**
+   * Shared product retrieval with caching and storefront visibility checks
+   * @param {Object} whereClause
+   * @param {boolean} includeInactive
+   * @param {string|null} cacheKey
+   * @returns {Promise<Product>}
+   */
+  async fetchProductWithCache(whereClause, includeInactive, cacheKey = null) {
+    if (!includeInactive && cacheKey) {
+      const cached = await cache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    const where = { id: productId };
+    const where = { ...whereClause };
 
     if (!includeInactive) {
-      where.status = 'approved';
-      where.is_active = true;
-      where.stock = { [Op.gt]: 0 };
+      where.status = where.status || 'approved';
+      where.is_active = where.is_active ?? true;
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -143,7 +164,7 @@ class ProductService {
         {
           model: Store,
           as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+          attributes: ['id', 'name', 'slug', 'logo', 'rating', 'total_sales'],
         },
         {
           model: Category,
@@ -161,11 +182,9 @@ class ProductService {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
     }
 
-    // Increment views (async, don't wait)
     product.incrementViews().catch(() => {});
 
-    // Cache for 1 hour
-    if (!includeInactive) {
+    if (!includeInactive && cacheKey) {
       await cache.set(cacheKey, product, 3600);
     }
 
@@ -182,7 +201,9 @@ class ProductService {
       page = 1,
       limit = 20,
       store_id,
+      store_slug,
       category_id,
+      category_slug,
       status,
       search,
       min_price,
@@ -201,7 +222,21 @@ class ProductService {
 
     // Apply filters
     if (store_id) where.store_id = store_id;
+    if (store_slug) {
+      const store = await Store.findOne({ where: { slug: store_slug } });
+      if (!store) {
+        throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+      }
+      where.store_id = store.id;
+    }
     if (category_id) where.category_id = category_id;
+    if (category_slug) {
+      const category = await Category.findBySlug(category_slug);
+      if (!category) {
+        throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
+      }
+      where.category_id = category.id;
+    }
     if (status) where.status = status;
     if (is_featured !== undefined) where.is_featured = is_featured;
 

@@ -16,6 +16,7 @@ const {
   updateStoreSchema,
   updateStoreStatusSchema,
   storeIdSchema,
+  storeSlugSchema,
   storeQuerySchema,
 } = require('../validators/store.validator');
 const { productQuerySchema } = require('../validators/product.validator');
@@ -44,6 +45,13 @@ router.get('/my-store', authenticate, requireSeller, storeController.getMyStore)
  * @access  Public
  */
 router.get('/', validateQuery(storeQuerySchema), storeController.getStores);
+
+/**
+ * @route   GET /api/v1/stores/slug/:slug
+ * @desc    Get store by slug
+ * @access  Public
+ */
+router.get('/slug/:slug', validateParams(storeSlugSchema), storeController.getStoreBySlug);
 
 /**
  * @route   GET /api/v1/stores/:id

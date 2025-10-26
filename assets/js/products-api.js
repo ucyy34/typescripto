@@ -20,12 +20,21 @@ class ProductsPageAPI {
             sort: 'featured'
         };
 
+        this.urlParams = new URLSearchParams(window.location.search);
+        this.storeId = this.urlParams.get('storeId');
+        this.storeSlug = this.urlParams.get('storeSlug');
+        this.categorySlug = this.urlParams.get('categorySlug');
+        this.activeStore = null;
+        this.initialCategory = null;
+
         console.log('[Products Page API] Initializing...');
         this.init();
     }
 
     async init() {
         try {
+            await this.resolveInitialFilters();
+
             // Load categories first
             await this.loadCategories();
 
@@ -39,6 +48,33 @@ class ProductsPageAPI {
         } catch (error) {
             console.error('[Products Page API] Initialization error:', error);
             this.showError('Failed to initialize products page');
+        }
+    }
+
+    async resolveInitialFilters() {
+        try {
+            if (this.storeSlug && !this.storeId) {
+                const storeResponse = await this.apiClient.getStoreBySlug(this.storeSlug);
+                if (storeResponse.success && storeResponse.data) {
+                    this.activeStore = storeResponse.data;
+                    this.storeId = storeResponse.data.id;
+                }
+            } else if (this.storeId) {
+                const storeResponse = await this.apiClient.getStore(this.storeId);
+                if (storeResponse.success && storeResponse.data) {
+                    this.activeStore = storeResponse.data;
+                }
+            }
+
+            if (this.categorySlug) {
+                const categoryResponse = await this.apiClient.getCategoryBySlug(this.categorySlug);
+                if (categoryResponse.success && categoryResponse.data) {
+                    this.initialCategory = categoryResponse.data;
+                    this.filters.categories = [categoryResponse.data.id];
+                }
+            }
+        } catch (error) {
+            console.warn('[Products Page API] resolveInitialFilters warning:', error);
         }
     }
 
@@ -76,6 +112,16 @@ class ProductsPageAPI {
                 params.category_id = this.filters.categories[0]; // Backend expects single category for now
             }
 
+            if (this.categorySlug && !params.category_id) {
+                params.category_slug = this.categorySlug;
+            }
+
+            if (this.storeId) {
+                params.store_id = this.storeId;
+            } else if (this.storeSlug) {
+                params.store_slug = this.storeSlug;
+            }
+
             // Add price filter
             if (this.filters.priceRange < 1000) {
                 params.max_price = this.filters.priceRange;
@@ -105,6 +151,7 @@ class ProductsPageAPI {
 
                 this.renderProducts();
                 this.updateResultsCount();
+                this.renderActiveStoreBanner();
             } else {
                 this.showError('No products found');
             }
@@ -318,6 +365,11 @@ class ProductsPageAPI {
 
         // Store information (if available)
         const storeName = product.store ? product.store.name : 'Nordic Artisan';
+        const storeSlug = product.store?.slug;
+        const storeLink = product.store?.id
+            ? `products.html?storeId=${product.store.id}${storeSlug ? `&storeSlug=${storeSlug}` : ''}`
+            : null;
+        const detailUrl = product.slug ? `product-detail.html?slug=${product.slug}` : `product-detail.html?id=${product.id}`;
 
         card.innerHTML = `
             <div class="journey-indicator"></div>
@@ -327,7 +379,9 @@ class ProductsPageAPI {
             </div>
             <div class="product-info">
                 <h3 class="product-title">${product.title}</h3>
-                <p class="product-artisan">by ${storeName}</p>
+                <p class="product-artisan">
+                    by ${storeLink ? `<a href="${storeLink}" data-store-link="true">${storeName}</a>` : storeName}
+                </p>
                 <p class="product-description">${product.short_description || product.description?.substring(0, 100) + '...' || ''}</p>
                 <div class="social-proof">
                     <span class="rating-stars">${'★'.repeat(Math.floor(product.rating || 0))}${'☆'.repeat(5 - Math.floor(product.rating || 0))}</span>
@@ -355,9 +409,10 @@ class ProductsPageAPI {
         // Click to view details
         card.addEventListener('click', (e) => {
             // Don't navigate if clicking on buttons
-            if (!e.target.closest('button')) {
-                window.location.href = `product-detail.html?id=${product.id}`;
+            if (e.target.closest('button') || e.target.closest('a[data-store-link="true"]')) {
+                return;
             }
+            window.location.href = detailUrl;
         });
 
         return card;
@@ -457,7 +512,42 @@ class ProductsPageAPI {
         const resultsElement = document.getElementById('resultsCount');
 
         if (resultsElement) {
-            resultsElement.textContent = `Showing ${count} product${count !== 1 ? 's' : ''}`;
+            let summary = `Showing ${count} product${count !== 1 ? 's' : ''}`;
+            if (this.activeStore?.name) {
+                summary += ` from ${this.activeStore.name}`;
+            }
+            resultsElement.textContent = summary;
+        }
+    }
+
+    renderActiveStoreBanner() {
+        const banner = document.getElementById('activeStoreBanner');
+        if (!banner) return;
+
+        if (this.activeStore?.name) {
+            banner.innerHTML = `
+                <div class="active-store-chip">
+                    <span>🏪 Viewing products from <strong>${this.activeStore.name}</strong></span>
+                    <button id="clearStoreFilter" class="btn btn-link">Clear</button>
+                </div>
+            `;
+
+            const clearBtn = banner.querySelector('#clearStoreFilter');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    this.storeId = null;
+                    this.storeSlug = null;
+                    this.activeStore = null;
+                    this.urlParams.delete('storeId');
+                    this.urlParams.delete('storeSlug');
+                    const newUrl = `${window.location.pathname}?${this.urlParams.toString()}`.replace(/\?$/, '');
+                    window.history.replaceState({}, '', newUrl);
+                    this.loadProducts();
+                    this.renderActiveStoreBanner();
+                });
+            }
+        } else {
+            banner.innerHTML = '';
         }
     }
 

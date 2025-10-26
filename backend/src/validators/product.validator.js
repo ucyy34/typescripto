@@ -149,7 +149,13 @@ const productQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
   store_id: Joi.string().uuid().optional(),
+  store_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
+    'string.pattern.base': 'Store slug can only include letters, numbers, and hyphens',
+  }),
   category_id: Joi.string().uuid().optional(),
+  category_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
+    'string.pattern.base': 'Category slug can only include letters, numbers, and hyphens',
+  }),
   status: Joi.string().valid('draft', 'pending', 'approved', 'rejected').optional(),
   search: Joi.string().max(200).optional().trim(),
   min_price: Joi.number().min(0).optional(),
@@ -178,5 +184,14 @@ module.exports = {
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
+  productSlugSchema: Joi.object({
+    slug: Joi.string()
+      .pattern(/^[a-z0-9-]{3,}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Product slug can only include lowercase letters, numbers, and hyphens',
+        'any.required': 'Product slug is required',
+      }),
+  }),
   productQuerySchema,
 };

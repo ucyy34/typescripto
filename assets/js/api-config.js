@@ -62,6 +62,7 @@ const API_CONFIG = {
     STORES: {
       BASE: '/stores',
       BY_ID: (id) => `/stores/${id}`,
+      BY_SLUG: (slug) => `/stores/slug/${slug}`,
       MY_STORE: '/stores/my-store',
       STATUS: (id) => `/stores/${id}/status`,
       STATS: (id) => `/stores/${id}/stats`,
