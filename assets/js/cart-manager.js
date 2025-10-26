@@ -95,7 +95,25 @@ class CartManager {
      * @returns {Array} Cart items
      */
     getLocalCart() {
-        const raw = JSON.parse(localStorage.getItem('cart')) || [];
+        let raw = [];
+        const storedCart = localStorage.getItem('cart');
+
+        if (storedCart) {
+            try {
+                const parsedCart = JSON.parse(storedCart);
+
+                if (Array.isArray(parsedCart)) {
+                    raw = parsedCart;
+                } else {
+                    console.warn('[CartManager] Stored cart is not an array - resetting cart storage');
+                    localStorage.removeItem('cart');
+                }
+            } catch (parseError) {
+                console.error('[CartManager] Failed to parse stored cart JSON - clearing cart', parseError);
+                localStorage.removeItem('cart');
+            }
+        }
+
         console.log('[CartManager] Raw localStorage:', raw.length, 'items');
 
         // Auto-migrate old format to new format
