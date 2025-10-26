@@ -112,7 +112,8 @@ class ApiClient {
    */
   async request(endpoint, options = {}) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeoutMs = typeof options.timeout === 'number' ? options.timeout : this.timeout;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const url = `${this.baseURL}${endpoint}`;
@@ -122,33 +123,65 @@ class ApiClient {
         signal: controller.signal,
       };
 
+      // Ensure we do not manually set Content-Type for FormData payloads
+      if (options.body instanceof FormData) {
+        delete config.headers['Content-Type'];
+      }
+
       console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      // Parse JSON response
-      const data = await response.json();
+      if (response.status === 204 || response.status === 205) {
+        console.log(`[API] Success:`, { status: response.status, success: true });
+        return { success: true, data: null, status: response.status };
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.warn('[API] Failed to parse JSON response:', parseError);
+          data = { success: response.ok, message: 'Invalid JSON response payload' };
+        }
+      } else {
+        const text = await response.text();
+        if (text) {
+          data = { success: response.ok, message: text };
+        }
+      }
+
+      if (!data) {
+        data = { success: response.ok };
+      }
+
+      const payload = typeof data === 'object' && data !== null
+        ? { ...data, status: response.status }
+        : { success: response.ok, data, status: response.status };
 
       // Check if request was successful
       if (!response.ok) {
-        console.error(`[API] Error ${response.status}:`, data);
+        console.error(`[API] Error ${response.status}:`, payload);
 
-        // Return backend error message directly if available
-        if (data.message) {
+        if (payload.message) {
           return {
             success: false,
-            message: data.message,
-            error: data.error || 'API_ERROR',
-            status: response.status
+            message: payload.message,
+            error: payload.error || 'API_ERROR',
+            status: response.status,
+            data: payload.data ?? null,
           };
         }
 
-        return this.handleError(new Error(data.message || 'Request failed'), response);
+        return this.handleError(new Error(payload.message || 'Request failed'), response);
       }
 
-      console.log(`[API] Success:`, data);
-      return data;
+      console.log(`[API] Success:`, payload);
+      return payload;
     } catch (error) {
       clearTimeout(timeoutId);
       return this.handleError(error);
@@ -176,7 +209,7 @@ class ApiClient {
 
     // Cache successful GET requests
     if (useCache && window.apiCache && response.success) {
-      window.apiCache.set(endpoint, params, response);
+      window.apiCache.set(endpoint, params, response, cacheDuration);
     }
 
     return response;

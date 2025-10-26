@@ -24,7 +24,57 @@ const updateReviewSchema = Joi.object({
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
 });
 
+const reviewIdSchema = Joi.object({
+  id: Joi.string().uuid().required().messages({
+    'string.guid': 'Invalid review ID format',
+    'any.required': 'Review ID is required',
+  }),
+});
+
+const productReviewParamsSchema = Joi.object({
+  productId: Joi.string().uuid().required().messages({
+    'string.guid': 'Invalid product ID format',
+    'any.required': 'Product ID is required',
+  }),
+});
+
+const storeReviewParamsSchema = Joi.object({
+  storeId: Joi.string().uuid().required().messages({
+    'string.guid': 'Invalid store ID format',
+    'any.required': 'Store ID is required',
+  }),
+});
+
+const reviewQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+  sort: Joi.string().valid('recent', 'highest', 'lowest', 'helpful').default('recent'),
+});
+
+const reviewModerationQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+});
+
+const reviewDecisionSchema = Joi.object({
+  reason: Joi.string().max(500).required().messages({
+    'string.empty': 'Rejection reason cannot be empty',
+    'any.required': 'Rejection reason is required',
+  }),
+});
+
+const markHelpfulSchema = Joi.object({
+  helpful: Joi.boolean().default(true),
+});
+
 module.exports = {
   createReviewSchema,
   updateReviewSchema,
+  reviewIdSchema,
+  reviewQuerySchema,
+  reviewModerationQuerySchema,
+  productReviewParamsSchema,
+  storeReviewParamsSchema,
+  reviewDecisionSchema,
+  markHelpfulSchema,
 };

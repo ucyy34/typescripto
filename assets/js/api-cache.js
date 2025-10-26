@@ -6,11 +6,13 @@
 class ApiCache {
     constructor(options = {}) {
         this.cache = new Map();
-        this.cacheDuration = options.cacheDuration || 5 * 60 * 1000; // 5 minutes default
+        this.defaultDuration = typeof options.cacheDuration === 'number'
+            ? options.cacheDuration
+            : 5 * 60 * 1000; // 5 minutes default
         this.maxCacheSize = options.maxCacheSize || 100; // Max 100 entries
         this.enabled = options.enabled !== false;
-        
-        console.log('[API Cache] Initialized with duration:', this.cacheDuration / 1000, 'seconds');
+
+        console.log('[API Cache] Initialized with duration:', this.defaultDuration / 1000, 'seconds');
     }
 
     /**
@@ -40,7 +42,7 @@ class ApiCache {
 
         // Check if expired
         const now = Date.now();
-        if (now - cached.timestamp > this.cacheDuration) {
+        if (typeof cached.expiresAt === 'number' && cached.expiresAt <= now) {
             this.cache.delete(key);
             console.log('[API Cache] Expired:', key);
             return null;
@@ -53,11 +55,13 @@ class ApiCache {
     /**
      * Store data in cache
      */
-    set(url, params = {}, data) {
+    set(url, params = {}, data, ttl) {
         if (!this.enabled) return;
 
         const key = this.generateKey(url, params);
-        
+        const duration = typeof ttl === 'number' ? ttl : this.defaultDuration;
+        const expiresAt = Number.isFinite(duration) ? Date.now() + duration : null;
+
         // Check cache size limit
         if (this.cache.size >= this.maxCacheSize) {
             // Remove oldest entry
@@ -68,7 +72,8 @@ class ApiCache {
 
         this.cache.set(key, {
             data,
-            timestamp: Date.now()
+            insertedAt: Date.now(),
+            expiresAt,
         });
 
         console.log('[API Cache] Stored:', key);
@@ -112,7 +117,7 @@ class ApiCache {
         return {
             size: this.cache.size,
             maxSize: this.maxCacheSize,
-            duration: this.cacheDuration,
+            defaultDuration: this.defaultDuration,
             enabled: this.enabled
         };
     }

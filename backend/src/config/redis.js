@@ -94,12 +94,33 @@ const cache = {
    */
   async delPattern(pattern) {
     try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await redisClient.del(...keys);
-        return keys.length;
-      }
-      return 0;
+      let cursor = '0';
+      let totalDeleted = 0;
+
+      do {
+        const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+
+        if (keys.length === 0) {
+          continue;
+        }
+
+        const pipeline = redisClient.pipeline();
+        keys.forEach((key) => pipeline.del(key));
+        const results = await pipeline.exec();
+
+        results.forEach(([err, result], index) => {
+          if (err) {
+            console.warn(`Cache DEL error for key ${keys[index]}:`, err.message);
+            return;
+          }
+          if (result) {
+            totalDeleted += result;
+          }
+        });
+      } while (cursor !== '0');
+
+      return totalDeleted;
     } catch (error) {
       console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
       return 0;
