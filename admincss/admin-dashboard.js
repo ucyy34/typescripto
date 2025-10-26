@@ -522,6 +522,244 @@ class AdminDashboard {
         tableContainer.innerHTML = html;
     }
 
+    // ===========================================
+    // CAMPAIGN METHODS
+    // ===========================================
+
+    async loadCampaignsData() {
+        const pendingContainerId = 'pending-campaigns-list';
+        const allContainerId = 'all-campaigns-list';
+
+        try {
+            console.log('[Admin Dashboard] Loading campaigns for review...');
+            this.showLoading(pendingContainerId);
+            this.showLoading(allContainerId);
+
+            const [pendingResponse, allResponse] = await Promise.all([
+                this.api.getCampaigns({ approval_status: 'pending', limit: 50, sort_by: 'created_at', sort_order: 'desc' }),
+                this.api.getCampaigns({ limit: 50, sort_by: 'created_at', sort_order: 'desc' })
+            ]);
+
+            this.renderPendingCampaigns(pendingResponse.success ? pendingResponse.data : []);
+            this.renderAllCampaigns(allResponse.success ? allResponse.data : []);
+
+            console.log('[Admin Dashboard] Campaign data loaded');
+        } catch (error) {
+            console.error('[Admin Dashboard] Error loading campaigns:', error);
+            const pendingContainer = document.getElementById(pendingContainerId);
+            const allContainer = document.getElementById(allContainerId);
+            const errorHtml = `
+                <div style="text-align: center; padding: 2rem; color: #dc2626;">
+                    <p>⚠️ Kampanyalar yüklenemedi. Lütfen daha sonra tekrar deneyin.</p>
+                    <button onclick="window.adminDashboard.loadCampaignsData()"
+                            style="background: var(--admin-primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+                        Tekrar Dene
+                    </button>
+                </div>`;
+            if (pendingContainer) pendingContainer.innerHTML = errorHtml;
+            if (allContainer) allContainer.innerHTML = errorHtml;
+        }
+    }
+
+    renderPendingCampaigns(campaigns = []) {
+        const container = document.getElementById('pending-campaigns-list');
+        if (!container) {
+            console.error('[Admin Dashboard] pending-campaigns-list container not found');
+            return;
+        }
+
+        if (!campaigns || campaigns.length === 0) {
+            container.innerHTML = '<p style="padding: 1.5rem; opacity: 0.7;">Bekleyen kampanya bulunmuyor.</p>';
+            return;
+        }
+
+        container.innerHTML = campaigns
+            .map(campaign => this.renderCampaignCard(campaign, { showApprovalActions: true }))
+            .join('');
+    }
+
+    renderAllCampaigns(campaigns = []) {
+        const container = document.getElementById('all-campaigns-list');
+        if (!container) {
+            console.error('[Admin Dashboard] all-campaigns-list container not found');
+            return;
+        }
+
+        if (!campaigns || campaigns.length === 0) {
+            container.innerHTML = '<p style="padding: 1.5rem; opacity: 0.7;">Henüz kampanya bulunmuyor.</p>';
+            return;
+        }
+
+        container.innerHTML = campaigns
+            .map(campaign => this.renderCampaignCard(campaign))
+            .join('');
+    }
+
+    renderCampaignCard(campaign, options = {}) {
+        const { showApprovalActions = false } = options;
+
+        const storeName = campaign.store?.name || 'Bilinmeyen Mağaza';
+        const approvalStatus = (campaign.approval_status || 'pending').toLowerCase();
+        const approvalColor = this.getApprovalStatusColor(approvalStatus);
+        const activeColor = campaign.is_active ? '#10b981' : '#6b7280';
+        const campaignTypeLabel = this.getCampaignTypeLabel(campaign.campaign_type);
+        const discountLabel = this.getCampaignDiscountLabel(campaign);
+        const startDate = this.formatCampaignDate(campaign.start_date);
+        const endDate = this.formatCampaignDate(campaign.end_date);
+        const createdAt = this.formatCampaignDate(campaign.created_at || campaign.createdAt);
+        const description = campaign.description ? campaign.description : 'Açıklama belirtilmemiş.';
+
+        const metricsHtml = `
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--admin-border);">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.view_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Görüntülenme</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.click_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Tıklama</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.conversion_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Dönüşüm</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">₺${Number(campaign.total_revenue || 0).toFixed(2)}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Ciro</div>
+                </div>
+            </div>`;
+
+        const actionButtons = showApprovalActions
+            ? `
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <button onclick="window.adminDashboard.approveCampaign('${campaign.id}')"
+                            style="background: #10b981; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        ✅ Onayla
+                    </button>
+                    <button onclick="window.adminDashboard.rejectCampaign('${campaign.id}')"
+                            style="background: #dc2626; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        ❌ Reddet
+                    </button>
+                </div>`
+            : `
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.85rem; opacity: 0.75;">
+                    <span>Oluşturma: ${createdAt}</span>
+                    ${campaign.creator?.name ? `<span>• Oluşturan: ${campaign.creator.name}</span>` : ''}
+                    ${campaign.notes ? `<span>• Not: ${campaign.notes}</span>` : ''}
+                </div>`;
+
+        return `
+            <div style="border: 1px solid var(--admin-border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; background: white; box-shadow: 0 8px 20px rgba(15, 118, 110, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                            <h3 style="margin: 0; color: var(--admin-primary);">${campaign.name}</h3>
+                            <span style="background: ${approvalColor}; color: white; font-size: 0.7rem; padding: 0.2rem 0.75rem; border-radius: 999px; text-transform: uppercase;">${approvalStatus}</span>
+                            <span style="background: ${activeColor}20; color: ${activeColor}; font-size: 0.7rem; padding: 0.2rem 0.75rem; border-radius: 999px;">${campaign.is_active ? 'Aktif' : 'Pasif'}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.75rem;">
+                            <span>🏪 ${storeName}</span>
+                            <span>•</span>
+                            <span>${campaignTypeLabel}</span>
+                            <span>•</span>
+                            <span>${discountLabel}</span>
+                            <span>•</span>
+                            <span>📅 ${startDate} - ${endDate}</span>
+                        </div>
+                        <p style="margin: 0; opacity: 0.75; font-size: 0.9rem;">${description}</p>
+                    </div>
+                    ${actionButtons}
+                </div>
+                ${metricsHtml}
+            </div>`;
+    }
+
+    getApprovalStatusColor(status) {
+        const colors = {
+            pending: '#f59e0b',
+            approved: '#10b981',
+            rejected: '#dc2626'
+        };
+        return colors[status] || '#6b7280';
+    }
+
+    getCampaignTypeLabel(type) {
+        const labels = {
+            'FLASH_SALE': '⚡ Hızlı Satış',
+            'BUY_X_GET_Y': '🎁 Al X Ver Y',
+            'CATEGORY_DISCOUNT': '📂 Kategori İndirimi',
+            'FREE_SHIPPING': '🚚 Ücretsiz Kargo',
+            'BUNDLE_DEAL': '📦 Paket Kampanyası',
+            'GIFT_WITH_PURCHASE': '🎀 Hediyeli Satış',
+            'MINIMUM_PURCHASE': '💰 Minimum Harcama'
+        };
+        return labels[type] || type || 'Kampanya';
+    }
+
+    getCampaignDiscountLabel(campaign) {
+        if (!campaign) return '-';
+        switch (campaign.discount_type) {
+            case 'percentage':
+                return `%${campaign.discount_value || 0} indirim`;
+            case 'fixed':
+                return `₺${Number(campaign.discount_value || 0).toFixed(2)} indirim`;
+            case 'free_shipping':
+                return 'Ücretsiz kargo';
+            case 'buy_x_get_y':
+                return `${campaign.buy_quantity || 1} al ${campaign.get_quantity || 1} öde`;
+            default:
+                return 'Özel teklif';
+        }
+    }
+
+    formatCampaignDate(date) {
+        if (!date) return '-';
+        try {
+            return new Date(date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+        } catch (error) {
+            return '-';
+        }
+    }
+
+    async approveCampaign(campaignId) {
+        try {
+            const result = await this.api.updateCampaignApproval(campaignId, 'approved');
+            if (result.success) {
+                this.showSuccess('Kampanya onaylandı');
+                await this.loadCampaignsData();
+            } else {
+                this.showError(result.message || 'Kampanya onaylanamadı');
+            }
+        } catch (error) {
+            console.error('[Admin Dashboard] Error approving campaign:', error);
+            this.showError('Kampanya onaylanırken bir hata oluştu');
+        }
+    }
+
+    async rejectCampaign(campaignId) {
+        const reason = prompt('Reddetme sebebini girin:');
+        if (reason === null) return;
+
+        const trimmedReason = reason.trim();
+        if (trimmedReason.length === 0) {
+            alert('Reddetme sebebi boş bırakılamaz.');
+            return;
+        }
+
+        try {
+            const result = await this.api.updateCampaignApproval(campaignId, 'rejected', trimmedReason);
+            if (result.success) {
+                this.showSuccess('Kampanya reddedildi');
+                await this.loadCampaignsData();
+            } else {
+                this.showError(result.message || 'Kampanya reddedilemedi');
+            }
+        } catch (error) {
+            console.error('[Admin Dashboard] Error rejecting campaign:', error);
+            this.showError('Kampanya reddedilirken bir hata oluştu');
+        }
+    }
+
     /**
      * Load categories
      */
@@ -768,6 +1006,9 @@ class AdminDashboard {
                 break;
             case 'categories':
                 this.loadCategoriesData();
+                break;
+            case 'campaigns':
+                this.loadCampaignsData();
                 break;
             case 'commissions':
                 loadCommissionsData();
