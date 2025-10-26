@@ -1151,25 +1151,9 @@
                         </div>
                     </div>
 
-                    <div class="recommendation-cards">
-                        <div class="recommendation-card">
-                            <img src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&w=300&h=200" alt="Viking Leather Satchel" style="width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: var(--space-sm);">
-                            <h4 style="margin-bottom: var(--space-xs);">Viking Leather Satchel</h4>
-                            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: var(--space-sm);">Perfect companion for your Nordic sculpture collection</p>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: 600;">$299.99</span>
-                                <button class="btn btn-secondary" style="padding: var(--space-xs) var(--space-sm); font-size: 0.9rem;">Add to Cart</button>
-                            </div>
-                        </div>
-
-                        <div class="recommendation-card">
-                            <img src="https://images.unsplash.com/photo-1601027847350-0285867c31f7?ixlib=rb-4.0.3&w=300&h=200" alt="Sage Wood Carving" style="width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: var(--space-sm);">
-                            <h4 style="margin-bottom: var(--space-xs);">Sage Wood Carving</h4>
-                            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: var(--space-sm);">Another masterpiece from Erik's collection</p>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: 600;">$449.99</span>
-                                <button class="btn btn-secondary" style="padding: var(--space-xs) var(--space-sm); font-size: 0.9rem;">Add to Cart</button>
-                            </div>
+                    <div class="recommendation-cards" id="recommendationsContainer">
+                        <div class="recommendation-empty" style="text-align: center; padding: var(--space-xl); color: rgba(255,255,255,0.8);">
+                            <p style="margin: 0;">🐉 Dostik, seçimlerinize göre öneriler hazırlıyor...</p>
                         </div>
                     </div>
                 </div>
@@ -1180,25 +1164,9 @@
                 <h3 style="margin-bottom: var(--space-md);">💝 Saved for Later</h3>
                 <p style="color: var(--warm-brown); margin-bottom: var(--space-lg);">Treasures waiting for the right moment</p>
 
-                <div class="saved-items-grid">
-                    <div class="saved-item">
-                        <img src="https://images.unsplash.com/photo-1578749556568-bc2c40e68393?ixlib=rb-4.0.3&w=200&h=200" alt="Fjord Ceramic Vase">
-                        <h4 style="font-size: 1rem; margin-bottom: var(--space-xs);">Fjord Ceramic Vase</h4>
-                        <p style="font-size: 0.9rem; color: var(--warm-brown); margin-bottom: var(--space-sm);">$79.99</p>
-                        <div style="display: flex; gap: var(--space-xs);">
-                            <button class="btn btn-secondary" style="flex: 1; padding: var(--space-xs); font-size: 0.8rem;">Move to Cart</button>
-                            <button style="background: none; border: none; color: var(--warm-brown); cursor: pointer;">🗑️</button>
-                        </div>
-                    </div>
-
-                    <div class="saved-item">
-                        <img src="https://images.unsplash.com/photo-1578758460717-78f011ce1b38?ixlib=rb-4.0.3&w=200&h=200" alt="Nordic Rune Set">
-                        <h4 style="font-size: 1rem; margin-bottom: var(--space-xs);">Nordic Rune Set</h4>
-                        <p style="font-size: 0.9rem; color: var(--warm-brown); margin-bottom: var(--space-sm);">$149.99</p>
-                        <div style="display: flex; gap: var(--space-xs);">
-                            <button class="btn btn-secondary" style="flex: 1; padding: var(--space-xs); font-size: 0.8rem;">Move to Cart</button>
-                            <button style="background: none; border: none; color: var(--warm-brown); cursor: pointer;">🗑️</button>
-                        </div>
+                <div class="saved-items-grid" id="savedItemsGrid">
+                    <div class="saved-empty" style="grid-column: 1/-1; text-align: center; padding: var(--space-xl); color: var(--warm-brown);">
+                        <p style="margin: 0;">Favorilere eklediğiniz ürünler burada görünecek.</p>
                     </div>
                 </div>
             </section>
@@ -1214,6 +1182,7 @@
     <!-- Page Scripts -->
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/wishlist-manager.js"></script>
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/cart-manager.js"></script>
     <script src="../assets/js/cart-api.js"></script>

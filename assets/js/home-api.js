@@ -206,6 +206,15 @@ const HomeAPI = {
             });
             this._delegatedEventsBound = true;
         }
+
+        if (window.wishlistManager) {
+            window.wishlistManager
+                .getWishlist()
+                .then(() => window.dostanApp?.refreshWishlistButtons())
+                .catch(() => window.dostanApp?.refreshWishlistButtons());
+        } else {
+            window.dostanApp?.refreshWishlistButtons();
+        }
     },
 
     /**

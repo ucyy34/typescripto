@@ -33,9 +33,9 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 1000px;
-  height: 85vh;
-  max-height: 85vh;
-  overflow: hidden;
+  max-height: min(1000px, calc(100vh - 4rem));
+  scrollbar-gutter: stable;
+  overflow-y: auto;
   position: relative;
   animation: modalSlideIn 0.3s ease-out;
   cursor: auto;

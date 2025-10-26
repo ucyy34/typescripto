@@ -141,6 +141,8 @@ class ProductDetailAPI {
         this.renderProductImages();
         this.renderStoreInfo();
         this.renderProductSpecs();
+
+        this.syncWishlistButton();
     }
 
     renderProductInfo() {
@@ -513,31 +515,84 @@ class ProductDetailAPI {
     }
 
     async addToWishlist() {
+        if (!this.productId || !this.product) {
+            this.showError('Product details not loaded');
+            return;
+        }
+
         try {
-            console.log('[Product Detail API] Adding to wishlist:', this.productId);
+            console.log('[Product Detail API] Toggling wishlist:', this.productId);
 
-            // For now, just use localStorage
-            let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+            const payload = {
+                id: this.productId,
+                product_id: this.productId,
+                product: {
+                    id: this.productId,
+                    title: this.product.title,
+                    price: this.product.price,
+                    images: this.product.images,
+                    store: this.product.store,
+                },
+            };
 
-            if (wishlist.includes(this.productId)) {
-                this.showSuccessMessage('Already in wishlist!');
-                return;
+            const added = window.wishlistManager
+                ? await window.wishlistManager.toggle(payload)
+                : this._fallbackToggleWishlist(payload.id);
+
+            if (added) {
+                this.showSuccessMessage('Added to wishlist!');
+            } else {
+                this.showSuccessMessage('Removed from wishlist');
             }
 
-            wishlist.push(this.productId);
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            this.updateWishlistButtonState(added);
+        } catch (error) {
+            console.error('[Product Detail API] Error toggling wishlist:', error);
+            this.showError('Failed to update wishlist');
+        }
+    }
 
-            this.showSuccessMessage('Added to wishlist!');
+    _fallbackToggleWishlist(productId) {
+        const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        const ids = new Set(stored);
+        if (ids.has(productId)) {
+            ids.delete(productId);
+            localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
+            return false;
+        }
+        ids.add(productId);
+        localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
+        return true;
+    }
 
-            // Update wishlist icon
-            const wishlistBtn = document.getElementById('addToWishlistBtn');
-            if (wishlistBtn) {
-                wishlistBtn.innerHTML = '♥ In Wishlist';
-                wishlistBtn.classList.add('in-wishlist');
+    async syncWishlistButton() {
+        const wishlistBtn = document.getElementById('addToWishlistBtn');
+        if (!wishlistBtn || !this.productId) return;
+
+        try {
+            if (window.wishlistManager) {
+                await window.wishlistManager.getWishlist();
+                const liked = window.wishlistManager.isInWishlist(this.productId);
+                this.updateWishlistButtonState(liked);
+            } else {
+                const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                this.updateWishlistButtonState(stored.includes(this.productId));
             }
         } catch (error) {
-            console.error('[Product Detail API] Error adding to wishlist:', error);
-            this.showError('Failed to add to wishlist');
+            console.warn('[Product Detail API] Unable to sync wishlist button', error);
+        }
+    }
+
+    updateWishlistButtonState(isInWishlist) {
+        const wishlistBtn = document.getElementById('addToWishlistBtn');
+        if (!wishlistBtn) return;
+
+        if (isInWishlist) {
+            wishlistBtn.innerHTML = '♥ Favorilerde';
+            wishlistBtn.classList.add('in-wishlist');
+        } else {
+            wishlistBtn.innerHTML = '♡ Favorilere Ekle';
+            wishlistBtn.classList.remove('in-wishlist');
         }
     }
 

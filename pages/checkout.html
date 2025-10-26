@@ -692,6 +692,50 @@
             margin: 0 auto;
         }
 
+        .form-status {
+            display: none;
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .form-status.success {
+            display: block;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #bbf7d0;
+        }
+
+        .form-status.error {
+            display: block;
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+
+        .form-status.info {
+            display: block;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .seller-fields {
+            display: none;
+            background: rgba(74, 139, 108, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+        }
+
+        .seller-fields h3 {
+            margin-top: 0;
+            color: var(--forest-deep);
+            font-size: 1.05rem;
+        }
+
         .form-actions {
             display: flex;
             flex-direction: column;
@@ -1270,7 +1314,8 @@
                     <h2 class="section-title">
                         👤 Member Login
                     </h2>
-                    <div class="login-form">
+                    <form id="checkoutLoginForm" class="login-form">
+                        <div id="loginStatus" class="form-status"></div>
                         <div class="form-group">
                             <label for="loginEmail" class="form-label">Email Address *</label>
                             <input type="email" id="loginEmail" name="loginEmail" class="form-input" required>
@@ -1280,10 +1325,10 @@
                             <input type="password" id="loginPassword" name="loginPassword" class="form-input" required>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="login-btn">🔐 Login to Account</button>
+                            <button type="submit" class="login-btn" id="checkoutLoginBtn">🔐 Login to Account</button>
                             <a href="#" class="forgot-link">Forgot Password?</a>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
                 <!-- Registration Section -->
@@ -1297,6 +1342,66 @@
                         <div class="benefit-item">📊 Order history and tracking</div>
                         <div class="benefit-item">💌 Special offers and rewards</div>
                     </div>
+                    <form id="checkoutRegisterForm" class="login-form" style="margin-top: var(--space-xl);">
+                        <div id="registerStatus" class="form-status"></div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="checkoutFirstName" class="form-label">First Name *</label>
+                                <input type="text" id="checkoutFirstName" name="checkoutFirstName" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="checkoutLastName" class="form-label">Last Name *</label>
+                                <input type="text" id="checkoutLastName" name="checkoutLastName" class="form-input" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="checkoutEmail" class="form-label">Email Address *</label>
+                            <input type="email" id="checkoutEmail" name="checkoutEmail" class="form-input" required>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="checkoutPassword" class="form-label">Password *</label>
+                                <input type="password" id="checkoutPassword" name="checkoutPassword" class="form-input" required minlength="8">
+                            </div>
+                            <div class="form-group">
+                                <label for="checkoutConfirmPassword" class="form-label">Confirm Password *</label>
+                                <input type="password" id="checkoutConfirmPassword" name="checkoutConfirmPassword" class="form-input" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="checkoutRole" class="form-label">Account Type *</label>
+                            <select id="checkoutRole" name="checkoutRole" class="form-input" required>
+                                <option value="buyer" selected>Buy Products (Customer)</option>
+                                <option value="seller">Sell Products (Vendor)</option>
+                            </select>
+                        </div>
+                        <div id="checkoutSellerFields" class="seller-fields" style="margin-top: 0; padding-top: var(--space-lg);">
+                            <h3 style="margin-top: 0;">Seller Store Details</h3>
+                            <div class="form-group">
+                                <label for="checkoutStoreName" class="form-label">Store Name *</label>
+                                <input type="text" id="checkoutStoreName" name="checkoutStoreName" class="form-input" placeholder="Nordic Treasures">
+                            </div>
+                            <div class="form-group">
+                                <label for="checkoutStoreDescription" class="form-label">Store Description</label>
+                                <textarea id="checkoutStoreDescription" name="checkoutStoreDescription" class="form-input" rows="3" placeholder="Tell us about your products" style="resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="checkoutStoreCity" class="form-label">City</label>
+                                    <input type="text" id="checkoutStoreCity" name="checkoutStoreCity" class="form-input" placeholder="İstanbul">
+                                </div>
+                                <div class="form-group">
+                                    <label for="checkoutStorePhone" class="form-label">Phone</label>
+                                    <input type="tel" id="checkoutStorePhone" name="checkoutStorePhone" class="form-input" placeholder="+90 555 123 45 67">
+                                </div>
+                            </div>
+                            <p class="form-note" style="margin-top: var(--space-sm);">Mağazanız admin onayı sonrası yayına alınacaktır.</p>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="login-btn" id="checkoutRegisterBtn">✨ Create Account & Continue</button>
+                            <p class="form-note" style="text-align: center; margin: 0;">By continuing you agree to our terms and privacy policy.</p>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- Shipping Information -->
@@ -1691,6 +1796,7 @@
     <!-- Page Scripts -->
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/wishlist-manager.js"></script>
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/checkout-api.js"></script>
 
@@ -1761,6 +1867,97 @@
             }
         };
 
+        function setStatusMessage(element, message = '', type = 'info') {
+            if (!element) return;
+
+            if (!message) {
+                element.textContent = '';
+                element.className = 'form-status';
+                element.style.display = 'none';
+                return;
+            }
+
+            element.textContent = message;
+            element.className = `form-status ${type}`;
+        }
+
+        function prefillCheckoutContact(user) {
+            if (!user) return;
+            const firstNameInput = document.getElementById('firstName');
+            const lastNameInput = document.getElementById('lastName');
+            const emailInput = document.getElementById('email');
+            const phoneInput = document.getElementById('phone');
+
+            if (firstNameInput && user.first_name) {
+                firstNameInput.value = user.first_name;
+            }
+            if (lastNameInput && user.last_name) {
+                lastNameInput.value = user.last_name;
+            }
+            if (emailInput && user.email) {
+                emailInput.value = user.email;
+            }
+            if (phoneInput && user.phone) {
+                phoneInput.value = user.phone;
+            }
+        }
+
+        async function refreshCheckoutSession(user) {
+            if (!window.checkoutPageAPI) return;
+
+            try {
+                window.checkoutPageAPI.isLoggedIn = true;
+                if (user) {
+                    window.checkoutPageAPI.user = user;
+                }
+
+                try {
+                    await window.checkoutPageAPI.loadUser();
+                } catch (err) {
+                    console.warn('Checkout user refresh failed:', err);
+                }
+
+                try {
+                    await window.checkoutPageAPI.loadCart();
+                } catch (err) {
+                    console.warn('Checkout cart refresh failed:', err);
+                }
+
+                window.checkoutPageAPI.renderCheckout();
+            } catch (error) {
+                console.error('Failed to refresh checkout session:', error);
+            }
+        }
+
+        function activateMemberMode(user) {
+            if (window.checkoutUserTypeSwitch) {
+                window.checkoutUserTypeSwitch('member');
+            }
+
+            const savedAddresses = document.getElementById('saved-addresses');
+            if (savedAddresses) {
+                savedAddresses.style.display = 'block';
+            }
+
+            const memberBenefits = document.getElementById('member-benefits');
+            if (memberBenefits) {
+                memberBenefits.style.display = 'block';
+            }
+
+            const contactSection = document.querySelector('.checkout-form .form-section:first-child');
+            if (contactSection) {
+                contactSection.style.display = 'none';
+            }
+
+            const promoMessage = document.getElementById('promo-message');
+            if (promoMessage) {
+                promoMessage.textContent = '💎 As a member, try code MEMBER15 for extra savings!';
+                promoMessage.className = 'promo-message';
+            }
+
+            prefillCheckoutContact(user || AuthManager.getUser());
+        }
+
         // ===== MAIN INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', function() {
             try {
@@ -1775,6 +1972,8 @@
         function initializeCheckout() {
             // Core functionality first
             setupUserTypeSelection();
+            setupCheckoutLoginForm();
+            setupCheckoutRegisterForm();
             setupAddressHandling();
             setupCityDistrictSelection();
 
@@ -1947,68 +2146,318 @@
             const registration = document.getElementById('registration');
             const savedAddresses = document.getElementById('saved-addresses');
 
-            userTabs.forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const type = this.dataset.type;
+            const dostikMessages = {
+                guest: '🛒 Quick guest checkout selected! Fast and simple.',
+                member: '👤 Welcome back! Login to access your saved information.',
+                register: '⭐ Great choice! Create an account for exclusive benefits.'
+            };
 
-                    // Update active tab
-                    userTabs.forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
+            const setActiveUserType = (type) => {
+                if (!type) return;
 
-                    // Update info display
-                    userInfos.forEach(info => info.classList.remove('active'));
-                    document.getElementById(`${type}-info`).classList.add('active');
+                userTabs.forEach((tab) => {
+                    tab.classList.toggle('active', tab.dataset.type === type);
+                });
 
-                    // Show/hide sections
+                userInfos.forEach((info) => {
+                    info.classList.toggle('active', info.id === `${type}-info`);
+                });
+
+                if (memberLogin) {
                     memberLogin.style.display = type === 'member' ? 'block' : 'none';
+                }
+
+                if (registration) {
                     registration.style.display = type === 'register' ? 'block' : 'none';
-                    savedAddresses.style.display = (type === 'member') ? 'block' : 'none';
+                }
 
-                    // Hide/show contact info based on user type
-                    const contactSection = document.querySelector('.checkout-form .form-section:first-child');
-                    if (contactSection) {
-                        contactSection.style.display = type === 'member' ? 'none' : 'block';
-                    }
+                if (savedAddresses) {
+                    savedAddresses.style.display = type === 'member' ? 'block' : 'none';
+                }
 
-                    // Dostik advice
-                    if (window.dostikAI) {
-                        const messages = {
-                            'guest': '🛒 Quick guest checkout selected! Fast and simple.',
-                            'member': '👤 Welcome back! Login to access your saved information.',
-                            'register': '⭐ Great choice! Create an account for exclusive benefits.'
-                        };
-                        window.dostikAI.addChatMessage(messages[type]);
-                    }
+                const contactSection = document.querySelector('.checkout-form .form-section:first-child');
+                if (contactSection) {
+                    contactSection.style.display = type === 'member' ? 'none' : 'block';
+                }
+
+                if (window.dostikAI && dostikMessages[type]) {
+                    window.dostikAI.addChatMessage(dostikMessages[type]);
+                }
+            };
+
+            userTabs.forEach((tab) => {
+                tab.addEventListener('click', function() {
+                    setActiveUserType(this.dataset.type);
                 });
             });
 
-            // Login button
-            const loginBtn = document.querySelector('.login-btn');
-            if (loginBtn) {
-                loginBtn.addEventListener('click', function() {
-                    // Simulate login
-                    const memberBenefits = document.getElementById('member-benefits');
-                    const contactSection = document.querySelector('.checkout-form .form-section:first-child');
+            const initialType = document.querySelector('.user-tab.active')?.dataset.type || 'guest';
+            setActiveUserType(initialType);
 
-                    alert('Demo: Login successful! Saved addresses loaded.');
-                    savedAddresses.style.display = 'block';
-                    memberBenefits.style.display = 'block';
+            window.checkoutUserTypeSwitch = setActiveUserType;
+        }
 
-                    // Hide contact info for logged in members
-                    if (contactSection) {
-                        contactSection.style.display = 'none';
-                    }
+        function setupCheckoutLoginForm() {
+            const loginForm = document.getElementById('checkoutLoginForm');
+            const loginBtn = document.getElementById('checkoutLoginBtn');
+            const statusEl = document.getElementById('loginStatus');
 
-                    // Update promo message for members
-                    const promoMessage = document.getElementById('promo-message');
-                    promoMessage.textContent = '💎 As a member, try code MEMBER15 for extra savings!';
-                    promoMessage.className = 'promo-message';
-
-                    if (window.dostikAI) {
-                        window.dostikAI.addChatMessage('✅ Welcome back! Your member benefits and saved addresses are now active. Check out your exclusive discounts!');
-                    }
-                });
+            if (!loginForm || !loginBtn) {
+                return;
             }
+
+            if (AuthManager.isLoggedIn()) {
+                const user = AuthManager.getUser();
+                setStatusMessage(statusEl, user?.email ? `You are logged in as ${user.email}` : 'You are already logged in.', 'info');
+                loginForm.querySelectorAll('input').forEach((input) => {
+                    if (user && input.id === 'loginEmail') {
+                        input.value = user.email || '';
+                    }
+                    input.disabled = true;
+                });
+                loginBtn.textContent = 'Already Logged In';
+                loginBtn.disabled = true;
+                loginBtn.style.opacity = '';
+                loginBtn.style.cursor = '';
+                activateMemberMode(user);
+                return;
+            }
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const emailInput = document.getElementById('loginEmail');
+                const passwordInput = document.getElementById('loginPassword');
+                const email = emailInput ? emailInput.value.trim() : '';
+                const password = passwordInput ? passwordInput.value : '';
+
+                setStatusMessage(statusEl, '');
+
+                if (!email || !password) {
+                    setStatusMessage(statusEl, 'Please enter your email and password.', 'error');
+                    return;
+                }
+
+                let loginCompleted = false;
+
+                try {
+                    loginBtn.textContent = 'Logging in...';
+                    utils.setLoading(loginBtn, true);
+
+                    const apiClient = new ApiClient();
+                    const response = await apiClient.login(email, password);
+
+                    if (!response.success) {
+                        throw new Error(response.message || 'Login failed. Please try again.');
+                    }
+
+                    const data = response.data || {};
+                    const tokens = data.tokens || {};
+                    const user = data.user || data;
+
+                    if (!tokens.accessToken) {
+                        throw new Error('No token received from server.');
+                    }
+
+                    AuthManager.login(tokens, user);
+
+                    if (window.cartManager && typeof window.cartManager.mergeGuestCart === 'function') {
+                        try {
+                            await window.cartManager.mergeGuestCart();
+                        } catch (mergeError) {
+                            console.warn('Guest cart merge failed:', mergeError);
+                        }
+                    }
+
+                    loginCompleted = true;
+                    setStatusMessage(statusEl, 'Login successful! Loading your saved checkout data...', 'success');
+
+                    activateMemberMode(user);
+                    await refreshCheckoutSession(user);
+
+                    loginForm.querySelectorAll('input').forEach((input) => {
+                        input.disabled = true;
+                    });
+
+                    loginBtn.textContent = 'Logged In';
+                    loginBtn.disabled = true;
+                    loginBtn.style.opacity = '';
+                    loginBtn.style.cursor = '';
+                } catch (error) {
+                    console.error('Checkout login error:', error);
+                    setStatusMessage(statusEl, error.message || 'Login failed. Please try again.', 'error');
+                    loginBtn.textContent = '🔐 Login to Account';
+                } finally {
+                    if (!loginCompleted) {
+                        utils.setLoading(loginBtn, false);
+                    }
+                }
+            });
+        }
+
+        function setupCheckoutRegisterForm() {
+            const registerForm = document.getElementById('checkoutRegisterForm');
+            const registerBtn = document.getElementById('checkoutRegisterBtn');
+            const statusEl = document.getElementById('registerStatus');
+            const roleSelect = document.getElementById('checkoutRole');
+            const sellerFields = document.getElementById('checkoutSellerFields');
+
+            if (!registerForm || !registerBtn) {
+                return;
+            }
+
+            const toggleSellerFields = () => {
+                if (!roleSelect || !sellerFields) return;
+                sellerFields.style.display = roleSelect.value === 'seller' ? 'block' : 'none';
+            };
+
+            toggleSellerFields();
+            if (roleSelect) {
+                roleSelect.addEventListener('change', toggleSellerFields);
+            }
+
+            if (AuthManager.isLoggedIn()) {
+                registerForm.querySelectorAll('input, select, textarea').forEach((el) => {
+                    el.disabled = true;
+                });
+                registerBtn.textContent = 'Account Already Active';
+                registerBtn.disabled = true;
+                registerBtn.style.opacity = '';
+                registerBtn.style.cursor = '';
+                setStatusMessage(statusEl, 'You are already logged in. You can continue with checkout.', 'info');
+                return;
+            }
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                setStatusMessage(statusEl, '');
+
+                const firstName = document.getElementById('checkoutFirstName')?.value.trim();
+                const lastName = document.getElementById('checkoutLastName')?.value.trim();
+                const email = document.getElementById('checkoutEmail')?.value.trim();
+                const password = document.getElementById('checkoutPassword')?.value || '';
+                const confirmPassword = document.getElementById('checkoutConfirmPassword')?.value || '';
+                const role = roleSelect ? roleSelect.value : 'buyer';
+                const storeName = document.getElementById('checkoutStoreName')?.value.trim();
+                const storeDescription = document.getElementById('checkoutStoreDescription')?.value.trim();
+                const storeCity = document.getElementById('checkoutStoreCity')?.value.trim();
+                const storePhone = document.getElementById('checkoutStorePhone')?.value.trim();
+
+                if (!firstName || !lastName || !email || !password) {
+                    setStatusMessage(statusEl, 'Please fill in all required fields.', 'error');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    setStatusMessage(statusEl, 'Passwords do not match.', 'error');
+                    return;
+                }
+
+                if (
+                    password.length < 8 ||
+                    !/[A-Z]/.test(password) ||
+                    !/[a-z]/.test(password) ||
+                    !/[0-9]/.test(password)
+                ) {
+                    setStatusMessage(statusEl, 'Password must be at least 8 characters and include uppercase, lowercase, and a number.', 'error');
+                    return;
+                }
+
+                if (role === 'seller' && (!storeName || storeName.length < 3)) {
+                    setStatusMessage(statusEl, 'Please provide a store name for your seller account.', 'error');
+                    return;
+                }
+
+                let registerCompleted = false;
+
+                try {
+                    registerBtn.textContent = 'Creating account...';
+                    utils.setLoading(registerBtn, true);
+
+                    const apiClient = new ApiClient();
+                    const response = await apiClient.register({
+                        first_name: firstName,
+                        last_name: lastName,
+                        email,
+                        password,
+                        role
+                    });
+
+                    if (!response.success) {
+                        throw new Error(response.message || 'Registration failed. Please try again.');
+                    }
+
+                    const data = response.data || {};
+                    const tokens = data.tokens || {};
+                    const user = data.user || data;
+
+                    if (!tokens.accessToken) {
+                        throw new Error('No token received from server.');
+                    }
+
+                    AuthManager.login(tokens, user);
+
+                    let storeCreated = false;
+                    let storeError = null;
+
+                    if (role === 'seller') {
+                        const storePayload = { name: storeName };
+                        if (storeDescription) storePayload.description = storeDescription;
+                        if (storeCity) storePayload.city = storeCity;
+                        if (storePhone) storePayload.phone = storePhone;
+
+                        try {
+                            const storeResponse = await apiClient.createStore(storePayload);
+                            if (storeResponse.success) {
+                                storeCreated = true;
+                            } else {
+                                storeError = storeResponse.message || 'Store application could not be submitted automatically.';
+                            }
+                        } catch (err) {
+                            storeError = err.message || 'Store application failed. You can finish it from the vendor panel.';
+                        }
+
+                        if (storeError) {
+                            console.warn('Checkout store creation failed:', storeError);
+                        }
+                    }
+
+                    registerCompleted = true;
+
+                    if (role === 'seller') {
+                        if (storeCreated) {
+                            setStatusMessage(statusEl, 'Seller account created and your store application was submitted for admin approval. You can continue checkout while approval is pending.', 'success');
+                        } else if (storeError) {
+                            setStatusMessage(statusEl, 'Seller account created, but the store application could not be submitted automatically. You can send it later from the vendor panel.', 'error');
+                        } else {
+                            setStatusMessage(statusEl, 'Seller account created. Complete your store application from the vendor panel to start selling.', 'success');
+                        }
+                    } else {
+                        setStatusMessage(statusEl, 'Account created! You can continue with checkout.', 'success');
+                    }
+
+                    activateMemberMode(user);
+                    await refreshCheckoutSession(user);
+
+                    registerForm.querySelectorAll('input, select, textarea').forEach((el) => {
+                        el.disabled = true;
+                    });
+
+                    registerBtn.textContent = 'Account Ready';
+                    registerBtn.disabled = true;
+                    registerBtn.style.opacity = '';
+                    registerBtn.style.cursor = '';
+                } catch (error) {
+                    console.error('Checkout registration error:', error);
+                    setStatusMessage(statusEl, error.message || 'Registration failed. Please try again.', 'error');
+                    registerBtn.textContent = '✨ Create Account & Continue';
+                } finally {
+                    if (!registerCompleted) {
+                        utils.setLoading(registerBtn, false);
+                    }
+                }
+            });
         }
 
         function setupAddressHandling() {
