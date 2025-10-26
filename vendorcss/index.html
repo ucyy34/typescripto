@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Dashboard - DostanWebCSS Nordic Marketplace</title>
+    <meta name="description" content="Artisan vendor dashboard for managing Nordic treasures, orders, and analytics">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="vendor-dashboard.css">
+
+    <style>
+        /* Critical CSS for vendor dashboard */
+        :root{--vendor-primary:#2d6853;--vendor-secondary:#4a8b6c;--vendor-accent:#8b6d47;--vendor-bg:#f5f2eb;--vendor-card:#ffffff;--vendor-text:#1a4a3a;--vendor-border:#e0ddd5}
+        body{background:var(--vendor-bg);color:var(--vendor-text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+        .vendor-header{background:var(--vendor-primary);color:white;padding:1rem 0;position:fixed;top:0;left:0;right:0;z-index:1000;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+        .vendor-sidebar{position:fixed;left:0;top:70px;width:250px;height:calc(100vh - 70px);background:white;border-right:1px solid var(--vendor-border);padding:1rem 0;overflow-y:auto}
+        .vendor-main{margin-left:250px;margin-top:70px;padding:2rem;min-height:calc(100vh - 70px)}
+        .vendor-card{background:var(--vendor-card);border:1px solid var(--vendor-border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    </style>
+</head>
+<body>
+    <!-- Vendor Header -->
+    <header class="vendor-header">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; max-width: none; padding: 0 2rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <h1 style="margin: 0; font-size: 1.5rem;">🐉 DostanWebCSS Vendor</h1>
+                <span style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem;">Artisan Panel</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="vendor-notifications" style="position: relative;">
+                    <span style="font-size: 1.2rem; cursor: pointer;">🔔</span>
+                    <span class="notification-badge" style="position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 50%; min-width: 16px; text-align: center;">3</span>
+                </div>
+                <div class="vendor-profile" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.5rem;">👤</span>
+                    <div>
+                        <div class="user-name" style="font-weight: 600;">Vendor</div>
+                        <div class="user-email" style="font-size: 0.75rem; opacity: 0.8;">vendor@example.com</div>
+                    </div>
+                </div>
+                <button id="logoutBtn" style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: #fca5a5; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.3s ease;">
+                    🚪 Çıkış
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Vendor Sidebar -->
+    <nav class="vendor-sidebar">
+        <div class="sidebar-menu">
+            <div class="menu-item active" data-section="dashboard">
+                <span class="menu-icon">📊</span>
+                <span class="menu-text">Dashboard</span>
+            </div>
+            <div class="menu-item" data-section="products">
+                <span class="menu-icon">🏺</span>
+                <span class="menu-text">My Products</span>
+            </div>
+            <div class="menu-item" data-section="orders">
+                <span class="menu-icon">📦</span>
+                <span class="menu-text">Orders</span>
+                <span class="menu-badge">5</span>
+            </div>
+            <div class="menu-item" data-section="earnings">
+                <span class="menu-icon">💰</span>
+                <span class="menu-text">Earnings</span>
+            </div>
+            <div class="menu-item" data-section="analytics">
+                <span class="menu-icon">📈</span>
+                <span class="menu-text">Analytics</span>
+            </div>
+            <div class="menu-item" data-section="inventory">
+                <span class="menu-icon">📋</span>
+                <span class="menu-text">Inventory</span>
+            </div>
+            <div class="menu-item" data-section="returns">
+                <span class="menu-icon">🔄</span>
+                <span class="menu-text">Returns & Refunds</span>
+                <span class="menu-badge">1</span>
+            </div>
+            <div class="menu-item" data-section="store">
+                <span class="menu-icon">🏪</span>
+                <span class="menu-text">Store Management</span>
+            </div>
+            <div class="menu-item" data-section="shipping">
+                <span class="menu-icon">🚚</span>
+                <span class="menu-text">Shipping & Logistics</span>
+            </div>
+            <div class="menu-item" data-section="campaigns">
+                <span class="menu-icon">🎯</span>
+                <span class="menu-text">Campaigns</span>
+            </div>
+            <div class="menu-item" data-section="seo">
+                <span class="menu-icon">🔍</span>
+                <span class="menu-text">SEO & Marketing</span>
+            </div>
+            <div class="menu-item" data-section="messages">
+                <span class="menu-icon">💬</span>
+                <span class="menu-text">Messages</span>
+                <span class="menu-badge">2</span>
+            </div>
+            <div class="menu-item" data-section="profile">
+                <span class="menu-icon">⚙️</span>
+                <span class="menu-text">Settings</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dostik Wisdom Box - Outside Sidebar -->
+    <div class="dostik-sidebar-wisdom">
+        <div class="dostik-wisdom-box">
+            <div class="dostik-icon">🐉</div>
+            <div class="dostik-title">Dostik's Wisdom</div>
+            <div class="dostik-quote">"Quality over quantity, young artisan"</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="vendor-main">
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section active">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">Welcome back, Erik! 🌟</h2>
+                <p style="margin: 0; opacity: 0.8;">Here's what's happening with your Nordic crafts today</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="vendor-card">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="background: linear-gradient(135deg, #4a8b6c, #2d6853); color: white; padding: 1rem; border-radius: 12px; font-size: 1.5rem;">💰</div>
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--vendor-primary);">$2,847</div>
+                            <div style="opacity: 0.7;">Monthly Revenue</div>
+                            <div style="color: #22c55e; font-size: 0.85rem; margin-top: 0.25rem;">+12% from last month</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vendor-card">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="background: linear-gradient(135deg, #8b6d47, #a0845c); color: white; padding: 1rem; border-radius: 12px; font-size: 1.5rem;">📦</div>
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--vendor-primary);">47</div>
+                            <div style="opacity: 0.7;">Total Orders</div>
+                            <div style="color: #22c55e; font-size: 0.85rem; margin-top: 0.25rem;">5 pending</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vendor-card">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="background: linear-gradient(135deg, #6b8db5, #4a6fa5); color: white; padding: 1rem; border-radius: 12px; font-size: 1.5rem;">🏺</div>
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--vendor-primary);">23</div>
+                            <div style="opacity: 0.7;">Active Products</div>
+                            <div style="color: #f59e0b; font-size: 0.85rem; margin-top: 0.25rem;">3 low stock</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vendor-card">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="background: linear-gradient(135deg, #9b7bb8, #7a5c99); color: white; padding: 1rem; border-radius: 12px; font-size: 1.5rem;">⭐</div>
+                        <div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--vendor-primary);">4.8</div>
+                            <div style="opacity: 0.7;">Average Rating</div>
+                            <div style="color: #22c55e; font-size: 0.85rem; margin-top: 0.25rem;">From 127 reviews</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                <div class="vendor-card">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📈 Recent Orders</h3>
+
+                    <div id="recent-orders-list">
+                        <div style="text-align: center; padding: 2rem;">
+                            <div class="spinner"></div>
+                            <p>Loading recent orders...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vendor-card">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">🔔 Quick Actions</h3>
+
+                    <button style="width: 100%; background: var(--vendor-primary); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: 600; margin-bottom: 1rem; cursor: pointer; transition: all 0.3s ease;">
+                        + Add New Product
+                    </button>
+
+                    <button style="width: 100%; background: var(--vendor-secondary); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: 600; margin-bottom: 1rem; cursor: pointer; transition: all 0.3s ease;">
+                        📦 Process Orders
+                    </button>
+
+                    <button style="width: 100%; background: var(--vendor-accent); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: 600; margin-bottom: 1rem; cursor: pointer; transition: all 0.3s ease;">
+                        📊 View Analytics
+                    </button>
+
+                    <div style="margin-top: 2rem; padding: 1rem; background: rgba(74, 139, 108, 0.05); border-radius: 8px; border-left: 4px solid var(--vendor-secondary);">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">💡 Dostik's Tip</div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">"Winter season approaches! Consider adding festive Nordic decorations to boost your sales."</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Returns & Refunds Section -->
+        <!-- Earnings Section -->
+        <section id="earnings-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary); font-weight: 800; font-size: 2rem;">💰 My Earnings</h2>
+                <p style="margin: 0; opacity: 0.7; font-size: 1.1rem;">Track your store revenue and commissions</p>
+            </div>
+
+            <!-- Earnings Summary Cards -->
+            <div id="earnings-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <!-- Dynamic cards will be inserted here -->
+            </div>
+
+            <!-- Commission Transactions -->
+            <div class="vendor-card">
+                <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary); font-size: 1.25rem;">📊 Recent Commissions</h3>
+                <div id="earnings-transactions">
+                    <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                        <p>Loading earnings data...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="returns-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">🔄 Returns & Refunds</h2>
+                <p style="margin: 0; opacity: 0.8;">Manage customer returns and process refunds efficiently</p>
+            </div>
+
+            <!-- Returns Overview -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="vendor-card" style="text-align: center;">
+                    <div style="font-size: 2rem; color: var(--vendor-warning); margin-bottom: 0.5rem;">🔄</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--vendor-primary);">1</div>
+                    <div style="opacity: 0.7;">Pending Returns</div>
+                </div>
+                <div class="vendor-card" style="text-align: center;">
+                    <div style="font-size: 2rem; color: var(--vendor-success); margin-bottom: 0.5rem;">✅</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--vendor-primary);">12</div>
+                    <div style="opacity: 0.7;">Processed This Month</div>
+                </div>
+                <div class="vendor-card" style="text-align: center;">
+                    <div style="font-size: 2rem; color: var(--vendor-accent); margin-bottom: 0.5rem;">💰</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--vendor-primary);">$247</div>
+                    <div style="opacity: 0.7;">Total Refunded</div>
+                </div>
+            </div>
+
+            <!-- Return Requests -->
+            <div class="vendor-card">
+                <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Recent Return Requests</h3>
+
+                <div class="return-item" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; margin-bottom: 1rem;">
+                    <img src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=60&h=60" alt="Product" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600;">Viking Dragon Bowl</div>
+                        <div style="opacity: 0.7; font-size: 0.9rem;">Return #R-001 • Customer: John Anderson</div>
+                        <div style="opacity: 0.7; font-size: 0.9rem;">Reason: Item arrived damaged</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: var(--vendor-primary);">$89.99</div>
+                        <div style="margin-top: 0.5rem;">
+                            <button style="background: var(--vendor-success); color: white; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-right: 0.5rem;">Accept</button>
+                            <button style="background: var(--vendor-warning); color: white; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">Review</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Return Policy Settings -->
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--vendor-border);">
+                    <h4 style="margin: 0 0 1rem 0; color: var(--vendor-primary);">Return Policy Settings</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Return Window (days)</label>
+                            <input id="returnWindowInput" type="number" min="0" value="14" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Shipping Refund Policy</label>
+                            <select id="shippingPolicySelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                                <option value="none">No Shipping Refund</option>
+                                <option value="pro_rata">Pro‑rata Shipping Refund</option>
+                                <option value="full">Full Shipping Refund</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tax Refund Policy</label>
+                            <select id="taxPolicySelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                                <option value="none">No Tax Refund</option>
+                                <option value="pro_rata">Pro‑rata Tax Refund</option>
+                                <option value="full">Full Tax Refund</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <button id="saveReturnPolicyBtn" style="background: var(--vendor-primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Policy</button>
+                        <span id="returnPolicySaveMsg" style="margin-left: 0.75rem; opacity: 0.8;"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Store Management Section -->
+        <section id="store-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">🏪 Store Management</h2>
+                <p style="margin: 0; opacity: 0.8;">Customize your Nordic artisan storefront</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                <!-- Store Information -->
+                <div class="vendor-card">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Store Information</h3>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Store Name</label>
+                        <input type="text" value="Erik's Nordic Woodcraft" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Store Description</label>
+                        <textarea rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; resize: vertical;">Authentic Nordic wood carvings crafted with 30 years of traditional techniques passed down through generations. Each piece tells a story of ancient Norse mythology and natural beauty.</textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Country</label>
+                            <select style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                                <option value="SE">Sweden</option>
+                                <option value="NO">Norway</option>
+                                <option value="DK">Denmark</option>
+                                <option value="FI">Finland</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">City</label>
+                            <input type="text" value="Stockholm" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Store Address</label>
+                        <input type="text" value="Gamla Stan, Nordic Arts District 12" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Phone</label>
+                            <input type="tel" value="+46 8 123 456 789" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Email</label>
+                            <input type="email" value="erik@nordicwoodcraft.se" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                        </div>
+                    </div>
+
+                    <button style="background: var(--vendor-primary); color: white; border: none; padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        💾 Save Store Information
+                    </button>
+                </div>
+
+                <!-- Store Visuals -->
+                <div>
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Store Logo</h3>
+
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, var(--vendor-primary), var(--vendor-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 3rem;">🌲</div>
+                            <button style="background: var(--vendor-secondary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer;">
+                                📁 Upload New Logo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Store Banner</h3>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div style="width: 100%; height: 80px; background: linear-gradient(135deg, #4a8b6c, #2d6853); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.9rem; margin-bottom: 1rem;">Nordic Woodcraft Banner</div>
+                            <button style="background: var(--vendor-secondary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; width: 100%;">
+                                🖼️ Upload Banner Image
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1rem 0; color: var(--vendor-primary);">Store Hours</h3>
+
+                        <div style="font-size: 0.9rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Monday - Friday</span>
+                                <span>9:00 - 18:00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Saturday</span>
+                                <span>10:00 - 16:00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                                <span>Sunday</span>
+                                <span style="color: var(--vendor-warning);">Closed</span>
+                            </div>
+                            <button style="background: var(--vendor-accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; width: 100%;">
+                                📅 Edit Hours
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Shipping & Logistics Section -->
+        <section id="shipping-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">🚚 Shipping & Logistics</h2>
+                <p style="margin: 0; opacity: 0.8;">Manage shipping options and logistics for your Nordic crafts</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <!-- Shipping Zones -->
+                <div class="vendor-card">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Shipping Zones & Rates</h3>
+
+                    <div style="border: 1px solid var(--vendor-border); border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
+                        <div style="background: rgba(45, 104, 83, 0.1); padding: 1rem; border-bottom: 1px solid var(--vendor-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600;">🇸🇪 Nordic Countries</div>
+                                    <div style="font-size: 0.9rem; opacity: 0.7;">Sweden, Norway, Denmark, Finland</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 600; color: var(--vendor-primary);">$12.99</div>
+                                    <div style="font-size: 0.8rem; opacity: 0.7;">3-5 days</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: rgba(45, 104, 83, 0.05); padding: 1rem; border-bottom: 1px solid var(--vendor-border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600;">🇪🇺 European Union</div>
+                                    <div style="font-size: 0.9rem; opacity: 0.7;">EU Member Countries</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 600; color: var(--vendor-primary);">$24.99</div>
+                                    <div style="font-size: 0.8rem; opacity: 0.7;">7-10 days</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: rgba(45, 104, 83, 0.05); padding: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600;">🌍 International</div>
+                                    <div style="font-size: 0.9rem; opacity: 0.7;">Rest of World</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 600; color: var(--vendor-primary);">$49.99</div>
+                                    <div style="font-size: 0.8rem; opacity: 0.7;">14-21 days</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button style="background: var(--vendor-secondary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        ✏️ Edit Shipping Zones
+                    </button>
+                </div>
+
+                <!-- Packaging Options -->
+                <div class="vendor-card">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">Packaging & Handling</h3>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--vendor-accent);">🎁 Packaging Options</h4>
+
+                        <label style="display: flex; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" checked style="margin-right: 0.75rem;">
+                            <div>
+                                <div style="font-weight: 500;">Eco-Friendly Packaging</div>
+                                <div style="font-size: 0.85rem; opacity: 0.7;">Recycled materials (+$2.00)</div>
+                            </div>
+                        </label>
+
+                        <label style="display: flex; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" style="margin-right: 0.75rem;">
+                            <div>
+                                <div style="font-weight: 500;">Premium Gift Wrapping</div>
+                                <div style="font-size: 0.85rem; opacity: 0.7;">Nordic-themed wrapping (+$5.00)</div>
+                            </div>
+                        </label>
+
+                        <label style="display: flex; align-items: center; margin-bottom: 1rem; cursor: pointer;">
+                            <input type="checkbox" checked style="margin-right: 0.75rem;">
+                            <div>
+                                <div style="font-weight: 500;">Protective Cushioning</div>
+                                <div style="font-size: 0.85rem; opacity: 0.7;">Extra protection for delicate items</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--vendor-accent);">📦 Handling Time</h4>
+
+                        <select style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            <option value="1">1 business day</option>
+                            <option value="2" selected>2-3 business days</option>
+                            <option value="5">5-7 business days</option>
+                            <option value="10">10+ business days (Custom orders)</option>
+                        </select>
+                    </div>
+
+                    <div style="background: rgba(74, 139, 108, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <div style="font-weight: 600; color: var(--vendor-primary); margin-bottom: 0.5rem;">💡 Dostik's Shipping Tip</div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">Eco-friendly packaging resonates well with Nordic values and increases customer satisfaction by 23%!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logistics Partners -->
+            <div class="vendor-card">
+                <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📮 Logistics Partners</h3>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="border: 2px solid var(--vendor-success); border-radius: 8px; padding: 1rem; background: rgba(16, 185, 129, 0.05);">
+                        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="font-weight: 600;">PostNord</div>
+                            <span style="background: var(--vendor-success); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 8px;">ACTIVE</span>
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">Nordic region specialist</div>
+                        <div style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--vendor-success);">✓ Integrated API</div>
+                    </div>
+
+                    <div style="border: 1px solid var(--vendor-border); border-radius: 8px; padding: 1rem;">
+                        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="font-weight: 600;">DHL Express</div>
+                            <span style="background: var(--vendor-border); color: var(--vendor-text); font-size: 0.7rem; padding: 2px 6px; border-radius: 8px;">INACTIVE</span>
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">International shipping</div>
+                        <button style="background: var(--vendor-primary); color: white; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.8rem; margin-top: 0.5rem; cursor: pointer;">Connect</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Campaigns Section -->
+        <section id="campaigns-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">🎯 Marketing Campaigns</h2>
+                <p style="margin: 0; opacity: 0.8;">Create and manage promotional campaigns for your products</p>
+            </div>
+
+            <!-- Create Campaign Button -->
+            <div style="margin-bottom: 1.5rem;">
+                <button id="createCampaignBtn" style="background: linear-gradient(135deg, var(--vendor-primary), var(--vendor-secondary)); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(45, 104, 83, 0.2);">
+                    ➕ Create New Campaign
+                </button>
+            </div>
+
+            <!-- Active Campaigns -->
+            <div class="vendor-card">
+                <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📊 Active Campaigns</h3>
+                <div id="campaigns-list">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="spinner"></div>
+                        <p>Loading campaigns...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEO & Marketing Section -->
+        <section id="seo-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary);">🔍 SEO & Marketing</h2>
+                <p style="margin: 0; opacity: 0.8;">Optimize your store's visibility and search rankings</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+                <!-- SEO Settings -->
+                <div>
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">🏷️ Meta Tags & SEO</h3>
+
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Store Title (SEO)</label>
+                            <input type="text" value="Erik's Nordic Woodcraft - Authentic Swedish Wood Carvings" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            <div style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.25rem;">Characters: 54/60 (Optimal)</div>
+                        </div>
+
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Meta Description</label>
+                            <textarea rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; resize: vertical;">Handcrafted Nordic wood carvings by master artisan Erik Nordström. Authentic Swedish craftsmanship with 30+ years experience. Unique Viking-inspired sculptures and functional art pieces.</textarea>
+                            <div style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.25rem;">Characters: 158/160 (Perfect)</div>
+                        </div>
+
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Keywords</label>
+                            <input type="text" value="nordic wood carving, swedish crafts, viking art, handmade sculptures, traditional woodworking" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            <div style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.25rem;">Separate keywords with commas</div>
+                        </div>
+
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Store URL Slug</label>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="color: var(--vendor-accent);">dostanwebcss.com/store/</span>
+                                <input type="text" value="erik-nordic-woodcraft" style="flex: 1; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            </div>
+                        </div>
+
+                        <button style="background: var(--vendor-primary); color: white; border: none; padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                            💾 Save SEO Settings
+                        </button>
+                    </div>
+
+                    <!-- Social Media Integration -->
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📱 Social Media Integration</h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">📘 Facebook Page</label>
+                                <input type="url" placeholder="https://facebook.com/your-page" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">📷 Instagram</label>
+                                <input type="url" placeholder="https://instagram.com/your-account" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">🐦 Twitter</label>
+                                <input type="url" placeholder="https://twitter.com/your-account" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">📌 Pinterest</label>
+                                <input type="url" placeholder="https://pinterest.com/your-profile" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEO Performance -->
+                <div>
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📊 SEO Performance</h3>
+
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div style="font-size: 3rem; color: var(--vendor-success); margin-bottom: 0.5rem;">87</div>
+                            <div style="font-weight: 600; color: var(--vendor-primary);">SEO Score</div>
+                            <div style="font-size: 0.8rem; opacity: 0.7;">Very Good</div>
+                        </div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="font-size: 0.9rem;">Title Optimization</span>
+                                <span style="color: var(--vendor-success); font-weight: 600;">95%</span>
+                            </div>
+                            <div style="background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: var(--vendor-success); height: 100%; width: 95%; border-radius: 3px;"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="font-size: 0.9rem;">Description Quality</span>
+                                <span style="color: var(--vendor-success); font-weight: 600;">92%</span>
+                            </div>
+                            <div style="background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: var(--vendor-success); height: 100%; width: 92%; border-radius: 3px;"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span style="font-size: 0.9rem;">Keyword Density</span>
+                                <span style="color: var(--vendor-warning); font-weight: 600;">78%</span>
+                            </div>
+                            <div style="background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: var(--vendor-warning); height: 100%; width: 78%; border-radius: 3px;"></div>
+                            </div>
+                        </div>
+
+                        <button style="background: var(--vendor-accent); color: white; border: none; padding: 0.75rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 1rem;">
+                            📈 View Full Report
+                        </button>
+                    </div>
+
+                    <div class="vendor-card">
+                        <h3 style="margin: 0 0 1rem 0; color: var(--vendor-primary);">💡 Marketing Tips</h3>
+
+                        <div style="background: rgba(74, 139, 108, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid var(--vendor-secondary);">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">🐉 Dostik's SEO Wisdom</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">"Ancient dragon knowledge: Keywords related to 'handcrafted Nordic art' are trending 34% this month!"</div>
+                        </div>
+
+                        <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 1rem;">
+                            <div style="margin-bottom: 0.5rem;"><strong>📸 Product Photos:</strong> Add alt text to all images</div>
+                            <div style="margin-bottom: 0.5rem;"><strong>🏷️ Product Titles:</strong> Include material and style</div>
+                            <div style="margin-bottom: 0.5rem;"><strong>⭐ Reviews:</strong> Encourage customer feedback</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Section -->
+        <section id="products-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary); font-weight: 800; font-size: 2rem;">🏺 My Products</h2>
+                    <p style="margin: 0; opacity: 0.7; font-size: 1.1rem;">Manage your product listings</p>
+                </div>
+                <button id="addProductBtn" style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    ➕ Add New Product
+                </button>
+            </div>
+
+            <div class="vendor-card">
+                <div id="products-list">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="spinner"></div>
+                        <p>Loading products...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="orders-section" class="content-section" style="display: none;">
+            <div style="margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 0.5rem 0; color: var(--vendor-primary); font-weight: 800; font-size: 2rem;">📦 Orders</h2>
+                <p style="margin: 0; opacity: 0.7; font-size: 1.1rem;">Manage your store orders</p>
+            </div>
+
+            <div class="vendor-card">
+                <div id="orders-list">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="spinner"></div>
+                        <p>Loading orders...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="analytics-section" class="content-section" style="display: none;">
+            <h2>Analytics</h2>
+            <p>Analytics dashboard coming soon...</p>
+        </section>
+
+        <section id="inventory-section" class="content-section" style="display: none;">
+            <h2>Inventory</h2>
+            <p>Inventory management coming soon...</p>
+        </section>
+
+        <section id="messages-section" class="content-section" style="display: none;">
+            <h2>Messages</h2>
+            <p>Message center coming soon...</p>
+        </section>
+
+        <section id="profile-section" class="content-section" style="display: none;">
+            <h2>Settings</h2>
+            <p>Profile settings coming soon...</p>
+        </section>
+    </main>
+
+    <!-- Product Add/Edit Modal -->
+    <div id="productModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; padding: 2rem; overflow-y: auto;">
+        <div style="max-width: 800px; margin: 2rem auto; background: white; border-radius: 12px; padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 2px solid var(--vendor-border); padding-bottom: 1rem;">
+                <h2 style="margin: 0; color: var(--vendor-primary);">➕ Add New Product</h2>
+                <button id="closeProductModal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; padding: 0; width: 32px; height: 32px;">✖</button>
+            </div>
+
+            <form id="productForm" style="display: grid; gap: 1.5rem;">
+                <!-- Product Title -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Title *</label>
+                    <input type="text" id="productTitle" required
+                           placeholder="e.g., Handmade Viking Axe Decoration"
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                </div>
+
+                <!-- Short Description -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Short Description</label>
+                    <input type="text" id="productShortDesc"
+                           placeholder="Brief product summary (max 100 chars, optional)"
+                           maxlength="100"
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                </div>
+
+                <!-- Full Description -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Full Description</label>
+                    <textarea id="productDescription" rows="5"
+                              placeholder="Detailed product description (optional)..."
+                              style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem; resize: vertical;"></textarea>
+                </div>
+
+                <!-- Category -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Category *</label>
+                    <select id="productCategory" required
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <option value="">Select a category...</option>
+                        <!-- Categories will be loaded dynamically -->
+                    </select>
+                </div>
+
+                <!-- Price and Stock -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Price (TL) *</label>
+                        <input type="number" id="productPrice" required min="0" step="0.01"
+                               placeholder="299.99"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Stock Quantity</label>
+                        <input type="number" id="productStock" min="0" step="1"
+                               placeholder="10 (varsayılan: 0)"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <small style="color: #666; font-size: 0.85rem;">Boş bırakılırsa 0 olarak ayarlanır</small>
+                    </div>
+                </div>
+
+                <!-- Product Images -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image URL</label>
+                    <input type="url" id="productImage"
+                           placeholder="https://example.com/image.jpg (optional for now)"
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    <small style="color: #666; font-size: 0.85rem;">Tip: Image upload feature coming soon. For now, use external image URLs.</small>
+                </div>
+
+                <!-- Product Badges -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Badges (Optional)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="handmade" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">🖐️ Handmade</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="limited" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">⭐ Limited Edition</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="eco-friendly" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">🌿 Eco-Friendly</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="spiritual" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">🔮 Spiritual</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="traditional" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">🏛️ Traditional</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--vendor-border); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <input type="checkbox" name="badge" value="artisan" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600;">🎨 Artisan</span>
+                        </label>
+                    </div>
+                    <small style="color: #666; font-size: 0.85rem;">Select badges that describe your product. These will be shown to customers.</small>
+                </div>
+
+                <!-- SEO Section -->
+                <div style="border-top: 2px solid var(--vendor-border); padding-top: 1.5rem; margin-top: 1rem;">
+                    <h3 style="margin: 0 0 1rem 0; color: var(--vendor-primary); display: flex; align-items: center; gap: 0.5rem;">
+                        🔍 SEO Optimization
+                        <span style="background: var(--vendor-accent); color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 12px;">OPTIONAL</span>
+                    </h3>
+                    <p style="margin: 0 0 1.5rem 0; color: #666; font-size: 0.9rem;">
+                        Optimize your product for search engines to help customers find it on Google.
+                    </p>
+
+                    <!-- SEO Title -->
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">
+                            SEO Title
+                            <span style="font-weight: normal; color: #666; font-size: 0.85rem;">(50-60 characters)</span>
+                        </label>
+                        <input type="text" id="productSeoTitle"
+                               placeholder="e.g., Handmade Viking Axe - Authentic Nordic Wood Carving"
+                               maxlength="200"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <div id="seoTitleCounter" style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">Characters: 0/60</div>
+                    </div>
+
+                    <!-- SEO Description -->
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">
+                            SEO Description
+                            <span style="font-weight: normal; color: #666; font-size: 0.85rem;">(150-160 characters)</span>
+                        </label>
+                        <textarea id="productSeoDescription" rows="3"
+                                  placeholder="e.g., Authentic handcrafted Viking axe from Nordic wood. Perfect for decor or gifts."
+                                  maxlength="500"
+                                  style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem; resize: vertical;"></textarea>
+                        <div id="seoDescCounter" style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">Characters: 0/160</div>
+                    </div>
+
+                    <!-- SEO Keywords -->
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">
+                            Keywords
+                            <span style="font-weight: normal; color: #666; font-size: 0.85rem;">(comma separated)</span>
+                        </label>
+                        <input type="text" id="productMetaKeywords"
+                               placeholder="e.g., viking axe, nordic decor, handmade wood, scandinavian art"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <small style="color: #666; font-size: 0.85rem;">Add 5-10 keywords customers might search for</small>
+                    </div>
+
+                    <!-- SEO Tips -->
+                    <div style="background: rgba(74, 139, 108, 0.1); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; color: var(--vendor-primary); margin-bottom: 0.5rem;">💡 SEO Tips</div>
+                        <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.85rem; color: #666;">
+                            <li>Use specific titles with your main keyword</li>
+                            <li>Write natural descriptions for customers</li>
+                            <li>Include unique features (handmade, authentic, etc.)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--vendor-border);">
+                    <button type="button" id="cancelProductBtn"
+                            style="background: #f3f4f6; color: #374151; border: 1px solid var(--vendor-border); padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            style="background: var(--vendor-primary); color: white; border: none; padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+                        ✓ Create Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Campaign Create/Edit Modal -->
+    <div id="campaignModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; padding: 2rem; overflow-y: auto;">
+        <div style="max-width: 900px; margin: 2rem auto; background: white; border-radius: 12px; padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 2px solid var(--vendor-border); padding-bottom: 1rem;">
+                <h2 style="margin: 0; color: var(--vendor-primary);">🎯 Create Campaign</h2>
+                <button id="closeCampaignModal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; padding: 0; width: 32px; height: 32px;">✖</button>
+            </div>
+
+            <form id="campaignForm" style="display: grid; gap: 1.5rem;">
+                <!-- Campaign Name -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Campaign Name *</label>
+                    <input type="text" id="campaignName" required
+                           placeholder="e.g., Summer Flash Sale, Buy 2 Get 1 Free"
+                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Description</label>
+                    <textarea id="campaignDescription" rows="3"
+                              placeholder="Describe your campaign..."
+                              style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem; resize: vertical;"></textarea>
+                </div>
+
+                <!-- Campaign Type -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Campaign Type *</label>
+                    <select id="campaignType" required
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <option value="">Select campaign type...</option>
+                        <option value="FLASH_SALE">⚡ Flash Sale - Limited time discount</option>
+                        <option value="BUY_X_GET_Y">🎁 Buy X Get Y - e.g., Buy 2 Get 1 Free</option>
+                        <option value="CATEGORY_DISCOUNT">📂 Category Discount - Discount on entire category</option>
+                        <option value="FREE_SHIPPING">🚚 Free Shipping</option>
+                        <option value="BUNDLE_DEAL">📦 Bundle Deal - Buy together and save</option>
+                        <option value="MINIMUM_PURCHASE">💰 Minimum Purchase - Discount on minimum order</option>
+                    </select>
+                </div>
+
+                <!-- Discount Settings -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Discount Type *</label>
+                        <select id="campaignDiscountType" required
+                                style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (₺)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Discount Value *</label>
+                        <input type="number" id="campaignDiscountValue" required min="0" step="0.01"
+                               placeholder="e.g., 20 for 20% or 50 for ₺50"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                </div>
+
+                <!-- Buy X Get Y Settings (conditional) -->
+                <div id="buyXGetYSettings" style="display: none; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Buy Quantity *</label>
+                        <input type="number" id="campaignBuyQuantity" min="1" step="1"
+                               placeholder="e.g., 2"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Get Quantity *</label>
+                        <input type="number" id="campaignGetQuantity" min="1" step="1"
+                               placeholder="e.g., 1"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                </div>
+
+                <!-- Date Range -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Start Date *</label>
+                        <input type="datetime-local" id="campaignStartDate" required
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">End Date *</label>
+                        <input type="datetime-local" id="campaignEndDate" required
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                </div>
+
+                <!-- Target Products -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Apply To *</label>
+                    <select id="campaignApplicableTo" required
+                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <option value="all_store">All Store Products</option>
+                        <option value="products">Specific Products</option>
+                        <option value="categories">Specific Categories</option>
+                    </select>
+                </div>
+
+                <!-- Product Selection (conditional) -->
+                <div id="productSelection" style="display: none;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Select Products</label>
+                    <div id="campaignProductsList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--vendor-border); border-radius: 6px; padding: 0.75rem;">
+                        <!-- Products will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Display Settings -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Badge Text</label>
+                        <input type="text" id="campaignBadgeText" maxlength="50"
+                               placeholder="e.g., 50% OFF, 2 Al 1 Öde"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                        <small style="color: #666; font-size: 0.85rem;">Leave empty for auto-generated text</small>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Badge Color</label>
+                        <input type="color" id="campaignBadgeColor" value="#FF6B6B"
+                               style="width: 100%; padding: 0.35rem; border: 1px solid var(--vendor-border); border-radius: 6px; height: 45px; cursor: pointer;">
+                    </div>
+                </div>
+
+                <!-- Minimum Requirements -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Min. Order Amount (₺)</label>
+                        <input type="number" id="campaignMinAmount" min="0" step="0.01" value="0"
+                               placeholder="0 for no minimum"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Usage Limit</label>
+                        <input type="number" id="campaignUsageLimit" min="1" step="1"
+                               placeholder="Leave empty for unlimited"
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
+                    </div>
+                </div>
+
+                <!-- Show Countdown -->
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="campaignShowCountdown" style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="campaignShowCountdown" style="font-weight: 600; cursor: pointer;">Show countdown timer on product pages</label>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--vendor-border);">
+                    <button type="button" id="cancelCampaignBtn"
+                            style="background: #f3f4f6; color: #374151; border: 1px solid var(--vendor-border); padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            style="background: var(--vendor-primary); color: white; border: none; padding: 0.75rem 2rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+                        🎯 Create Campaign
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js?v=4"></script>
+    <script src="../assets/js/auth-manager.js?v=4"></script>
+    <script src="vendor-dashboard.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Giriş - DostanWebCSS</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/password-toggle.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #1a4a3a 0%, #2d6853 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+            color: white;
+        }
+
+        .login-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .login-header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .login-body {
+            padding: 2.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #334155;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #1a4a3a;
+            box-shadow: 0 0 0 3px rgba(26, 74, 58, 0.1);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #1a4a3a 0%, #2d6853 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(26, 74, 58, 0.3);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .default-credentials {
+            background: #f1f5f9;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            border-radius: 8px;
+        }
+
+        .default-credentials h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .default-credentials p {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0.25rem 0;
+        }
+
+        .default-credentials code {
+            background: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer-note {
+            text-align: center;
+            padding: 1.5rem;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Header -->
+        <div class="login-header">
+            <h1>
+                🐉 Admin Panel
+            </h1>
+            <p>DostanWebCSS Yönetim Paneli</p>
+        </div>
+
+        <!-- Body -->
+        <div class="login-body">
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">E-posta Adresi</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="admin@dostanmarket.com"
+                        required
+                        autocomplete="email"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="••••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" class="btn-login" id="submitBtn">
+                    Giriş Yap
+                </button>
+            </form>
+
+            <!-- Default Credentials Info -->
+            <div class="default-credentials">
+                <h3>🔑 Test Hesabı</h3>
+                <p>E-posta: <code>admin@dostanmarket.com</code></p>
+                <p>Şifre: <code>Admin@123456</code></p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-note">
+            © 2025 DostanWebCSS - Nordic Marketplace
+        </div>
+    </div>
+
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/password-toggle.js"></script>
+
+    <!-- Login Script -->
+    <script>
+        // Check if already logged in
+        if (AuthManager.isLoggedIn() && AuthManager.isAdmin()) {
+            console.log('[Login] User already logged in, redirecting to dashboard...');
+            window.location.href = 'index.html';
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Validate inputs
+            if (!email || !password) {
+                showError('Lütfen tüm alanları doldurun');
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner"></span>Giriş yapılıyor...';
+            errorMessage.classList.remove('show');
+
+            try {
+                console.log('[Login] Attempting login for:', email);
+
+                // Call login API
+                const response = await apiClient.login(email, password);
+
+                console.log('[Login] API Response:', response);
+
+                if (response.success && response.data) {
+                    const { user, tokens } = response.data;
+
+                    // Check if user is admin
+                    if (user.role !== 'admin') {
+                        throw new Error('Bu panel sadece yöneticiler içindir');
+                    }
+
+                    // Save auth data
+                    AuthManager.login(tokens, user);
+
+                    console.log('[Login] Login successful, redirecting...');
+
+                    // Show success message
+                    submitBtn.innerHTML = '✅ Başarılı! Yönlendiriliyor...';
+                    submitBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 500);
+                } else {
+                    throw new Error(response.message || 'Giriş başarısız');
+                }
+            } catch (error) {
+                console.error('[Login] Error:', error);
+
+                let errorMsg = 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
+
+                if (error.message) {
+                    errorMsg = error.message;
+                } else if (error.response) {
+                    errorMsg = error.response.message || errorMsg;
+                }
+
+                showError(errorMsg);
+
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Giriş Yap';
+            }
+        });
+
+        /**
+         * Show error message
+         */
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        // Auto-fill credentials on clicking default credentials
+        document.querySelector('.default-credentials').addEventListener('click', () => {
+            document.getElementById('email').value = 'admin@dostanmarket.com';
+            document.getElementById('password').value = 'Admin@123456';
+        });
+
+        console.log('[Login] Login page loaded');
+    </script>
+</body>
+</html>

@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nordic Artisans - DostanWebCSS Marketplace</title>
+    <meta name="description" content="Meet the master artisans behind our Nordic treasures - discover their stories, techniques, and handcrafted masterpieces">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+
+    <style>
+        .artisan-page {
+            padding-top: 120px;
+        }
+
+        .artisan-hero {
+            position: relative;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, var(--forest-deep) 0%, var(--forest-medium) 100%);
+            color: white;
+            overflow: hidden;
+            margin-bottom: var(--space-xxl);
+        }
+
+        .artisan-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3') center/cover;
+            opacity: 0.2;
+            z-index: 1;
+        }
+
+        .artisan-hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .artisan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--space-xxl);
+            margin-bottom: var(--space-xxl);
+        }
+
+        .artisan-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all var(--transition-medium);
+            position: relative;
+        }
+
+        .artisan-card:hover {
+            transform: translateY(-10px) rotateY(5deg);
+            box-shadow: var(--shadow-strong);
+        }
+
+        .artisan-image {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--cream-warm) 0%, var(--cream-soft) 100%);
+        }
+
+        .artisan-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform var(--transition-slow);
+        }
+
+        .artisan-card:hover .artisan-image img {
+            transform: scale(1.1);
+        }
+
+        .artisan-badge {
+            position: absolute;
+            top: var(--space-md);
+            right: var(--space-md);
+            background: var(--aurora-green);
+            color: white;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 500;
+            z-index: 3;
+        }
+
+        .artisan-info {
+            padding: var(--space-xl);
+        }
+
+        .artisan-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: var(--space-xs);
+            color: var(--forest-deep);
+        }
+
+        .artisan-specialty {
+            font-family: var(--font-accent);
+            font-size: 1.2rem;
+            color: var(--bark-brown);
+            margin-bottom: var(--space-lg);
+        }
+
+        .artisan-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-md);
+            margin: var(--space-lg) 0;
+            text-align: center;
+        }
+
+        .stat {
+            padding: var(--space-sm);
+            background: var(--cream-warm);
+            border-radius: var(--radius-sm);
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--forest-deep);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--warm-brown);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .artisan-description {
+            line-height: 1.6;
+            color: var(--forest-medium);
+            margin-bottom: var(--space-lg);
+        }
+
+        .artisan-actions {
+            display: flex;
+            gap: var(--space-md);
+        }
+
+        .featured-artisan {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-xxl);
+            background: linear-gradient(135deg, var(--aurora-green), var(--aurora-blue));
+            color: white;
+            padding: var(--space-xxl);
+            border-radius: var(--radius-xl);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: var(--space-xxl);
+        }
+
+        .featured-artisan::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: shimmer 6s ease-in-out infinite;
+        }
+
+        .featured-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .featured-image {
+            position: relative;
+            z-index: 2;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .featured-image img {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+        }
+
+        .artisan-techniques {
+            margin: var(--space-xxl) 0;
+        }
+
+        .technique-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-xl);
+            margin-top: var(--space-lg);
+        }
+
+        .technique-card {
+            background: white;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            text-align: center;
+            transition: all var(--transition-medium);
+        }
+
+        .technique-card:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-5px);
+        }
+
+        .technique-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--aurora-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            margin: 0 auto var(--space-lg);
+        }
+
+        .artisan-workshop {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xxl);
+            margin: var(--space-xxl) 0;
+            text-align: center;
+        }
+
+        .workshop-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-xl);
+        }
+
+        .workshop-image {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            height: 200px;
+            position: relative;
+            cursor: pointer;
+            transition: all var(--transition-medium);
+        }
+
+        .workshop-image:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .workshop-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .workshop-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            color: white;
+            padding: var(--space-lg) var(--space-md) var(--space-md);
+            transform: translateY(100%);
+            transition: transform var(--transition-medium);
+        }
+
+        .workshop-image:hover .workshop-overlay {
+            transform: translateY(0);
+        }
+
+        .artisan-testimonials {
+            margin: var(--space-xxl) 0;
+        }
+
+        .testimonial-slider {
+            display: flex;
+            gap: var(--space-xl);
+            overflow-x: auto;
+            padding: var(--space-md) 0;
+            scroll-snap-type: x mandatory;
+        }
+
+        .testimonial {
+            min-width: 350px;
+            background: white;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            scroll-snap-align: start;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .testimonial-text {
+            font-style: italic;
+            line-height: 1.6;
+            margin-bottom: var(--space-lg);
+            color: var(--forest-medium);
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .author-avatar {
+            width: 50px;
+            height: 50px;
+            background: var(--aurora-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .filter-bar {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-md);
+            margin-bottom: var(--space-xxl);
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: var(--space-md) var(--space-lg);
+            border: 2px solid var(--glass-border);
+            background: white;
+            color: var(--forest-deep);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-weight: 500;
+        }
+
+        .filter-btn.active,
+        .filter-btn:hover {
+            border-color: var(--forest-medium);
+            background: var(--forest-medium);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .dostik-artisan-insights {
+            background: linear-gradient(135deg, var(--aurora-purple), var(--aurora-green));
+            color: white;
+            padding: var(--space-xxl);
+            border-radius: var(--radius-lg);
+            margin: var(--space-xxl) 0;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .dostik-artisan-insights::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: shimmer 4s ease-in-out infinite;
+        }
+
+        .insights-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        @media (max-width: 1024px) {
+            .featured-artisan {
+                grid-template-columns: 1fr;
+                gap: var(--space-lg);
+                text-align: center;
+            }
+
+            .artisan-grid {
+                grid-template-columns: 1fr;
+                gap: var(--space-lg);
+            }
+
+            .technique-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-bar {
+                justify-content: flex-start;
+                overflow-x: auto;
+                padding-bottom: var(--space-sm);
+            }
+
+            .filter-btn {
+                flex-shrink: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .artisan-hero {
+                height: 50vh;
+                padding: 0 var(--space-md);
+            }
+
+            .artisan-stats {
+                grid-template-columns: 1fr;
+                gap: var(--space-sm);
+            }
+
+            .artisan-actions {
+                flex-direction: column;
+            }
+
+            .testimonial {
+                min-width: 280px;
+            }
+
+            .workshop-gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .artisan-journey {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: var(--space-xxl);
+            margin: var(--space-xxl) 0;
+            align-items: start;
+        }
+
+        .journey-timeline {
+            position: relative;
+            padding-left: var(--space-xxl);
+        }
+
+        .journey-timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--aurora-green);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: var(--space-xxl);
+            padding: var(--space-lg);
+            background: white;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -37px;
+            top: 20px;
+            width: 16px;
+            height: 16px;
+            background: var(--aurora-green);
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+
+        .timeline-year {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--aurora-green);
+            margin-bottom: var(--space-sm);
+        }
+
+        .timeline-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--forest-deep);
+            margin-bottom: var(--space-sm);
+        }
+
+        .journey-image {
+            position: sticky;
+            top: 120px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            height: 500px;
+            background: var(--cream-warm);
+        }
+
+        .journey-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        @media (max-width: 1024px) {
+            .artisan-journey {
+                grid-template-columns: 1fr;
+                gap: var(--space-lg);
+            }
+
+            .journey-image {
+                position: static;
+                height: 300px;
+                order: -1;
+            }
+
+            .journey-timeline {
+                padding-left: var(--space-lg);
+            }
+
+            .journey-timeline::before {
+                left: 10px;
+            }
+
+            .timeline-item::before {
+                left: -27px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card" style="position: fixed; top: 0; left: 0; right: 0; z-index: 100; margin: var(--space-md); border-radius: var(--radius-lg);">
+        <nav class="navbar container">
+            <div class="nav-brand">
+                <h1 style="margin: 0; font-size: 1.5rem; background: var(--aurora-green); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    <a href="../index.html" style="text-decoration: none; color: inherit;">🐉 DostanWebCSS</a>
+                </h1>
+            </div>
+
+            <div class="nav-search" style="flex: 1; max-width: 400px; margin: 0 var(--space-lg);">
+                <div style="position: relative;">
+                    <input type="text" class="search-input" placeholder="Search artisans & treasures..."
+                           style="width: 100%; padding: var(--space-sm) var(--space-lg) var(--space-sm) 2.5rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); backdrop-filter: var(--glass-backdrop);">
+                    <span style="position: absolute; left: var(--space-md); top: 50%; transform: translateY(-50%); color: var(--warm-brown);">🔍</span>
+                </div>
+            </div>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: var(--space-md);">
+                <button class="nav-link" onclick="window.location.href='products.html'" style="background: none; border: none; color: var(--forest-deep); cursor: pointer;">
+                    Treasures
+                </button>
+                <button class="nav-link active" style="background: none; border: none; color: var(--forest-deep); cursor: pointer; font-weight: 600;">
+                    Artisans
+                </button>
+                <div class="cart-icon" style="position: relative; cursor: pointer;" onclick="window.location.href='cart.html'">
+                    <span style="font-size: 1.5rem;">🛒</span>
+                    <span class="cart-count" style="position: absolute; top: -8px; right: -8px; background: var(--aurora-green); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; display: none;">0</span>
+                </div>
+                <button class="profile-btn" onclick="window.location.href='profile.html'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">👤</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="artisan-hero">
+        <div class="container">
+            <div class="artisan-hero-content">
+                <h1 style="font-size: clamp(3rem, 6vw, 4.5rem); margin-bottom: var(--space-lg); background: linear-gradient(45deg, #ffffff, #e8f5e8); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    🎨 Nordic Master Artisans
+                </h1>
+                <p class="hero-text" style="color: rgba(255, 255, 255, 0.9); max-width: 600px; margin: 0 auto var(--space-xl);">
+                    Meet the legendary craftspeople who breathe life into ancient Nordic traditions,
+                    creating treasures that carry the wisdom of generations
+                </p>
+                <div style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
+                    <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
+                        <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
+                        <div><strong>47</strong><br>Master Artisans</div>
+                    </div>
+                    <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
+                        <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
+                        <div><strong>1,200+</strong><br>Unique Pieces</div>
+                    </div>
+                    <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
+                        <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
+                        <div><strong>4.9/5</strong><br>Avg Rating</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="artisan-page">
+        <div class="container">
+            <!-- Dostik's Artisan Insights -->
+            <section class="dostik-artisan-insights">
+                <div class="insights-content">
+                    <div style="width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin: 0 auto var(--space-lg);">🐉</div>
+                    <h2 style="margin-bottom: var(--space-md);">Dostik's Artisan Wisdom</h2>
+                    <p style="font-size: 1.1rem; line-height: 1.6; max-width: 600px; margin: 0 auto; opacity: 0.95;">
+                        "Each artisan you see here carries ancient Nordic secrets in their hands. I have personally
+                        witnessed their dedication to preserving our mystical traditions. Choose wisely, noble seeker!"
+                    </p>
+                </div>
+            </section>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">🌟 All Artisans</button>
+                <button class="filter-btn" data-filter="wood">🪵 Wood Carvers</button>
+                <button class="filter-btn" data-filter="glass">💎 Glass Artists</button>
+                <button class="filter-btn" data-filter="leather">🛡️ Leather Crafters</button>
+                <button class="filter-btn" data-filter="ceramic">🏺 Ceramic Masters</button>
+                <button class="filter-btn" data-filter="textile">🧶 Textile Weavers</button>
+            </div>
+
+            <!-- Featured Artisan -->
+            <section class="featured-artisan">
+                <div class="featured-content">
+                    <div class="artisan-badge" style="position: static; display: inline-block; margin-bottom: var(--space-md);">⭐ Master of the Month</div>
+                    <h2 style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">Erik Nordström</h2>
+                    <p class="accent-text" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">Legendary Wood Carver</p>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
+                        <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
+                            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">15+</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">Years Mastery</div>
+                        </div>
+                        <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
+                            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">4.9/5</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">Customer Rating</div>
+                        </div>
+                        <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
+                            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">347</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">Pieces Sold</div>
+                        </div>
+                    </div>
+
+                    <p style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
+                        Born in the heart of Sweden's ancient forests, Erik transforms fallen Nordic trees into spiritual
+                        sculptures that capture the very essence of the wilderness. His seven-generation family tradition
+                        of woodworking flows through every piece he creates.
+                    </p>
+
+                    <div style="display: flex; gap: var(--space-md); justify-content: center;">
+                        <button class="btn btn-secondary" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👤 View Profile</button>
+                        <button class="btn btn-accent" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">🎨 View Creations</button>
+                    </div>
+                </div>
+
+                <div class="featured-image">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=600&h=400" alt="Erik Nordström in his workshop">
+                </div>
+            </section>
+
+            <!-- Artisan Grid -->
+            <section class="artisan-grid" id="artisanGrid">
+                <!-- Astrid Björk - Glass Artist -->
+                <div class="artisan-card" data-category="glass">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&w=400&h=300" alt="Astrid Björk Glass Workshop">
+                        <div class="artisan-badge">🔥 Trending</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Astrid Björk</h3>
+                        <p class="artisan-specialty">Glass & Crystal Artisan</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.9</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">89</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">8</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Astrid captures the Northern Lights in glass, creating ethereal pieces that seem to hold
+                            aurora's magical energy within their crystal depths. Based in Reykjavik, Iceland.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🎨 View Gallery</button>
+                            <button class="btn btn-secondary" style="flex: 1;">💬 Message</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Magnus Eriksson - Leather Crafter -->
+                <div class="artisan-card" data-category="leather">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?ixlib=rb-4.0.3&w=400&h=300" alt="Magnus Eriksson Leather Workshop">
+                        <div class="artisan-badge">⚔️ Legendary</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Magnus Eriksson</h3>
+                        <p class="artisan-specialty">Viking Leather & Metal Craftsman</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.8</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">234</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">12</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Magnus forges the spirit of Viking warriors into leather goods and metal works,
+                            each piece telling tales of ancient adventures and Nordic strength.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">⚔️ View Weapons</button>
+                            <button class="btn btn-secondary" style="flex: 1;">📍 Location</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ingrid Svensson - Textile & Candle -->
+                <div class="artisan-card" data-category="textile">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?ixlib=rb-4.0.3&w=400&h=300" alt="Ingrid Svensson Textile Studio">
+                        <div class="artisan-badge">🌿 Organic</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Ingrid Svensson</h3>
+                        <p class="artisan-specialty">Natural Textile & Candle Maker</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.9</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">156</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">6</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Using ancient dyeing techniques and wild Nordic plants, Ingrid creates textiles and candles
+                            that bring the tranquil energy of mountain forests into your sacred space.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🕯️ View Candles</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🌿 Process</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Björn Andersen - Ceramic Master -->
+                <div class="artisan-card" data-category="ceramic">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1578749556568-bc2c40e68393?ixlib=rb-4.0.3&w=400&h=300" alt="Björn Andersen Pottery Studio">
+                        <div class="artisan-badge">🏺 Master</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Björn Andersen</h3>
+                        <p class="artisan-specialty">Nordic Ceramic Master</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.7</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">98</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">20</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Inspired by the deep blue fjords of Norway, Björn creates ceramic vessels that embody
+                            the raw beauty and tranquility of Nordic landscapes in every curve.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🏺 View Pottery</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🎬 Videos</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Freya Jónsdóttir - Mixed Media -->
+                <div class="artisan-card" data-category="wood">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1601027847350-0285867c31f7?ixlib=rb-4.0.3&w=400&h=300" alt="Freya Jónsdóttir Mixed Media Studio">
+                        <div class="artisan-badge">✨ Rising Star</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Freya Jónsdóttir</h3>
+                        <p class="artisan-specialty">Mixed Media Mystic</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.8</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">43</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">3</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Young but incredibly talented, Freya combines wood, stone, and metal to create mystical
+                            sculptures that bridge ancient Nordic spirituality with modern artistic vision.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🔮 View Magic</button>
+                            <button class="btn btn-secondary" style="flex: 1;">📚 Story</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Olaf Brennan - Metalsmith -->
+                <div class="artisan-card" data-category="leather">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1504911061927-c74e0ca75ba7?ixlib=rb-4.0.3&w=400&h=300" alt="Olaf Brennan Forge">
+                        <div class="artisan-badge">🔥 Hot Pick</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Olaf Brennan</h3>
+                        <p class="artisan-specialty">Nordic Metalsmith & Forger</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.6</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">167</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">18</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            From his blazing forge in the Norwegian mountains, Olaf creates metal treasures
+                            using techniques passed down from Viking smiths, each piece carrying ancient fire magic.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🔨 View Forge</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🔥 Process</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Traditional Techniques Section -->
+            <section class="artisan-techniques">
+                <div class="text-center mb-xl">
+                    <h2>🛠️ Ancient Nordic Techniques</h2>
+                    <p class="hero-text">Time-honored methods passed down through generations</p>
+                </div>
+
+                <div class="technique-grid">
+                    <div class="technique-card">
+                        <div class="technique-icon">🪵</div>
+                        <h4 style="margin-bottom: var(--space-md);">Traditional Wood Carving</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            Using hand tools unchanged for centuries, artisans follow the natural grain to reveal
+                            the spirit hiding within Nordic timber.
+                        </p>
+                    </div>
+
+                    <div class="technique-card">
+                        <div class="technique-icon">🔥</div>
+                        <h4 style="margin-bottom: var(--space-md);">Viking Forge Methods</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            Ancient forging techniques create metal that bonds with the maker's spirit,
+                            producing tools and art of legendary strength.
+                        </p>
+                    </div>
+
+                    <div class="technique-card">
+                        <div class="technique-icon">💎</div>
+                        <h4 style="margin-bottom: var(--space-md);">Aurora Glass Blowing</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            A rare technique that captures the essence of Northern Lights within molten glass,
+                            creating pieces that glow with inner aurora.
+                        </p>
+                    </div>
+
+                    <div class="technique-card">
+                        <div class="technique-icon">🧶</div>
+                        <h4 style="margin-bottom: var(--space-md);">Natural Dyeing</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            Colors extracted from wild Nordic berries, roots, and flowers create textiles
+                            that change hue with the seasons.
+                        </p>
+                    </div>
+
+                    <div class="technique-card">
+                        <div class="technique-icon">🏺</div>
+                        <h4 style="margin-bottom: var(--space-md);">Earth Ceramics</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            Clay from sacred Nordic grounds is shaped and fired using methods that honor
+                            the earth spirits dwelling within.
+                        </p>
+                    </div>
+
+                    <div class="technique-card">
+                        <div class="technique-icon">🛡️</div>
+                        <h4 style="margin-bottom: var(--space-md);">Leather Crafting</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            Traditional tanning with oak bark and natural oils creates leather that grows
+                            more beautiful and durable with age and use.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Artisan Journey Timeline -->
+            <section class="artisan-journey">
+                <div class="journey-timeline">
+                    <h2 style="margin-bottom: var(--space-xl);">🌟 Master Erik's Journey</h2>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">1985</div>
+                        <h4 class="timeline-title">Born in the Forest</h4>
+                        <p>Erik was born in a cabin deep in Swedish forests, where ancient pines whispered their secrets to him from birth.</p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">1995</div>
+                        <h4 class="timeline-title">First Carving</h4>
+                        <p>At age 10, Erik carved his first piece - a small raven from fallen birch. His grandfather recognized the gift immediately.</p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">2003</div>
+                        <h4 class="timeline-title">Master's Apprentice</h4>
+                        <p>Began 7-year apprenticeship with Master Björn the Elder, learning secrets of Nordic wood carving passed down for generations.</p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">2010</div>
+                        <h4 class="timeline-title">Master Craftsman</h4>
+                        <p>Completed his masterwork - a life-sized Nordic wolf that seemed to breathe with forest spirit. Achieved Master status.</p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">2015</div>
+                        <h4 class="timeline-title">International Recognition</h4>
+                        <p>Won the Golden Chisel award at the World Nordic Craft Festival. His work began reaching collectors worldwide.</p>
+                    </div>
+
+                    <div class="timeline-item">
+                        <div class="timeline-year">2024</div>
+                        <h4 class="timeline-title">Dostik Partnership</h4>
+                        <p>Joined DostanWebCSS as featured master artisan, bringing authentic Nordic wood carving to digital collectors.</p>
+                    </div>
+                </div>
+
+                <div class="journey-image">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=500&h=600" alt="Erik in his workshop">
+                </div>
+            </section>
+
+            <!-- Workshop Gallery -->
+            <section class="artisan-workshop">
+                <h2 style="margin-bottom: var(--space-md);">🏠 Behind the Magic</h2>
+                <p class="hero-text" style="margin-bottom: 0;">Peek into the sacred workshops where Nordic treasures are born</p>
+
+                <div class="workshop-gallery">
+                    <div class="workshop-image">
+                        <img src="https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&w=300&h=200" alt="Traditional workshop">
+                        <div class="workshop-overlay">
+                            <h4>Erik's Carving Studio</h4>
+                            <p>Where ancient tools meet timeless wood</p>
+                        </div>
+                    </div>
+
+                    <div class="workshop-image">
+                        <img src="https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&w=300&h=200" alt="Glass blowing studio">
+                        <div class="workshop-overlay">
+                            <h4>Astrid's Glass Forge</h4>
+                            <p>Capturing aurora in molten crystal</p>
+                        </div>
+                    </div>
+
+                    <div class="workshop-image">
+                        <img src="https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?ixlib=rb-4.0.3&w=300&h=200" alt="Leather workshop">
+                        <div class="workshop-overlay">
+                            <h4>Magnus's Forge</h4>
+                            <p>Where Viking spirits guide the hammer</p>
+                        </div>
+                    </div>
+
+                    <div class="workshop-image">
+                        <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?ixlib=rb-4.0.3&w=300&h=200" alt="Textile studio">
+                        <div class="workshop-overlay">
+                            <h4>Ingrid's Natural Studio</h4>
+                            <p>Weaving forest magic into fabric</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Customer Testimonials -->
+            <section class="artisan-testimonials">
+                <div class="text-center mb-xl">
+                    <h2>💝 What Collectors Say</h2>
+                    <p class="hero-text">Hear from those whose lives have been touched by Nordic craftsmanship</p>
+                </div>
+
+                <div class="testimonial-slider">
+                    <div class="testimonial">
+                        <p class="testimonial-text">
+                            "Erik's forest sculpture doesn't just sit in our home - it brings the entire spirit
+                            of the Nordic wilderness indoors. You can feel the centuries of tree wisdom within it."
+                        </p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">👤</div>
+                            <div>
+                                <strong>Sarah Mitchell</strong><br>
+                                <small style="color: var(--warm-brown);">Collector from Canada</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="testimonial">
+                        <p class="testimonial-text">
+                            "Astrid's aurora bowl actually seems to glow in different lighting. My friends can't
+                            believe it's not electronic - it's pure glass magic that captures real Northern Lights!"
+                        </p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">👨</div>
+                            <div>
+                                <strong>James Chen</strong><br>
+                                <small style="color: var(--warm-brown);">Art Enthusiast, California</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="testimonial">
+                        <p class="testimonial-text">
+                            "Magnus crafted a leather satchel that tells the story of my own adventures.
+                            Every mark and patina adds to its character - true Viking heritage in modern form."
+                        </p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">👩</div>
+                            <div>
+                                <strong>Emma Rodriguez</strong><br>
+                                <small style="color: var(--warm-brown);">Travel Writer, Spain</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="testimonial">
+                        <p class="testimonial-text">
+                            "Working with these artisans through DostanWebCSS has been magical. Dostik helped me
+                            find the perfect piece, and the connection to Nordic culture is authentic and deep."
+                        </p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">🧔</div>
+                            <div>
+                                <strong>Lars Andersson</strong><br>
+                                <small style="color: var(--warm-brown);">Museum Curator, Sweden</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+
+    <script>
+        class ArtisanPage {
+            constructor() {
+                this.currentFilter = 'all';
+                this.artisans = document.querySelectorAll('.artisan-card');
+                this.init();
+            }
+
+            init() {
+                this.setupFiltering();
+                this.setupArtisanInteractions();
+                this.setupWorkshopGallery();
+                this.setupScrollAnimations();
+                this.showDostikInsights();
+            }
+
+            setupFiltering() {
+                const filterBtns = document.querySelectorAll('.filter-btn');
+
+                filterBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const filter = btn.dataset.filter;
+
+                        // Update active filter button
+                        filterBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+
+                        // Filter artisans
+                        this.filterArtisans(filter);
+
+                        // Dostik commentary
+                        if (window.dostikAI) {
+                            const filterMessages = {
+                                all: "Wise choice! All our Nordic masters await your discovery! 🐉✨",
+                                wood: "Ah, you seek the wood whisperers! Their hands speak the language of ancient forests! 🪵🌲",
+                                glass: "Glass artists who capture aurora itself! Truly magical beings! 💎❄️",
+                                leather: "The Viking crafters! Their leather carries the strength of ancient warriors! ⚔️🛡️",
+                                ceramic: "Earth shapers who mold Nordic soil into vessels of beauty! 🏺🌍",
+                                textile: "Weavers of forest magic! Their threads connect you to nature's rhythm! 🧶🍃"
+                            };
+                            window.dostikAI.addChatMessage(filterMessages[filter] || "Excellent taste in artisan selection! 🐉");
+                        }
+                    });
+                });
+            }
+
+            filterArtisans(filter) {
+                this.artisans.forEach((artisan, index) => {
+                    const category = artisan.dataset.category;
+                    const shouldShow = filter === 'all' || category === filter;
+
+                    if (shouldShow) {
+                        // Animate in
+                        artisan.style.display = 'block';
+                        setTimeout(() => {
+                            artisan.style.opacity = '1';
+                            artisan.style.transform = 'translateY(0) scale(1)';
+                        }, index * 100);
+                    } else {
+                        // Animate out
+                        artisan.style.opacity = '0';
+                        artisan.style.transform = 'translateY(20px) scale(0.95)';
+                        setTimeout(() => {
+                            artisan.style.display = 'none';
+                        }, 300);
+                    }
+                });
+            }
+
+            setupArtisanInteractions() {
+                this.artisans.forEach(card => {
+                    // Hover effects
+                    card.addEventListener('mouseenter', () => {
+                        card.style.transform = 'translateY(-10px) rotateY(5deg) scale(1.02)';
+                    });
+
+                    card.addEventListener('mouseleave', () => {
+                        card.style.transform = 'translateY(0) rotateY(0deg) scale(1)';
+                    });
+
+                    // Button interactions
+                    const buttons = card.querySelectorAll('button');
+                    buttons.forEach(button => {
+                        button.addEventListener('click', () => {
+                            const artisanName = card.querySelector('.artisan-name').textContent;
+                            const buttonText = button.textContent;
+
+                            // Visual feedback
+                            const originalText = button.textContent;
+                            button.textContent = '✨ Loading...';
+                            button.disabled = true;
+
+                            setTimeout(() => {
+                                if (buttonText.includes('View Gallery') || buttonText.includes('View')) {
+                                    alert(`🎨 ${artisanName}'s gallery is opening! Prepare to be amazed by Nordic craftsmanship!`);
+                                } else if (buttonText.includes('Message')) {
+                                    alert(`💬 Opening chat with ${artisanName}! They'll respond within 24 hours.`);
+                                } else {
+                                    alert(`🔍 Exploring ${artisanName}'s ${buttonText.replace(/[^a-zA-Z ]/g, '')}...`);
+                                }
+
+                                button.textContent = originalText;
+                                button.disabled = false;
+
+                                // Dostik commentary
+                                if (window.dostikAI) {
+                                    const comments = [
+                                        `Excellent choice! ${artisanName} creates true Nordic magic! 🐉✨`,
+                                        `${artisanName} will be honored by your interest! Their craft runs deep! 🎨`,
+                                        `I sense ${artisanName}'s work calling to your collector's spirit! 💫`
+                                    ];
+                                    const comment = comments[Math.floor(Math.random() * comments.length)];
+                                    window.dostikAI.addChatMessage(comment);
+                                }
+                            }, 1500);
+                        });
+                    });
+                });
+            }
+
+            setupWorkshopGallery() {
+                const workshopImages = document.querySelectorAll('.workshop-image');
+
+                workshopImages.forEach(image => {
+                    image.addEventListener('click', () => {
+                        const title = image.querySelector('h4').textContent;
+                        const description = image.querySelector('p').textContent;
+
+                        // Create modal effect
+                        const modal = document.createElement('div');
+                        modal.style.cssText = `
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0, 0, 0, 0.8);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            z-index: 10000;
+                            cursor: pointer;
+                        `;
+
+                        const modalContent = document.createElement('div');
+                        modalContent.style.cssText = `
+                            background: white;
+                            border-radius: var(--radius-lg);
+                            padding: var(--space-xl);
+                            max-width: 500px;
+                            margin: var(--space-lg);
+                            text-align: center;
+                        `;
+
+                        modalContent.innerHTML = `
+                            <div style="font-size: 3rem; margin-bottom: var(--space-md);">🏠</div>
+                            <h3 style="margin-bottom: var(--space-md); color: var(--forest-deep);">${title}</h3>
+                            <p style="color: var(--forest-medium); line-height: 1.6; margin-bottom: var(--space-lg);">${description}</p>
+                            <p style="font-size: 0.9rem; color: var(--warm-brown);">Virtual workshop tours coming soon! 📹</p>
+                        `;
+
+                        modal.appendChild(modalContent);
+                        document.body.appendChild(modal);
+
+                        modal.addEventListener('click', () => {
+                            document.body.removeChild(modal);
+                        });
+                    });
+                });
+            }
+
+            setupScrollAnimations() {
+                const observerOptions = {
+                    threshold: 0.1,
+                    rootMargin: '0px 0px -50px 0px'
+                };
+
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }
+                    });
+                }, observerOptions);
+
+                // Observe all major sections
+                document.querySelectorAll('.technique-card, .timeline-item, .testimonial').forEach(element => {
+                    element.style.opacity = '0';
+                    element.style.transform = 'translateY(30px)';
+                    element.style.transition = 'all 0.6s ease-out';
+                    observer.observe(element);
+                });
+            }
+
+            showDostikInsights() {
+                setTimeout(() => {
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage("Welcome to our artisan realm! These Nordic masters have been chosen by ancient spirits themselves. Each carries secrets of their craft passed down through generations! 🐉🎨");
+                    }
+                }, 3000);
+            }
+        }
+
+        // Initialize artisan page
+        document.addEventListener('DOMContentLoaded', () => {
+            new ArtisanPage();
+
+            // Add smooth scrolling for internal links
+            document.addEventListener('click', (e) => {
+                if (e.target.matches('a[href^="#"]')) {
+                    e.preventDefault();
+                    const target = document.querySelector(e.target.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }
+            });
+
+            // Enhanced testimonial slider
+            const testimonialSlider = document.querySelector('.testimonial-slider');
+            if (testimonialSlider) {
+                // Auto-scroll testimonials
+                let scrollAmount = 0;
+                setInterval(() => {
+                    scrollAmount += 370; // Width of testimonial + gap
+                    if (scrollAmount >= testimonialSlider.scrollWidth) {
+                        scrollAmount = 0;
+                    }
+                    testimonialSlider.scrollTo({
+                        left: scrollAmount,
+                        behavior: 'smooth'
+                    });
+                }, 5000);
+            }
+        });
+    </script>
+
+    <!-- Footer -->
+    <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+                <div>
+                    <h4 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h4>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <div style="display: flex; gap: var(--space-md);">
+                        <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">🐦</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📷</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Quick Links</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="../index.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a></li>
+                        <li><a href="products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
+                        <li><a href="artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
+                        <li><a href="cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Support</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Nordic Wisdom</h5>
+                    <p style="opacity: 0.8; font-style: italic; margin-bottom: var(--space-md);">
+                        "Every treasure tells a story, every artisan carries ancient wisdom."
+                    </p>
+                    <p style="opacity: 0.6; font-size: 0.9rem;">
+                        - Dostik the Dragon
+                    </p>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+                <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

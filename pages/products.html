@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Treasures - DostanWebCSS Nordic Marketplace</title>
+    <meta name="description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://dostanwebcss.com/pages/products.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dostanwebcss.com/pages/products.html">
+    <meta property="og:title" content="All Treasures - DostanWebCSS Nordic Marketplace">
+    <meta property="og:description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+    <meta property="og:site_name" content="DostanWebCSS">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="All Treasures - DostanWebCSS Nordic Marketplace">
+    <meta name="twitter:description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap"></noscript>
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="../assets/css/main.css" as="style">
+    <link rel="preload" href="../assets/js/dostik-ai.js" as="script">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+    <link rel="stylesheet" href="../assets/css/product-modal.css">
+
+    <style>
+        /* Products page specific styles */
+        .filters-sidebar {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        .filter-group {
+            margin-bottom: var(--space-xl);
+        }
+
+        .filter-group h4 {
+            color: var(--forest-deep);
+            margin-bottom: var(--space-md);
+            font-size: 1.1rem;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+            cursor: pointer;
+            transition: color var(--transition-fast);
+        }
+
+        .filter-option:hover {
+            color: var(--forest-medium);
+        }
+
+        .filter-option input[type="checkbox"],
+        .filter-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--forest-medium);
+        }
+
+        .price-range-slider {
+            width: 100%;
+            margin: var(--space-md) 0;
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: var(--space-md);
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-xl);
+            padding: var(--space-md) var(--space-lg);
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .view-toggle button {
+            padding: var(--space-sm);
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .view-toggle button.active {
+            background: var(--forest-medium);
+            color: white;
+        }
+
+        .products-grid-view .products-container {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+
+        .products-list-view .products-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        .products-list-view .product-card {
+            display: flex;
+            transform: none !important;
+            margin: 0 !important;
+            max-width: none;
+            height: auto;
+        }
+
+        .products-list-view .product-image {
+            width: 200px;
+            height: 150px;
+            flex-shrink: 0;
+        }
+
+        .results-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-lg);
+            color: var(--warm-brown);
+        }
+
+        .mobile-filter-toggle {
+            display: none;
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            margin-bottom: var(--space-lg);
+        }
+
+        @media (max-width: 1024px) {
+            .products-layout {
+                display: block;
+            }
+
+            .filters-sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 80%;
+                max-width: 300px;
+                height: 100vh;
+                z-index: 1000;
+                overflow-y: auto;
+                transition: left var(--transition-medium);
+            }
+
+            .filters-sidebar.open {
+                left: 0;
+            }
+
+            .mobile-filter-toggle {
+                display: block;
+            }
+
+            .filter-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                transition: all var(--transition-medium);
+            }
+
+            .filter-overlay.active {
+                opacity: 1;
+                visibility: visible;
+            }
+        }
+
+        .dostik-recommendations {
+            background: linear-gradient(135deg, var(--aurora-green), var(--aurora-blue));
+            color: white;
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dostik-recommendations::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(180deg); }
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card" role="banner">
+        <nav class="navbar container" role="navigation" aria-label="Main navigation">
+            <div class="nav-brand">
+                <h1><a href="../index.html">🐉 DostanWebCSS</a></h1>
+            </div>
+
+            <div class="nav-search">
+                <div class="search-container">
+                    <label for="globalSearch" class="sr-only">Search for treasures</label>
+                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch" aria-label="Search for treasures">
+                    <input type="hidden" id="searchInput">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <span class="nav-link active" aria-current="page">
+                    Treasures
+                </span>
+                <a href="artisan.html" class="nav-link">
+                    Artisans
+                </a>
+                <a href="cart.html" class="cart-icon" aria-label="Shopping cart">
+                    <span aria-hidden="true">🛒</span>
+                    <span class="cart-count" aria-label="0 items in cart">0</span>
+                </a>
+                <a href="profile.html" class="profile-btn" aria-label="User profile">
+                    <span aria-hidden="true">👤</span>
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" style="padding-top: 120px;" role="main">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="text-center mb-xl">
+                <h1>All Nordic Treasures</h1>
+                <p class="hero-text">Discover handcrafted masterpieces with Dostik's guidance</p>
+            </div>
+
+            <!-- Dostik's AI Recommendations -->
+            <section class="dostik-recommendations" aria-labelledby="dostik-recommendations-title">
+                <h2 id="dostik-recommendations-title" style="margin-bottom: var(--space-md);">🐉 Dostik's Mystical Recommendations</h2>
+                <p style="margin-bottom: var(--space-lg); opacity: 0.9;">
+                    Based on the Nordic winds and ancient wisdom, I sense these treasures calling to you today...
+                </p>
+                <div style="display: flex; gap: var(--space-md); justify-content: center; flex-wrap: wrap;">
+                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">🔥 Trending</span>
+                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">✨ New Arrivals</span>
+                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">👑 Limited Edition</span>
+                </div>
+            </section>
+
+            <!-- Mobile Filter Toggle -->
+            <button class="mobile-filter-toggle" id="mobileFilterToggle" type="button" aria-expanded="false" aria-controls="filtersSidebar">
+                <span aria-hidden="true">🔍</span> Filters & Sort
+            </button>
+
+            <!-- Filter Overlay -->
+            <div class="filter-overlay" id="filterOverlay"></div>
+
+            <!-- Main Layout -->
+            <div class="products-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: var(--space-xl);">
+                <!-- Filters Sidebar -->
+                <aside class="filters-sidebar" id="filtersSidebar">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
+                        <h3 style="margin: 0;">Mystical Filters</h3>
+                        <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="filter-group">
+                        <h4>🏷️ Categories</h4>
+                        <div id="categoryFilters">
+                            <!-- Categories will be loaded dynamically from API -->
+                            <p style="color: #666; font-size: 0.9rem;">Loading categories...</p>
+                        </div>
+                    </div>
+
+                    <!-- Price Range -->
+                    <div class="filter-group">
+                        <h4>💰 Price Range</h4>
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="1000" value="500">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
+                            <span>$0</span>
+                            <span id="priceValue">$500</span>
+                            <span>$1000+</span>
+                        </div>
+                    </div>
+
+                    <!-- Artisan Filter -->
+                    <div class="filter-group">
+                        <h4>🎨 Artisan</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="erik">
+                            <span>Erik Nordström</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="astrid">
+                            <span>Astrid Björk</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="magnus">
+                            <span>Magnus Eriksson</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="ingrid">
+                            <span>Ingrid Svensson</span>
+                        </label>
+                    </div>
+
+                    <!-- Rating Filter -->
+                    <div class="filter-group">
+                        <h4>⭐ Rating</h4>
+                        <label class="filter-option">
+                            <input type="radio" name="rating" value="5">
+                            <span>★★★★★ 5 Stars</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="rating" value="4">
+                            <span>★★★★☆ 4+ Stars</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="rating" value="3">
+                            <span>★★★☆☆ 3+ Stars</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="rating" value="">
+                            <span>All Ratings</span>
+                        </label>
+                    </div>
+
+                    <!-- Material Filter -->
+                    <div class="filter-group">
+                        <h4>🌿 Materials</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="material" value="wood">
+                            <span>Wood</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="material" value="glass">
+                            <span>Glass</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="material" value="leather">
+                            <span>Leather</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="material" value="ceramic">
+                            <span>Ceramic</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="material" value="metal">
+                            <span>Metal</span>
+                        </label>
+                    </div>
+
+                    <!-- Clear Filters -->
+                    <button class="btn btn-secondary" id="clearFilters" style="width: 100%;">
+                        🧹 Clear All Filters
+                    </button>
+                </aside>
+
+                <!-- Products Content -->
+                <div class="products-content">
+                    <!-- Sort Controls -->
+                    <div class="sort-controls">
+                        <div class="results-info">
+                            <span id="resultsCount">Showing all treasures</span>
+                        </div>
+
+                        <div style="display: flex; gap: var(--space-md); align-items: center;">
+                            <select id="sortSelect" style="padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--glass-bg);">
+                                <option value="featured">🌟 Featured</option>
+                                <option value="price-low">💰 Price: Low to High</option>
+                                <option value="price-high">💰 Price: High to Low</option>
+                                <option value="rating">⭐ Highest Rated</option>
+                                <option value="newest">🆕 Newest First</option>
+                                <option value="popular">🔥 Most Popular</option>
+                            </select>
+
+                            <div class="view-toggle">
+                                <button id="gridView" class="active" title="Grid View">⊞</button>
+                                <button id="listView" title="List View">☰</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products Grid -->
+                    <div class="products-grid-view">
+                        <div class="products-container asymmetric-grid" id="productsContainer">
+                            <!-- Products will be dynamically loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal will be created dynamically by JavaScript -->
+
+    <!-- Scripts -->
+    <!-- Performance & Security - Load First -->
+    <script src="../assets/js/security-utils.js"></script>
+    <script src="../assets/js/error-handler.js"></script>
+    <script src="../assets/js/lazy-load.js"></script>
+    <script src="../assets/js/performance-monitor.js"></script>
+
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+
+    <!-- Page Scripts -->
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/product-modal.js"></script>
+    <script src="../assets/js/products-api.js"></script>
+
+    <!-- Old inline code - now replaced by products-api.js
+    <script>
+        class ProductsPage {
+            constructor() {
+                this.allProducts = [];
+                this.filteredProducts = [];
+                this.currentView = 'grid';
+                this.filters = {
+                    categories: [],
+                    artisans: [],
+                    materials: [],
+                    priceRange: 500,
+                    rating: '',
+                    search: ''
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.generateMockProducts();
+                this.setupEventListeners();
+                this.renderProducts();
+                this.updateResultsCount();
+            }
+
+            generateMockProducts() {
+                const categories = ['handmade', 'limited', 'new', 'premium'];
+                const artisans = [
+                    {id: 'erik', name: 'Erik Nordström'},
+                    {id: 'astrid', name: 'Astrid Björk'},
+                    {id: 'magnus', name: 'Magnus Eriksson'},
+                    {id: 'ingrid', name: 'Ingrid Svensson'}
+                ];
+                const materials = ['wood', 'glass', 'leather', 'ceramic', 'metal'];
+                const products = [
+                    'Nordic Forest Sculpture', 'Aurora Glass Bowl', 'Viking Leather Satchel', 'Mountain Pine Candle',
+                    'Fjord Ceramic Vase', 'Sage Wood Carving', 'Midnight Oil Painting', 'Storm Cloud Tapestry',
+                    'Glacier Crystal Set', 'Rune Stone Collection', 'Nordic Wind Chimes', 'Ancient Tree Ring',
+                    'Aurora Borealis Lamp', 'Viking Shield Replica', 'Frost Crystal Ornament', 'Nordic Herb Blend',
+                    'Mystical Moon Phase', 'Dragon Scale Jewelry', 'Forest Guardian Statue', 'Nordic Star Map'
+                ];
+
+                this.allProducts = Array.from({length: 24}, (_, i) => {
+                    const artisan = artisans[Math.floor(Math.random() * artisans.length)];
+                    const category = categories[Math.floor(Math.random() * categories.length)];
+                    const material = materials[Math.floor(Math.random() * materials.length)];
+
+                    return {
+                        id: i + 1,
+                        title: products[Math.floor(Math.random() * products.length)] + ' #' + (i + 1),
+                        artisan: artisan,
+                        price: Math.floor(Math.random() * 800 + 50),
+                        originalPrice: Math.random() > 0.6 ? Math.floor(Math.random() * 1000 + 100) : null,
+                        category: category,
+                        material: material,
+                        rating: (Math.random() * 2 + 3).toFixed(1),
+                        purchases: Math.floor(Math.random() * 500 + 20),
+                        description: `A masterpiece of ${material} craftsmanship by ${artisan.name}, embodying Nordic tradition and modern artistry.`,
+                        image: `https://picsum.photos/400/300?random=${i + 100}`,
+                        isNew: Math.random() > 0.7,
+                        featured: Math.random() > 0.8
+                    };
+                });
+
+                this.filteredProducts = [...this.allProducts];
+            }
+
+            setupEventListeners() {
+                // Filter controls
+                document.querySelectorAll('input[name="category"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', () => this.updateFilters());
+                });
+
+                document.querySelectorAll('input[name="artisan"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', () => this.updateFilters());
+                });
+
+                document.querySelectorAll('input[name="material"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', () => this.updateFilters());
+                });
+
+                document.querySelectorAll('input[name="rating"]').forEach(radio => {
+                    radio.addEventListener('change', () => this.updateFilters());
+                });
+
+                // Price range
+                const priceRange = document.getElementById('priceRange');
+                const priceValue = document.getElementById('priceValue');
+                priceRange.addEventListener('input', (e) => {
+                    priceValue.textContent = `$${e.target.value}`;
+                    this.filters.priceRange = parseInt(e.target.value);
+                    this.updateFilters();
+                });
+
+                // Search
+                document.getElementById('globalSearch').addEventListener('input', (e) => {
+                    this.filters.search = e.target.value.toLowerCase();
+                    this.updateFilters();
+                });
+
+                // Sort
+                document.getElementById('sortSelect').addEventListener('change', (e) => {
+                    this.sortProducts(e.target.value);
+                });
+
+                // View toggle
+                document.getElementById('gridView').addEventListener('click', () => this.setView('grid'));
+                document.getElementById('listView').addEventListener('click', () => this.setView('list'));
+
+                // Clear filters
+                document.getElementById('clearFilters').addEventListener('click', () => this.clearAllFilters());
+
+                // Mobile filters
+                document.getElementById('mobileFilterToggle').addEventListener('click', () => this.toggleMobileFilters());
+                document.getElementById('closeMobileFilters').addEventListener('click', () => this.toggleMobileFilters());
+                document.getElementById('filterOverlay').addEventListener('click', () => this.toggleMobileFilters());
+            }
+
+            updateFilters() {
+                // Get selected categories
+                this.filters.categories = Array.from(document.querySelectorAll('input[name="category"]:checked'))
+                    .map(cb => cb.value);
+
+                // Get selected artisans
+                this.filters.artisans = Array.from(document.querySelectorAll('input[name="artisan"]:checked'))
+                    .map(cb => cb.value);
+
+                // Get selected materials
+                this.filters.materials = Array.from(document.querySelectorAll('input[name="material"]:checked'))
+                    .map(cb => cb.value);
+
+                // Get selected rating
+                const selectedRating = document.querySelector('input[name="rating"]:checked');
+                this.filters.rating = selectedRating ? selectedRating.value : '';
+
+                this.applyFilters();
+            }
+
+            applyFilters() {
+                this.filteredProducts = this.allProducts.filter(product => {
+                    // Category filter
+                    if (this.filters.categories.length > 0 && !this.filters.categories.includes(product.category)) {
+                        return false;
+                    }
+
+                    // Artisan filter
+                    if (this.filters.artisans.length > 0 && !this.filters.artisans.includes(product.artisan.id)) {
+                        return false;
+                    }
+
+                    // Material filter
+                    if (this.filters.materials.length > 0 && !this.filters.materials.includes(product.material)) {
+                        return false;
+                    }
+
+                    // Price filter
+                    if (product.price > this.filters.priceRange) {
+                        return false;
+                    }
+
+                    // Rating filter
+                    if (this.filters.rating && parseFloat(product.rating) < parseFloat(this.filters.rating)) {
+                        return false;
+                    }
+
+                    // Search filter
+                    if (this.filters.search &&
+                        !product.title.toLowerCase().includes(this.filters.search) &&
+                        !product.artisan.name.toLowerCase().includes(this.filters.search) &&
+                        !product.description.toLowerCase().includes(this.filters.search)) {
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                this.renderProducts();
+                this.updateResultsCount();
+            }
+
+            sortProducts(sortType) {
+                switch (sortType) {
+                    case 'price-low':
+                        this.filteredProducts.sort((a, b) => a.price - b.price);
+                        break;
+                    case 'price-high':
+                        this.filteredProducts.sort((a, b) => b.price - a.price);
+                        break;
+                    case 'rating':
+                        this.filteredProducts.sort((a, b) => b.rating - a.rating);
+                        break;
+                    case 'newest':
+                        this.filteredProducts.sort((a, b) => b.isNew - a.isNew);
+                        break;
+                    case 'popular':
+                        this.filteredProducts.sort((a, b) => b.purchases - a.purchases);
+                        break;
+                    case 'featured':
+                    default:
+                        this.filteredProducts.sort((a, b) => b.featured - a.featured);
+                        break;
+                }
+
+                this.renderProducts();
+            }
+
+            renderProducts() {
+                const container = document.getElementById('productsContainer');
+                container.innerHTML = '';
+
+                this.filteredProducts.forEach(product => {
+                    const productElement = this.createProductCard(product);
+                    container.appendChild(productElement);
+                });
+
+                // Re-initialize Dostik bubbles
+                if (window.dostikAI) {
+                    setTimeout(() => window.dostikAI.initializeProductBubbles(), 100);
+                }
+            }
+
+            createProductCard(product) {
+                const card = document.createElement('div');
+                card.className = `product-card ${product.category} fade-in`;
+                card.dataset.productId = product.id;
+                card.dataset.category = product.category;
+                card.dataset.artisan = product.artisan.name;
+                card.dataset.artisanBio = `Expert ${product.material} artisan with years of Nordic craftsmanship experience.`;
+                card.dataset.artisanLocation = 'Nordic Region';
+                card.dataset.material = product.material;
+                card.dataset.dimensions = '20cm × 15cm × 10cm';
+                card.dataset.weight = '1.0kg';
+                card.dataset.technique = `Traditional ${product.material} crafting techniques`;
+
+                const badges = product.category ? `<span class="badge ${product.category}">${product.category}</span>` : '';
+                const originalPrice = product.originalPrice ? `<span class="price-original">$${product.originalPrice}</span>` : '';
+                const newBadge = product.isNew ? `<span class="badge new">new</span>` : '';
+
+                card.innerHTML = `
+                    <div class="journey-indicator"></div>
+                    <div class="product-image">
+                        <img src="${product.image}" alt="${product.title}" loading="lazy">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-title">${product.title}</h3>
+                        <p class="product-artisan">by ${product.artisan.name}</p>
+                        <p class="product-description">${product.description}</p>
+                        <div class="social-proof">
+                            <span class="rating-stars">${'★'.repeat(Math.floor(product.rating))}</span>
+                            <span class="rating-value">${product.rating}</span>
+                            <span class="purchases-count">${product.purchases} sold</span>
+                        </div>
+                        <div class="product-badges">
+                            ${badges}${newBadge}
+                        </div>
+                        <div class="product-price">
+                            <span class="price-current">$${product.price}</span>
+                            ${originalPrice}
+                        </div>
+                        <div class="product-actions">
+                            <button class="btn btn-card btn-add-cart" data-product-id="${product.id}">
+                                Add to Cart
+                            </button>
+                            <button class="btn btn-card btn-wishlist" data-product-id="${product.id}">
+                                <span class="heart-icon">♡</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                return card;
+            }
+
+            setView(view) {
+                this.currentView = view;
+                const container = document.querySelector('.products-content');
+                const gridBtn = document.getElementById('gridView');
+                const listBtn = document.getElementById('listView');
+
+                if (view === 'grid') {
+                    container.className = 'products-content products-grid-view';
+                    gridBtn.classList.add('active');
+                    listBtn.classList.remove('active');
+                } else {
+                    container.className = 'products-content products-list-view';
+                    listBtn.classList.add('active');
+                    gridBtn.classList.remove('active');
+                }
+            }
+
+            updateResultsCount() {
+                const count = this.filteredProducts.length;
+                const total = this.allProducts.length;
+                const resultsElement = document.getElementById('resultsCount');
+
+                if (count === total) {
+                    resultsElement.textContent = `Showing all ${total} treasures`;
+                } else {
+                    resultsElement.textContent = `Showing ${count} of ${total} treasures`;
+                }
+            }
+
+            clearAllFilters() {
+                // Reset all checkboxes and radios
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+
+                // Reset price range
+                document.getElementById('priceRange').value = 500;
+                document.getElementById('priceValue').textContent = '$500';
+
+                // Reset search
+                document.getElementById('globalSearch').value = '';
+
+                // Reset filters object
+                this.filters = {
+                    categories: [],
+                    artisans: [],
+                    materials: [],
+                    priceRange: 500,
+                    rating: '',
+                    search: ''
+                };
+
+                this.filteredProducts = [...this.allProducts];
+                this.renderProducts();
+                this.updateResultsCount();
+            }
+
+            toggleMobileFilters() {
+                const sidebar = document.getElementById('filtersSidebar');
+                const overlay = document.getElementById('filterOverlay');
+                const closeBtn = document.getElementById('closeMobileFilters');
+
+                if (sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                    closeBtn.style.display = 'none';
+                } else {
+                    sidebar.classList.add('open');
+                    overlay.classList.add('active');
+                    closeBtn.style.display = 'block';
+                }
+            }
+        }
+
+        // Initialize products page
+        document.addEventListener('DOMContentLoaded', () => {
+            new ProductsPage();
+        });
+    </script>
+    -->
+
+    <!-- Footer -->
+    <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+                <div>
+                    <h4 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h4>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <div style="display: flex; gap: var(--space-md);">
+                        <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">🐦</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📷</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Quick Links</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="../index.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a></li>
+                        <li><a href="products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
+                        <li><a href="artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
+                        <li><a href="cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Support</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Nordic Wisdom</h5>
+                    <p style="opacity: 0.8; font-style: italic; margin-bottom: var(--space-md);">
+                        "Every treasure tells a story, every artisan carries ancient wisdom."
+                    </p>
+                    <p style="opacity: 0.6; font-size: 0.9rem;">
+                        - Dostik the Dragon
+                    </p>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+                <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

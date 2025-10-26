@@ -1,0 +1,2565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Checkout - DostanWebCSS Nordic Marketplace</title>
+    <meta name="description" content="Complete your Nordic treasure purchase with secure payment options and Dostik's guidance">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://dostanwebcss.com/pages/checkout.html">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+
+    <!-- Screen reader CSS -->
+    <style>
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* ===== CHECKOUT PAGE STYLES ===== */
+
+        /* Base Layout */
+        body {
+            position: relative;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(74, 139, 108, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 195, 74, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(200, 230, 201, 0.08) 0%, transparent 50%);
+            animation: float 25s ease-in-out infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+            33% {
+                transform: translateY(-15px) rotate(0.5deg) scale(1.02);
+            }
+            66% {
+                transform: translateY(8px) rotate(-0.5deg) scale(0.98);
+            }
+        }
+
+        /* ===== HEADER NAVIGATION ===== */
+        .header {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: var(--space-md) 0;
+            will-change: transform;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 var(--space-md);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-link {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            text-decoration: none;
+            color: var(--forest-deep);
+            font-weight: 700;
+            font-size: 1.2rem;
+            transition: transform var(--transition-medium);
+            will-change: transform;
+        }
+
+        .brand-link:hover {
+            transform: scale(1.05);
+        }
+
+        .brand-icon {
+            font-size: 2rem;
+        }
+
+        .nav-menu {
+            display: flex;
+        }
+
+        .nav-list {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: var(--space-lg);
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--forest-medium);
+            font-weight: 500;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-medium);
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: var(--forest-deep);
+            background: rgba(74, 139, 108, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 var(--space-md);
+        }
+
+        /* ===== MAIN LAYOUT ===== */
+        .checkout-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-xl) var(--space-md);
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: var(--space-xxl);
+            align-items: start;
+            position: relative;
+            z-index: 1;
+        }
+
+        .checkout-main {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xxl);
+            box-shadow: var(--shadow-medium);
+            position: relative;
+            overflow: hidden;
+            will-change: transform;
+        }
+
+        .checkout-main::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                var(--aurora-green) 20%,
+                rgba(74, 139, 108, 0.8) 50%,
+                var(--aurora-green) 80%,
+                transparent 100%
+            );
+            opacity: 0.7;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        }
+
+        .checkout-sidebar {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            box-shadow: var(--shadow-medium);
+            position: sticky;
+            top: calc(var(--space-xl) + 80px);
+            transition: all var(--transition-medium);
+            will-change: transform;
+        }
+
+        .checkout-sidebar:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-strong);
+        }
+
+        .checkout-header {
+            text-align: center;
+            margin-bottom: var(--space-xxl);
+            position: relative;
+        }
+
+        .checkout-title {
+            font-size: 2.5rem;
+            color: var(--forest-deep);
+            margin-bottom: var(--space-md);
+            font-family: var(--font-accent);
+        }
+
+        .checkout-subtitle {
+            color: var(--forest-medium);
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            margin: var(--space-xl) 0;
+            position: relative;
+        }
+
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex: 1;
+            max-width: 120px;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--cream-soft);
+            border: 2px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--forest-medium);
+            transition: all var(--transition-medium);
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-circle.active {
+            background: var(--aurora-green);
+            border-color: var(--aurora-green);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .step-circle.completed {
+            background: var(--forest-deep);
+            border-color: var(--forest-deep);
+            color: white;
+        }
+
+        .step-label {
+            margin-top: var(--space-sm);
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .step-connector {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            right: -50%;
+            height: 2px;
+            background: var(--glass-border);
+            z-index: 1;
+        }
+
+        .step-connector.completed {
+            background: var(--forest-deep);
+        }
+
+        .form-section {
+            margin-bottom: var(--space-xxl);
+            padding: var(--space-xl);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            transition: all var(--transition-medium);
+        }
+
+        .form-section:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(74, 139, 108, 0.3);
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            color: var(--forest-deep);
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-lg);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-sm);
+            font-weight: 500;
+            color: var(--forest-deep);
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--space-md);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            font-size: 1rem;
+            transition: all var(--transition-medium);
+            position: relative;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--aurora-green);
+            box-shadow: 0 0 0 3px rgba(74, 139, 108, 0.1),
+                        0 0 20px rgba(74, 139, 108, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            transform: translateY(-1px);
+        }
+
+        .form-input:valid {
+            border-color: rgba(39, 174, 96, 0.5);
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .payment-method {
+            padding: var(--space-lg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-medium);
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .payment-method:hover {
+            border-color: var(--aurora-green);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .payment-method.selected {
+            border-color: var(--aurora-green);
+            background: rgba(74, 139, 108, 0.1);
+        }
+
+        .payment-icon {
+            font-size: 2rem;
+            margin-bottom: var(--space-sm);
+        }
+
+        .payment-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--forest-deep);
+        }
+
+        .payment-desc {
+            font-size: 0.75rem;
+            color: var(--forest-medium);
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .payment-details {
+            margin-top: var(--space-lg);
+            padding: var(--space-lg);
+            background: rgba(74, 139, 108, 0.05);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+        }
+
+        .payment-info h3 {
+            margin-bottom: var(--space-md);
+            color: var(--forest-deep);
+            font-size: 1.1rem;
+        }
+
+        .payment-info p {
+            margin-bottom: var(--space-md);
+            color: var(--forest-medium);
+        }
+
+        .crypto-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .crypto-options label {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            cursor: pointer;
+            padding: var(--space-sm);
+            border-radius: var(--radius-sm);
+            transition: background var(--transition-fast);
+        }
+
+        .crypto-options label:hover {
+            background: rgba(74, 139, 108, 0.1);
+        }
+
+        .payment-info ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .payment-info li {
+            padding: var(--space-sm) 0;
+            color: var(--forest-medium);
+        }
+
+        .order-summary {
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .summary-header {
+            background: rgba(74, 139, 108, 0.1);
+            padding: var(--space-lg);
+            font-weight: 600;
+            color: var(--forest-deep);
+            text-align: center;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-md) var(--space-lg);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-total {
+            background: rgba(74, 139, 108, 0.05);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .product-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--space-sm);
+        }
+
+        .item-details {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            width: 100%;
+        }
+
+        .item-image {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: 500;
+            color: var(--forest-deep);
+            margin-bottom: 2px;
+        }
+
+        .item-quantity {
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .vendor-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: 2px;
+        }
+
+        .vendor-name {
+            font-size: 0.8rem;
+            color: var(--aurora-green);
+            font-weight: 500;
+        }
+
+        .vendor-rating {
+            font-size: 0.75rem;
+            color: var(--forest-medium);
+        }
+
+        .ships-from {
+            font-size: 0.75rem;
+            color: var(--forest-medium);
+            opacity: 0.8;
+        }
+
+        .item-price {
+            font-weight: 600;
+            color: var(--forest-deep);
+            align-self: flex-end;
+        }
+
+        .summary-divider {
+            height: 1px;
+            background: var(--glass-border);
+            margin: var(--space-md) 0;
+        }
+
+        .free-shipping {
+            color: var(--aurora-green);
+            font-weight: 500;
+        }
+
+        .checkout-btn {
+            width: 100%;
+            padding: var(--space-lg);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-medium);
+            margin-top: var(--space-lg);
+        }
+
+        .checkout-btn:hover {
+            background: var(--forest-deep);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .security-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-top: var(--space-lg);
+            padding: var(--space-md);
+            background: rgba(74, 139, 108, 0.05);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+        }
+
+        .dostik-checkout-helper {
+            position: fixed;
+            bottom: var(--space-xl);
+            right: var(--space-xl);
+            background: var(--aurora-green);
+            color: white;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-strong);
+            max-width: 300px;
+            transform: translateX(400px);
+            transition: transform var(--transition-medium);
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .dostik-checkout-helper:hover {
+            background: var(--forest-deep);
+            transform: translateX(0) scale(1.02);
+        }
+
+        .dostik-checkout-helper.show {
+            transform: translateX(0);
+        }
+
+        #dostik-message {
+            transition: opacity 0.3s ease;
+        }
+
+        /* User Type Selection */
+        .user-type-selection {
+            margin: var(--space-xl) 0;
+        }
+
+        .user-type-tabs {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+            justify-content: center;
+        }
+
+        .user-tab {
+            padding: var(--space-md) var(--space-lg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all var(--transition-medium);
+            font-weight: 500;
+            color: var(--forest-deep);
+        }
+
+        .user-tab:hover {
+            border-color: var(--aurora-green);
+            transform: translateY(-2px);
+        }
+
+        .user-tab.active {
+            border-color: var(--aurora-green);
+            background: rgba(74, 139, 108, 0.1);
+            color: var(--forest-deep);
+        }
+
+        .user-type-info {
+            text-align: center;
+        }
+
+        .user-info {
+            display: none;
+            opacity: 0;
+            transition: opacity var(--transition-medium);
+        }
+
+        .user-info.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .user-info p {
+            margin: 0;
+            color: var(--forest-medium);
+            font-style: italic;
+        }
+
+        /* Login and Registration */
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-actions {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            align-items: center;
+            margin-top: var(--space-lg);
+        }
+
+        .login-btn {
+            padding: var(--space-md) var(--space-xl);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-medium);
+        }
+
+        .login-btn:hover {
+            background: var(--forest-deep);
+            transform: translateY(-2px);
+        }
+
+        .forgot-link {
+            color: var(--aurora-green);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        .register-benefits {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-md);
+            margin-top: var(--space-lg);
+        }
+
+        .benefit-item {
+            padding: var(--space-md);
+            background: rgba(74, 139, 108, 0.05);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            color: var(--forest-medium);
+        }
+
+        /* Address Cards */
+        .saved-addresses {
+            margin-bottom: var(--space-lg);
+        }
+
+        .address-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-md);
+        }
+
+        .address-card {
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all var(--transition-medium);
+        }
+
+        .address-card:hover {
+            border-color: var(--aurora-green);
+            transform: translateY(-2px);
+        }
+
+        .address-card.selected {
+            border-color: var(--aurora-green);
+            background: rgba(74, 139, 108, 0.1);
+        }
+
+        .address-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .address-header input[type="radio"] {
+            margin: 0;
+        }
+
+        .address-header label {
+            font-weight: 600;
+            color: var(--forest-deep);
+            cursor: pointer;
+        }
+
+        .address-details {
+            font-size: 0.9rem;
+            color: var(--forest-medium);
+            line-height: 1.4;
+        }
+
+        .new-address {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+            border-style: dashed;
+        }
+
+        /* Checkbox Styling */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: var(--space-lg);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--aurora-green);
+        }
+
+        /* Delivery Options */
+        .delivery-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .delivery-option {
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all var(--transition-medium);
+        }
+
+        .delivery-option:hover {
+            border-color: var(--aurora-green);
+            transform: translateY(-1px);
+        }
+
+        .delivery-option.selected {
+            border-color: var(--aurora-green);
+            background: rgba(74, 139, 108, 0.1);
+        }
+
+        .option-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-lg);
+        }
+
+        .option-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .option-info {
+            flex: 1;
+        }
+
+        .option-name {
+            font-weight: 600;
+            color: var(--forest-deep);
+            margin-bottom: 2px;
+        }
+
+        .option-time {
+            font-size: 0.9rem;
+            color: var(--forest-medium);
+        }
+
+        .option-price {
+            font-weight: 600;
+            color: var(--aurora-green);
+            font-size: 1.1rem;
+        }
+
+        /* Member Benefits */
+        .member-benefits {
+            background: rgba(74, 139, 108, 0.1);
+            border: 1px solid rgba(74, 139, 108, 0.3);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+
+        .benefits-header {
+            font-weight: 600;
+            color: var(--forest-deep);
+            text-align: center;
+            margin-bottom: var(--space-md);
+        }
+
+        .benefit-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .benefit {
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+            padding: var(--space-xs) 0;
+        }
+
+        /* Trust Badges */
+        .marketplace-info {
+            padding: var(--space-lg) 0;
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+            margin: var(--space-lg) 0;
+        }
+
+        .trust-badges {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-xs) 0;
+        }
+
+        .badge-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .badge-text {
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+            font-weight: 500;
+        }
+
+        /* Promo Code */
+        .promo-section {
+            margin: var(--space-lg) 0;
+        }
+
+        .promo-input-group {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .promo-input {
+            flex: 1;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+        }
+
+        .promo-btn {
+            padding: var(--space-sm) var(--space-md);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-medium);
+        }
+
+        .promo-btn:hover {
+            background: var(--forest-deep);
+        }
+
+        .promo-message {
+            margin-top: var(--space-sm);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .promo-message.success {
+            color: var(--aurora-green);
+        }
+
+        .promo-message.error {
+            color: #e74c3c;
+        }
+
+        /* Guarantees */
+        .guarantees {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            margin-top: var(--space-lg);
+        }
+
+        .guarantee-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-size: 0.85rem;
+            color: var(--forest-medium);
+            padding: var(--space-xs) 0;
+        }
+
+        /* ===== FORM VALIDATION STYLES ===== */
+        .form-input.valid {
+            border-color: rgba(39, 174, 96, 0.6) !important;
+            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.1);
+        }
+
+        .form-input.invalid {
+            border-color: #e74c3c !important;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+            animation: shake 0.3s ease-in-out;
+        }
+
+        .field-error {
+            color: #e74c3c;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+        }
+
+        .field-error::before {
+            content: '⚠️';
+            font-size: 0.9rem;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        /* Loading states */
+        .loading {
+            opacity: 0.7;
+            cursor: wait;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: inherit;
+        }
+
+        /* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s ease-out;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Focus management */
+        .form-input:focus,
+        .user-tab:focus,
+        .payment-method:focus,
+        .delivery-option:focus {
+            outline: 2px solid var(--aurora-green);
+            outline-offset: 2px;
+            z-index: 10;
+            position: relative;
+        }
+
+        /* Skip link for screen readers */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: var(--forest-deep);
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        .skip-link:focus {
+            top: 6px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .form-input {
+                border-width: 2px;
+            }
+
+            .payment-method,
+            .delivery-option {
+                border-width: 2px;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+
+            .fade-in {
+                transition: none;
+            }
+
+            body::before {
+                animation: none;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --glass-bg: rgba(20, 20, 20, 0.9);
+                --forest-deep: #e8f5e8;
+                --forest-medium: #c8e6c9;
+                --glass-border: rgba(255, 255, 255, 0.2);
+            }
+
+            body {
+                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-list {
+                gap: var(--space-md);
+            }
+
+            .nav-link {
+                padding: var(--space-xs) var(--space-sm);
+                font-size: 0.9rem;
+            }
+
+            .brand-link {
+                font-size: 1.1rem;
+            }
+
+            .brand-icon {
+                font-size: 1.8rem;
+            }
+
+            .checkout-container {
+                grid-template-columns: 1fr;
+                gap: var(--space-xl);
+                padding: var(--space-lg) var(--space-md);
+            }
+
+            .checkout-main,
+            .checkout-sidebar {
+                padding: var(--space-lg);
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-methods {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .user-type-tabs {
+                flex-direction: column;
+                gap: var(--space-xs);
+            }
+
+            .user-tab {
+                padding: var(--space-sm) var(--space-md);
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Skip Navigation -->
+    <a href="#main-content" class="skip-link">Ana içeriğe geç</a>
+
+    <!-- Header -->
+    <header role="banner" class="header">
+        <nav class="nav container" role="navigation" aria-label="Main navigation">
+            <div class="nav-brand">
+                <a href="../index.html" class="brand-link" aria-label="DostanWebCSS Homepage">
+                    <span class="brand-icon">🐉</span>
+                    <span class="brand-text">DostanWebCSS</span>
+                </a>
+            </div>
+
+            <div class="nav-menu">
+                <ul class="nav-list">
+                    <li><a href="../pages/products.html" class="nav-link">Products</a></li>
+                    <li><a href="../pages/artisan.html" class="nav-link">Artisans</a></li>
+                    <li><a href="../pages/cart.html" class="nav-link">Cart</a></li>
+                    <li><a href="../pages/profile.html" class="nav-link">Profile</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" role="main">
+        <div class="checkout-container">
+            <!-- Checkout Form -->
+            <div class="checkout-main">
+                <div class="checkout-header">
+                    <h1 class="checkout-title">🛡️ Secure Checkout</h1>
+                    <p class="checkout-subtitle">Complete your Nordic marketplace purchase with Dostik's guidance</p>
+
+                    <!-- User Type Selection -->
+                    <div class="user-type-selection">
+                        <div class="user-type-tabs">
+                            <button type="button" class="user-tab active" data-type="guest">
+                                🛒 Guest Checkout
+                            </button>
+                            <button type="button" class="user-tab" data-type="member">
+                                👤 Member Login
+                            </button>
+                            <button type="button" class="user-tab" data-type="register">
+                                ⭐ Create Account
+                            </button>
+                        </div>
+                        <div class="user-type-info">
+                            <div id="guest-info" class="user-info active">
+                                <p>🚀 Quick checkout without registration</p>
+                            </div>
+                            <div id="member-info" class="user-info">
+                                <p>💎 Access saved addresses, faster checkout, order history</p>
+                            </div>
+                            <div id="register-info" class="user-info">
+                                <p>🎁 Create account for exclusive discounts and rewards</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Steps -->
+                <div class="progress-steps">
+                    <div class="progress-step">
+                        <div class="step-circle completed">1</div>
+                        <div class="step-label">Cart Review</div>
+                        <div class="step-connector completed"></div>
+                    </div>
+                    <div class="progress-step">
+                        <div class="step-circle active">2</div>
+                        <div class="step-label">Payment Info</div>
+                        <div class="step-connector"></div>
+                    </div>
+                    <div class="progress-step">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Confirmation</div>
+                    </div>
+                </div>
+
+                <!-- Member Login Section -->
+                <div id="member-login" class="form-section" style="display: none;">
+                    <h2 class="section-title">
+                        👤 Member Login
+                    </h2>
+                    <div class="login-form">
+                        <div class="form-group">
+                            <label for="loginEmail" class="form-label">Email Address *</label>
+                            <input type="email" id="loginEmail" name="loginEmail" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword" class="form-label">Password *</label>
+                            <input type="password" id="loginPassword" name="loginPassword" class="form-input" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="login-btn">🔐 Login to Account</button>
+                            <a href="#" class="forgot-link">Forgot Password?</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Section -->
+                <div id="registration" class="form-section" style="display: none;">
+                    <h2 class="section-title">
+                        ⭐ Create Your Account
+                    </h2>
+                    <div class="register-benefits">
+                        <div class="benefit-item">🎁 Exclusive member discounts</div>
+                        <div class="benefit-item">📦 Faster checkout with saved info</div>
+                        <div class="benefit-item">📊 Order history and tracking</div>
+                        <div class="benefit-item">💌 Special offers and rewards</div>
+                    </div>
+                </div>
+
+                <!-- Shipping Information -->
+                <form id="checkout-form" class="checkout-form">
+                    <!-- Contact Information -->
+                    <div class="form-section">
+                        <h2 class="section-title">
+                            📧 Contact Information
+                        </h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="firstName" class="form-label">First Name *</label>
+                                <input type="text" id="firstName" name="firstName" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="lastName" class="form-label">Last Name *</label>
+                                <input type="text" id="lastName" name="lastName" class="form-input" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="email" class="form-label">Email Address *</label>
+                                <input type="email" id="email" name="email" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone" class="form-label">Phone Number *</label>
+                                <input type="tel" id="phone" name="phone" class="form-input" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Address -->
+                    <div class="form-section">
+                        <h2 class="section-title">
+                            🚚 Delivery Address
+                        </h2>
+
+                        <!-- Saved Addresses (for members) -->
+                        <div id="saved-addresses" class="saved-addresses" style="display: none;">
+                            <div class="address-options">
+                                <div class="address-card">
+                                    <div class="address-header">
+                                        <input type="radio" name="savedAddress" id="addr1" value="home">
+                                        <label for="addr1">🏠 Home Address</label>
+                                    </div>
+                                    <div class="address-details">
+                                        Bağdat Caddesi No: 123<br>
+                                        Kadıköy, İstanbul 34710<br>
+                                        Türkiye
+                                    </div>
+                                </div>
+                                <div class="address-card">
+                                    <div class="address-header">
+                                        <input type="radio" name="savedAddress" id="addr2" value="work">
+                                        <label for="addr2">🏢 Work Address</label>
+                                    </div>
+                                    <div class="address-details">
+                                        Levent Mahallesi İş Merkezi<br>
+                                        Beşiktaş, İstanbul 34330<br>
+                                        Türkiye
+                                    </div>
+                                </div>
+                                <div class="address-card new-address">
+                                    <div class="address-header">
+                                        <input type="radio" name="savedAddress" id="addrNew" value="new" checked>
+                                        <label for="addrNew">➕ Use New Address</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="address-form">
+                            <div class="form-grid">
+                                <div class="form-group full-width">
+                                    <label for="shippingAddress" class="form-label">Street Address *</label>
+                                    <input type="text" id="shippingAddress" name="shippingAddress" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="shippingZip" class="form-label">Posta Kodu *</label>
+                                    <input type="text" id="shippingZip" name="shippingZip" class="form-input" required placeholder="34000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="shippingCity" class="form-label">Şehir *</label>
+                                    <select id="shippingCitySelect" name="shippingCitySelect" class="form-input" required>
+                                        <option value="">Şehir Seçin</option>
+                                        <option value="istanbul">İstanbul</option>
+                                        <option value="ankara">Ankara</option>
+                                        <option value="izmir">İzmir</option>
+                                        <option value="bursa">Bursa</option>
+                                        <option value="antalya">Antalya</option>
+                                        <option value="adana">Adana</option>
+                                        <option value="konya">Konya</option>
+                                        <option value="gaziantep">Gaziantep</option>
+                                        <option value="kayseri">Kayseri</option>
+                                        <option value="mersin">Mersin</option>
+                                        <option value="eskisehir">Eskişehir</option>
+                                        <option value="diyarbakir">Diyarbakır</option>
+                                        <option value="samsun">Samsun</option>
+                                        <option value="denizli">Denizli</option>
+                                        <option value="malatya">Malatya</option>
+                                        <option value="other">Diğer</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="shippingDistrict" class="form-label">İlçe *</label>
+                                    <select id="shippingDistrict" name="shippingDistrict" class="form-input" required disabled>
+                                        <option value="">Önce şehir seçin</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="deliveryInstructions" class="form-label">Teslimat Notları</label>
+                                    <textarea id="deliveryInstructions" name="deliveryInstructions" class="form-input" rows="2" placeholder="Kapıya bırakabilirsiniz, teslimat öncesi arayın, vb."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Billing Address -->
+                    <div class="form-section">
+                        <h2 class="section-title">
+                            💳 Billing Address
+                        </h2>
+                        <div class="billing-option">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="sameAsShipping" name="sameAsShipping" checked>
+                                <span class="checkmark"></span>
+                                Same as delivery address
+                            </label>
+                        </div>
+                        <div id="billing-address" class="address-form" style="display: none;">
+                            <div class="form-grid">
+                                <div class="form-group full-width">
+                                    <label for="billingAddress" class="form-label">Street Address *</label>
+                                    <input type="text" id="billingAddress" name="billingAddress" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="billingZip" class="form-label">Posta Kodu *</label>
+                                    <input type="text" id="billingZip" name="billingZip" class="form-input" placeholder="34000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="billingCity" class="form-label">Şehir *</label>
+                                    <select id="billingCitySelect" name="billingCitySelect" class="form-input">
+                                        <option value="">Şehir Seçin</option>
+                                        <option value="istanbul">İstanbul</option>
+                                        <option value="ankara">Ankara</option>
+                                        <option value="izmir">İzmir</option>
+                                        <option value="bursa">Bursa</option>
+                                        <option value="antalya">Antalya</option>
+                                        <option value="adana">Adana</option>
+                                        <option value="konya">Konya</option>
+                                        <option value="gaziantep">Gaziantep</option>
+                                        <option value="other">Diğer</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="billingDistrict" class="form-label">İlçe *</label>
+                                    <select id="billingDistrict" name="billingDistrict" class="form-input" disabled>
+                                        <option value="">Önce şehir seçin</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delivery Options -->
+                    <div class="form-section">
+                        <h2 class="section-title">
+                            🚛 Delivery Options
+                        </h2>
+                        <div class="delivery-options">
+                            <div class="delivery-option selected" data-option="standard">
+                                <div class="option-header">
+                                    <div class="option-icon">📦</div>
+                                    <div class="option-info">
+                                        <div class="option-name">Standard Delivery</div>
+                                        <div class="option-time">3-5 business days</div>
+                                    </div>
+                                    <div class="option-price">Free</div>
+                                </div>
+                            </div>
+                            <div class="delivery-option" data-option="express">
+                                <div class="option-header">
+                                    <div class="option-icon">⚡</div>
+                                    <div class="option-info">
+                                        <div class="option-name">Express Delivery</div>
+                                        <div class="option-time">1-2 business days</div>
+                                    </div>
+                                    <div class="option-price">$9.99</div>
+                                </div>
+                            </div>
+                            <div class="delivery-option" data-option="overnight">
+                                <div class="option-header">
+                                    <div class="option-icon">🚀</div>
+                                    <div class="option-info">
+                                        <div class="option-name">Overnight Delivery</div>
+                                        <div class="option-time">Next business day</div>
+                                    </div>
+                                    <div class="option-price">$19.99</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Methods -->
+                    <div class="form-section">
+                        <h2 class="section-title">
+                            💳 Payment Method
+                        </h2>
+                        <div class="payment-methods">
+                            <div class="payment-method selected" data-method="card">
+                                <div class="payment-icon">💳</div>
+                                <div class="payment-name">Credit Card</div>
+                                <div class="payment-desc">Visa, MasterCard, Amex</div>
+                            </div>
+                            <div class="payment-method" data-method="paypal">
+                                <div class="payment-icon">📱</div>
+                                <div class="payment-name">PayPal</div>
+                                <div class="payment-desc">Fast & Secure</div>
+                            </div>
+                            <div class="payment-method" data-method="apple">
+                                <div class="payment-icon">🍎</div>
+                                <div class="payment-name">Apple Pay</div>
+                                <div class="payment-desc">Touch/Face ID</div>
+                            </div>
+                            <div class="payment-method" data-method="google">
+                                <div class="payment-icon">🎯</div>
+                                <div class="payment-name">Google Pay</div>
+                                <div class="payment-desc">One-tap payment</div>
+                            </div>
+                            <div class="payment-method" data-method="crypto">
+                                <div class="payment-icon">₿</div>
+                                <div class="payment-name">Crypto</div>
+                                <div class="payment-desc">BTC, ETH, USDT</div>
+                            </div>
+                            <div class="payment-method" data-method="bank_transfer">
+                                <div class="payment-icon">🏦</div>
+                                <div class="payment-name">Bank Transfer</div>
+                                <div class="payment-desc">Nordic Banks</div>
+                            </div>
+                        </div>
+
+                        <!-- Credit Card Details -->
+                        <div id="card-details" class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="cardNumber" class="form-label">Card Number *</label>
+                                <input type="text" id="cardNumber" name="cardNumber" class="form-input" placeholder="1234 5678 9012 3456" maxlength="19">
+                            </div>
+                            <div class="form-group">
+                                <label for="expiry" class="form-label">Expiry Date *</label>
+                                <input type="text" id="expiry" name="expiry" class="form-input" placeholder="MM/YY" maxlength="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="cvv" class="form-label">CVV *</label>
+                                <input type="text" id="cvv" name="cvv" class="form-input" placeholder="123" maxlength="4">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="cardName" class="form-label">Name on Card *</label>
+                                <input type="text" id="cardName" name="cardName" class="form-input" placeholder="John Doe">
+                            </div>
+                        </div>
+
+                        <!-- Alternative Payment Details -->
+                        <div id="crypto-details" class="payment-details" style="display: none;">
+                            <div class="payment-info">
+                                <h3>🪙 Cryptocurrency Payment</h3>
+                                <p>Select your preferred cryptocurrency:</p>
+                                <div class="crypto-options">
+                                    <label><input type="radio" name="crypto" value="btc"> ₿ Bitcoin (BTC)</label>
+                                    <label><input type="radio" name="crypto" value="eth"> Ξ Ethereum (ETH)</label>
+                                    <label><input type="radio" name="crypto" value="usdt"> ₮ Tether (USDT)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="bank-details" class="payment-details" style="display: none;">
+                            <div class="payment-info">
+                                <h3>🏦 Bank Transfer</h3>
+                                <p>Transfer details will be provided after order confirmation.</p>
+                                <ul>
+                                    <li>🇹🇷 Turkish Banks: İş Bankası, Garanti BBVA</li>
+                                    <li>🇩🇪 German Banks: Deutsche Bank, Commerzbank</li>
+                                    <li>🇯🇵 Japanese Banks: MUFG, Mizuho</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Info -->
+                    <div class="security-info">
+                        <span>🔒</span>
+                        <span>Your payment information is encrypted and secure. Powered by Nordic security standards.</span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Order Summary Sidebar -->
+            <div class="checkout-sidebar">
+                <!-- Member Benefits (when applicable) -->
+                <div id="member-benefits" class="member-benefits" style="display: none;">
+                    <div class="benefits-header">
+                        ⭐ Member Perks Applied
+                    </div>
+                    <div class="benefit-list">
+                        <div class="benefit">🎁 5% member discount</div>
+                        <div class="benefit">📦 Free priority support</div>
+                        <div class="benefit">💝 Earn reward points</div>
+                    </div>
+                </div>
+
+                <div class="order-summary">
+                    <div class="summary-header">
+                        📦 Order Summary
+                    </div>
+                    <div id="summary-items">
+                        <!-- Items will be populated by JavaScript -->
+                    </div>
+
+                    <!-- Marketplace Trust Info -->
+                    <div class="marketplace-info">
+                        <div class="trust-badges">
+                            <div class="trust-badge">
+                                <span class="badge-icon">🛡️</span>
+                                <span class="badge-text">Secure Marketplace</span>
+                            </div>
+                            <div class="trust-badge">
+                                <span class="badge-icon">📞</span>
+                                <span class="badge-text">24/7 Support</span>
+                            </div>
+                            <div class="trust-badge">
+                                <span class="badge-icon">🌟</span>
+                                <span class="badge-text">Verified Vendors</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="summary-item summary-total">
+                        <span>Total</span>
+                        <span id="total-amount">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Promo Code Section -->
+                <div class="promo-section">
+                    <div class="promo-input-group">
+                        <input type="text" id="promoCode" placeholder="Enter promo code" class="promo-input">
+                        <button type="button" class="promo-btn">Apply</button>
+                    </div>
+                    <div id="promo-message" class="promo-message"></div>
+                </div>
+
+                <button type="submit" form="checkout-form" class="checkout-btn">
+                    🛡️ Complete Secure Purchase
+                </button>
+
+                <div class="guarantees">
+                    <div class="guarantee-item">
+                        <span>⚡</span>
+                        <span>30-day money-back guarantee</span>
+                    </div>
+                    <div class="guarantee-item">
+                        <span>🔒</span>
+                        <span>SSL encrypted payment</span>
+                    </div>
+                    <div class="guarantee-item">
+                        <span>📱</span>
+                        <span>Mobile app order tracking</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dostik Checkout Helper -->
+        <div class="dostik-checkout-helper" id="dostik-helper">
+            <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm);">
+                <span style="font-size: 1.5rem;">🐉</span>
+                <strong>Dostik says:</strong>
+            </div>
+            <p id="dostik-message">Welcome to secure checkout! I'll guide you through this Nordic treasure purchase.</p>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <!-- Performance & Security - Load First -->
+    <script src="../assets/js/security-utils.js"></script>
+    <script src="../assets/js/error-handler.js"></script>
+    <script src="../assets/js/lazy-load.js"></script>
+    <script src="../assets/js/performance-monitor.js"></script>
+
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+
+    <!-- Page Scripts -->
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/checkout-api.js"></script>
+
+    <!-- Old inline code - now replaced by checkout-api.js
+    <!-- Checkout JavaScript -->
+    <script>
+        'use strict';
+
+        // ===== UTILITY FUNCTIONS =====
+        const utils = {
+            // Debounce function for performance
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            },
+
+            // Safe element selector
+            $: (selector, context = document) => {
+                try {
+                    return context.querySelector(selector);
+                } catch (error) {
+                    console.warn(`Invalid selector: ${selector}`, error);
+                    return null;
+                }
+            },
+
+            // Safe multiple element selector
+            $$: (selector, context = document) => {
+                try {
+                    return [...context.querySelectorAll(selector)];
+                } catch (error) {
+                    console.warn(`Invalid selector: ${selector}`, error);
+                    return [];
+                }
+            },
+
+            // Format Turkish characters for form values
+            formatTurkish: (str) => {
+                if (!str) return '';
+                return str.toLowerCase()
+                    .replace(/ş/g, 's')
+                    .replace(/ç/g, 'c')
+                    .replace(/ğ/g, 'g')
+                    .replace(/ü/g, 'u')
+                    .replace(/ö/g, 'o')
+                    .replace(/ı/g, 'i');
+            },
+
+            // Show loading state
+            setLoading: (element, isLoading = true) => {
+                if (!element) return;
+                if (isLoading) {
+                    element.disabled = true;
+                    element.style.opacity = '0.7';
+                    element.style.cursor = 'wait';
+                } else {
+                    element.disabled = false;
+                    element.style.opacity = '';
+                    element.style.cursor = '';
+                }
+            }
+        };
+
+        // ===== MAIN INITIALIZATION =====
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                initializeCheckout();
+            } catch (error) {
+                console.error('Checkout initialization failed:', error);
+                // Fallback to basic functionality
+                setupBasicCheckout();
+            }
+        });
+
+        function initializeCheckout() {
+            // Core functionality first
+            setupUserTypeSelection();
+            setupAddressHandling();
+            setupCityDistrictSelection();
+
+            // Load less critical features asynchronously
+            requestIdleCallback(() => {
+                setupDeliveryOptions();
+                setupPaymentMethods();
+                setupPromoCode();
+                // loadOrderSummary(); // DISABLED - now handled by checkout-api.js
+                setupFormValidation();
+                initializeDostikHelper();
+                setupPerformanceOptimizations();
+            });
+        }
+
+        // ===== PERFORMANCE OPTIMIZATIONS =====
+        function setupPerformanceOptimizations() {
+            // Lazy load sections using Intersection Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '50px'
+            });
+
+            // Observe form sections for smooth loading
+            utils.$$('.form-section').forEach(section => {
+                section.classList.add('fade-in');
+                observer.observe(section);
+            });
+
+            // Optimize images if any
+            utils.$$('img').forEach(img => {
+                img.loading = 'lazy';
+                img.decoding = 'async';
+            });
+
+            // Preload critical resources
+            preloadCriticalResources();
+        }
+
+        function preloadCriticalResources() {
+            // Preload next likely page (profile or confirmation)
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = '../pages/profile.html';
+            document.head.appendChild(link);
+        }
+
+        // Fallback for older browsers
+        function setupBasicCheckout() {
+            console.log('Using basic checkout functionality');
+            const form = document.getElementById('checkout-form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    alert('Ödeme işlemi demo modunda çalışıyor');
+                });
+            }
+        }
+
+        function setupCityDistrictSelection() {
+            const citySelects = [
+                { city: 'shippingCitySelect', district: 'shippingDistrict' },
+                { city: 'billingCitySelect', district: 'billingDistrict' }
+            ];
+
+            const districts = {
+                'istanbul': [
+                    'Kadıköy', 'Beşiktaş', 'Şişli', 'Beyoğlu', 'Üsküdar', 'Fatih',
+                    'Bakırköy', 'Maltepe', 'Ataşehir', 'Pendik', 'Kartal', 'Tuzla',
+                    'Avcılar', 'Başakşehir', 'Beylikdüzü', 'Büyükçekmece', 'Çekmeköy',
+                    'Esenler', 'Esenyurt', 'Gaziosmanpaşa', 'Güngören', 'Kağıthane'
+                ],
+                'ankara': [
+                    'Çankaya', 'Keçiören', 'Yenimahalle', 'Mamak', 'Sincan', 'Etimesgut',
+                    'Gölbaşı', 'Pursaklar', 'Altındağ', 'Polatlı', 'Elmadağ', 'Kalecik'
+                ],
+                'izmir': [
+                    'Konak', 'Karşıyaka', 'Bornova', 'Buca', 'Çiğli', 'Gaziemir',
+                    'Narlıdere', 'Balçova', 'Bayraklı', 'Güzelbahçe', 'Karabağlar', 'Torbalı'
+                ],
+                'bursa': [
+                    'Osmangazi', 'Nilüfer', 'Yıldırım', 'Mudanya', 'Gemlik', 'İnegöl',
+                    'Karacabey', 'Mustafakemalpaşa', 'Orhangazi', 'Büyükorhan'
+                ],
+                'antalya': [
+                    'Muratpaşa', 'Kepez', 'Konyaaltı', 'Döşemealtı', 'Aksu', 'Alanya',
+                    'Manavgat', 'Serik', 'Kemer', 'Kaş', 'Demre', 'Finike'
+                ],
+                'other': ['Manuel giriş yapılacak']
+            };
+
+            citySelects.forEach(({ city, district }) => {
+                const citySelect = document.getElementById(city);
+                const districtSelect = document.getElementById(district);
+
+                if (citySelect && districtSelect) {
+                    citySelect.addEventListener('change', function() {
+                        const selectedCity = this.value;
+                        districtSelect.innerHTML = '<option value="">İlçe Seçin</option>';
+                        districtSelect.disabled = !selectedCity;
+
+                        if (selectedCity && districts[selectedCity]) {
+                            districts[selectedCity].forEach(districtName => {
+                                const option = document.createElement('option');
+                                option.value = districtName.toLowerCase().replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ı/g, 'i');
+                                option.textContent = districtName;
+                                districtSelect.appendChild(option);
+                            });
+                            districtSelect.disabled = false;
+
+                            if (window.dostikAI) {
+                                window.dostikAI.addChatMessage(`📍 ${selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)} şehri seçildi. İlçe seçebilirsiniz.`);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function setupPromoCode() {
+            const promoBtn = document.querySelector('.promo-btn');
+            const promoInput = document.getElementById('promoCode');
+            const promoMessage = document.getElementById('promo-message');
+
+            const validPromoCodes = {
+                'NORDIC10': { discount: 10, type: 'percentage' },
+                'WELCOME5': { discount: 5, type: 'fixed' },
+                'MEMBER15': { discount: 15, type: 'percentage' }
+            };
+
+            if (promoBtn) {
+                promoBtn.addEventListener('click', function() {
+                    const code = promoInput.value.trim().toUpperCase();
+
+                    if (validPromoCodes[code]) {
+                        const discount = validPromoCodes[code];
+                        applyPromoDiscount(discount);
+                        promoMessage.textContent = `✅ Promo code applied! You saved ${discount.type === 'percentage' ? discount.discount + '%' : '$' + discount.discount}`;
+                        promoMessage.className = 'promo-message success';
+                        promoBtn.textContent = 'Applied ✓';
+                        promoBtn.disabled = true;
+
+                        if (window.dostikAI) {
+                            window.dostikAI.addChatMessage(`🎉 Great! Your promo code "${code}" has been applied successfully!`);
+                        }
+                    } else {
+                        promoMessage.textContent = '❌ Invalid promo code. Try NORDIC10 or WELCOME5';
+                        promoMessage.className = 'promo-message error';
+                    }
+                });
+            }
+        }
+
+        function applyPromoDiscount(discount) {
+            // This would integrate with the order total calculation
+            // For demo purposes, we'll just show the message
+            console.log('Promo discount applied:', discount);
+        }
+
+        function setupUserTypeSelection() {
+            const userTabs = document.querySelectorAll('.user-tab');
+            const userInfos = document.querySelectorAll('.user-info');
+            const memberLogin = document.getElementById('member-login');
+            const registration = document.getElementById('registration');
+            const savedAddresses = document.getElementById('saved-addresses');
+
+            userTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const type = this.dataset.type;
+
+                    // Update active tab
+                    userTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+
+                    // Update info display
+                    userInfos.forEach(info => info.classList.remove('active'));
+                    document.getElementById(`${type}-info`).classList.add('active');
+
+                    // Show/hide sections
+                    memberLogin.style.display = type === 'member' ? 'block' : 'none';
+                    registration.style.display = type === 'register' ? 'block' : 'none';
+                    savedAddresses.style.display = (type === 'member') ? 'block' : 'none';
+
+                    // Hide/show contact info based on user type
+                    const contactSection = document.querySelector('.checkout-form .form-section:first-child');
+                    if (contactSection) {
+                        contactSection.style.display = type === 'member' ? 'none' : 'block';
+                    }
+
+                    // Dostik advice
+                    if (window.dostikAI) {
+                        const messages = {
+                            'guest': '🛒 Quick guest checkout selected! Fast and simple.',
+                            'member': '👤 Welcome back! Login to access your saved information.',
+                            'register': '⭐ Great choice! Create an account for exclusive benefits.'
+                        };
+                        window.dostikAI.addChatMessage(messages[type]);
+                    }
+                });
+            });
+
+            // Login button
+            const loginBtn = document.querySelector('.login-btn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', function() {
+                    // Simulate login
+                    const memberBenefits = document.getElementById('member-benefits');
+                    const contactSection = document.querySelector('.checkout-form .form-section:first-child');
+
+                    alert('Demo: Login successful! Saved addresses loaded.');
+                    savedAddresses.style.display = 'block';
+                    memberBenefits.style.display = 'block';
+
+                    // Hide contact info for logged in members
+                    if (contactSection) {
+                        contactSection.style.display = 'none';
+                    }
+
+                    // Update promo message for members
+                    const promoMessage = document.getElementById('promo-message');
+                    promoMessage.textContent = '💎 As a member, try code MEMBER15 for extra savings!';
+                    promoMessage.className = 'promo-message';
+
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage('✅ Welcome back! Your member benefits and saved addresses are now active. Check out your exclusive discounts!');
+                    }
+                });
+            }
+        }
+
+        function setupAddressHandling() {
+            const sameAsShippingCheckbox = document.getElementById('sameAsShipping');
+            const billingAddress = document.getElementById('billing-address');
+            const addressCards = document.querySelectorAll('.address-card');
+
+            // Billing address toggle
+            if (sameAsShippingCheckbox) {
+                sameAsShippingCheckbox.addEventListener('change', function() {
+                    billingAddress.style.display = this.checked ? 'none' : 'block';
+
+                    if (window.dostikAI) {
+                        const message = this.checked ?
+                            '📦 Using same address for billing and delivery.' :
+                            '💳 Separate billing address selected.';
+                        window.dostikAI.addChatMessage(message);
+                    }
+                });
+            }
+
+            // Saved address selection
+            addressCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = true;
+
+                        // Update visual selection
+                        addressCards.forEach(c => c.classList.remove('selected'));
+                        this.classList.add('selected');
+
+                        // Show/hide new address form
+                        const addressForm = document.querySelector('.address-form');
+                        const isNewAddress = radio.value === 'new';
+                        addressForm.style.display = isNewAddress ? 'block' : 'none';
+
+                        if (window.dostikAI && !isNewAddress) {
+                            window.dostikAI.addChatMessage(`📍 ${radio.value === 'home' ? 'Home' : 'Work'} address selected!`);
+                        }
+                    }
+                });
+            });
+        }
+
+        function setupDeliveryOptions() {
+            const deliveryOptions = document.querySelectorAll('.delivery-option');
+
+            deliveryOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Update selection
+                    deliveryOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+
+                    const optionType = this.dataset.option;
+                    const optionName = this.querySelector('.option-name').textContent;
+                    const optionPrice = this.querySelector('.option-price').textContent;
+
+                    // Update order summary with delivery cost
+                    updateDeliveryTotal(optionType, optionPrice);
+
+                    if (window.dostikAI) {
+                        const messages = {
+                            'standard': '📦 Standard delivery selected - eco-friendly and free!',
+                            'express': '⚡ Express delivery - your Nordic treasures will arrive quickly!',
+                            'overnight': '🚀 Overnight delivery - maximum speed for urgent orders!'
+                        };
+                        window.dostikAI.addChatMessage(messages[optionType]);
+                    }
+                });
+            });
+        }
+
+        function updateDeliveryTotal(type, priceText) {
+            const deliveryPrice = priceText === 'Free' ? 0 : parseFloat(priceText.replace('$', ''));
+
+            // Update the order summary
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let subtotal = 0;
+
+            if (cart.length === 0) {
+                subtotal = 89.99 + (149.99 * 2); // Demo items
+            } else {
+                cart.forEach(item => {
+                    const price = parseFloat(item.price.replace('$', ''));
+                    subtotal += price * (item.quantity || 1);
+                });
+            }
+
+            const tax = subtotal * 0.08;
+            const total = subtotal + deliveryPrice + tax;
+
+            // Update delivery line in summary
+            const summaryItems = document.getElementById('summary-items');
+            const deliveryLine = summaryItems.querySelector('.summary-item:nth-last-child(2)');
+            if (deliveryLine) {
+                deliveryLine.innerHTML = `
+                    <span>Shipping</span>
+                    <span class="${deliveryPrice === 0 ? 'free-shipping' : ''}">${priceText}${deliveryPrice === 0 ? ' 🚚' : ''}</span>
+                `;
+            }
+
+            // Update total
+            document.getElementById('total-amount').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function setupPaymentMethods() {
+            const paymentMethods = document.querySelectorAll('.payment-method');
+            const cardDetails = document.getElementById('card-details');
+            const cryptoDetails = document.getElementById('crypto-details');
+            const bankDetails = document.getElementById('bank-details');
+
+            paymentMethods.forEach(method => {
+                method.addEventListener('click', function() {
+                    // Remove selected class from all methods
+                    paymentMethods.forEach(m => m.classList.remove('selected'));
+
+                    // Add selected class to clicked method
+                    this.classList.add('selected');
+
+                    // Hide all payment details
+                    cardDetails.style.display = 'none';
+                    cryptoDetails.style.display = 'none';
+                    bankDetails.style.display = 'none';
+
+                    // Show relevant payment details
+                    const methodType = this.dataset.method;
+                    if (methodType === 'card') {
+                        cardDetails.style.display = 'grid';
+                    } else if (methodType === 'crypto') {
+                        cryptoDetails.style.display = 'block';
+                    } else if (methodType === 'bank') {
+                        bankDetails.style.display = 'block';
+                    }
+
+                    // Dostik payment advice
+                    if (window.dostikAI) {
+                        const messages = {
+                            'card': '💳 Excellent choice! Credit cards offer the best protection for your Nordic treasures.',
+                            'paypal': '📱 PayPal is perfect for quick and secure international payments!',
+                            'apple': '🍎 Apple Pay - the fastest way to complete your Nordic adventure!',
+                            'google': '🎯 Google Pay keeps your payment info safe and secure!',
+                            'crypto': '₿ Cryptocurrency payment - embrace the future of Nordic commerce!',
+                            'bank': '🏦 Bank transfer - traditional and reliable for large Nordic purchases!'
+                        };
+                        window.dostikAI.addChatMessage(messages[methodType] || 'Excellent payment choice!');
+                    }
+                });
+            });
+
+            // Setup credit card formatting
+            setupCardFormatting();
+        }
+
+        function setupCardFormatting() {
+            const cardNumber = document.getElementById('cardNumber');
+            const expiry = document.getElementById('expiry');
+            const cvv = document.getElementById('cvv');
+
+            // Format card number
+            cardNumber.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+                let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+                if (formattedValue.length > 19) formattedValue = formattedValue.substr(0, 19);
+                e.target.value = formattedValue;
+            });
+
+            // Format expiry date
+            expiry.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length >= 2) {
+                    value = value.substr(0, 2) + '/' + value.substr(2, 2);
+                }
+                e.target.value = value;
+            });
+
+            // Format CVV
+            cvv.addEventListener('input', function(e) {
+                e.target.value = e.target.value.replace(/\D/g, '');
+            });
+        }
+
+        function loadOrderSummary() {
+            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const summaryItems = document.getElementById('summary-items');
+            const totalAmount = document.getElementById('total-amount');
+
+            let subtotal = 0;
+
+            summaryItems.innerHTML = '';
+
+            if (cart.length === 0) {
+                // Add demo items for preview
+                const demoItems = [
+                    {
+                        title: 'Nordic Handcraft Bowl',
+                        price: '$89.99',
+                        quantity: 1,
+                        image: '🏺',
+                        vendor: 'Nordic Artisans Co.',
+                        vendorRating: 4.9,
+                        shipsFrom: 'İstanbul, Türkiye'
+                    },
+                    {
+                        title: 'Viking Rune Stone',
+                        price: '$149.99',
+                        quantity: 2,
+                        image: '🗿',
+                        vendor: 'Ancient Crafts Ltd.',
+                        vendorRating: 4.8,
+                        shipsFrom: 'Ankara, Türkiye'
+                    }
+                ];
+
+                demoItems.forEach(item => {
+                    const price = parseFloat(item.price.replace('$', ''));
+                    subtotal += price * item.quantity;
+
+                    summaryItems.innerHTML += `
+                        <div class="summary-item product-item">
+                            <div class="item-details">
+                                <div class="item-image">${item.image}</div>
+                                <div class="item-info">
+                                    <div class="item-name">${item.title}</div>
+                                    <div class="item-quantity">Qty: ${item.quantity}</div>
+                                    <div class="vendor-info">
+                                        <span class="vendor-name">by ${item.vendor}</span>
+                                        <span class="vendor-rating">⭐ ${item.vendorRating}</span>
+                                    </div>
+                                    <div class="ships-from">🚚 Ships from ${item.shipsFrom}</div>
+                                </div>
+                            </div>
+                            <div class="item-price">$${(price * item.quantity).toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                cart.forEach(item => {
+                    const price = parseFloat(item.price.replace('$', ''));
+                    subtotal += price * (item.quantity || 1);
+
+                    summaryItems.innerHTML += `
+                        <div class="summary-item product-item">
+                            <div class="item-details">
+                                <div class="item-image">${item.image || '🏺'}</div>
+                                <div class="item-info">
+                                    <div class="item-name">${item.title}</div>
+                                    <div class="item-quantity">Qty: ${item.quantity || 1}</div>
+                                </div>
+                            </div>
+                            <div class="item-price">$${(price * (item.quantity || 1)).toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Add pricing breakdown
+            const shipping = 0;
+            const tax = subtotal * 0.08; // 8% tax
+            const total = subtotal + shipping + tax;
+
+            summaryItems.innerHTML += `
+                <div class="summary-divider"></div>
+                <div class="summary-item">
+                    <span>Subtotal</span>
+                    <span>$${subtotal.toFixed(2)}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Shipping</span>
+                    <span class="free-shipping">Free 🚚</span>
+                </div>
+                <div class="summary-item">
+                    <span>Tax</span>
+                    <span>$${tax.toFixed(2)}</span>
+                </div>
+            `;
+
+            totalAmount.textContent = `$${total.toFixed(2)}`;
+        }
+
+        // ===== ADVANCED FORM VALIDATION =====
+        function setupFormValidation() {
+            const form = utils.$('#checkout-form');
+            if (!form) return;
+
+            // Real-time validation patterns
+            const validators = {
+                email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                phone: /^(\+90|0)?[0-9]{10}$/,
+                postalCode: /^[0-9]{5}$/,
+                cardNumber: /^[0-9\s]{13,19}$/,
+                expiry: /^(0[1-9]|1[0-2])\/([0-9]{2})$/,
+                cvv: /^[0-9]{3,4}$/
+            };
+
+            // Add real-time validation to inputs
+            const inputs = utils.$$('.form-input', form);
+            inputs.forEach(input => {
+                const debouncedValidate = utils.debounce(() => validateField(input), 300);
+                input.addEventListener('input', debouncedValidate);
+                input.addEventListener('blur', () => validateField(input));
+            });
+
+            // Form submission with enhanced validation
+            // DISABLED - now handled by checkout-api.js
+            // form.addEventListener('submit', function(e) {
+            //     e.preventDefault();
+            //     handleFormSubmission();
+            // });
+
+            function validateField(field) {
+                if (!field) return true;
+
+                const value = field.value.trim();
+                const fieldType = field.type || field.name;
+                let isValid = true;
+                let errorMessage = '';
+
+                // Required field check
+                if (field.hasAttribute('required') && !value) {
+                    isValid = false;
+                    errorMessage = 'Bu alan zorunludur';
+                }
+
+                // Type-specific validation
+                if (value && validators[fieldType]) {
+                    if (!validators[fieldType].test(value)) {
+                        isValid = false;
+                        errorMessage = getFieldErrorMessage(fieldType);
+                    }
+                }
+
+                // Apply visual feedback
+                applyFieldValidation(field, isValid, errorMessage);
+                return isValid;
+            }
+
+            function getFieldErrorMessage(fieldType) {
+                const messages = {
+                    email: 'Geçerli bir email adresi girin',
+                    phone: 'Geçerli bir telefon numarası girin (05xxxxxxxxx)',
+                    postalCode: 'Geçerli bir posta kodu girin (5 haneli)',
+                    cardNumber: 'Geçerli bir kart numarası girin',
+                    expiry: 'AA/YY formatında girin',
+                    cvv: 'Geçerli bir CVV girin'
+                };
+                return messages[fieldType] || 'Geçersiz format';
+            }
+
+            function applyFieldValidation(field, isValid, errorMessage) {
+                // Remove existing error elements
+                const existingError = field.parentNode.querySelector('.field-error');
+                if (existingError) {
+                    existingError.remove();
+                }
+
+                if (isValid) {
+                    field.style.borderColor = 'rgba(39, 174, 96, 0.5)';
+                    field.classList.remove('invalid');
+                    field.classList.add('valid');
+                } else {
+                    field.style.borderColor = '#e74c3c';
+                    field.classList.remove('valid');
+                    field.classList.add('invalid');
+
+                    // Add error message
+                    if (errorMessage) {
+                        const errorEl = document.createElement('div');
+                        errorEl.className = 'field-error';
+                        errorEl.textContent = errorMessage;
+                        field.parentNode.appendChild(errorEl);
+                    }
+                }
+            }
+
+            function handleFormSubmission() {
+                const requiredFields = utils.$$('[required]', form);
+                let isValid = true;
+                const errors = [];
+
+                // Validate all required fields
+                requiredFields.forEach(field => {
+                    if (!validateField(field)) {
+                        isValid = false;
+                        errors.push(field.name || field.id);
+                    }
+                });
+
+                // Check payment method selection
+                const selectedPayment = utils.$('.payment-method.selected');
+                if (!selectedPayment) {
+                    isValid = false;
+                    errors.push('payment-method');
+                }
+
+                if (isValid) {
+                    processPayment();
+                } else {
+                    handleValidationErrors(errors);
+                }
+            }
+
+            function handleValidationErrors(errors) {
+                const errorMessages = {
+                    'payment-method': 'Lütfen bir ödeme yöntemi seçin',
+                    default: 'Lütfen tüm zorunlu alanları doldurun'
+                };
+
+                const message = errors.length === 1 && errorMessages[errors[0]]
+                    ? errorMessages[errors[0]]
+                    : errorMessages.default;
+
+                if (window.dostikAI) {
+                    window.dostikAI.addChatMessage(`🚨 ${message}`);
+                }
+
+                // Scroll to first error
+                const firstError = utils.$('.invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstError.focus();
+                }
+            }
+        }
+
+        function processPayment() {
+            // Simulate payment processing
+            const btn = document.querySelector('.checkout-btn');
+            const originalText = btn.textContent;
+
+            btn.textContent = '⏳ Processing...';
+            btn.disabled = true;
+
+            // Dostik encouragement
+            if (window.dostikAI) {
+                window.dostikAI.addChatMessage('✨ Processing your Nordic treasure purchase... Almost there!');
+            }
+
+            setTimeout(() => {
+                // Success!
+                btn.textContent = '✅ Payment Successful!';
+                btn.style.background = '#27ae60';
+
+                if (window.dostikAI) {
+                    window.dostikAI.addChatMessage('🎉 Success! Your Nordic treasures are on their way! Thank you for choosing DostanWebCSS!');
+                }
+
+                // Clear cart
+                localStorage.setItem('cart', '[]');
+
+                // Redirect after delay
+                setTimeout(() => {
+                    alert('🎉 Payment successful! Redirecting to confirmation page...');
+                    window.location.href = '../pages/profile.html';
+                }, 2000);
+
+            }, 3000);
+        }
+
+        function initializeDostikHelper() {
+            const helper = document.getElementById('dostik-helper');
+            let currentMessageIndex = 0;
+            let isInteractive = false;
+
+            const welcomeMessages = [
+                "🛡️ Your payment is secured with Nordic-level encryption!",
+                "📦 Free shipping on all Nordic treasures worldwide!",
+                "⚡ 30-day money-back guarantee on every purchase!",
+                "🎯 Choose your preferred payment method above!",
+                "✨ Need help? Click me for payment guidance!"
+            ];
+
+            const helpMessages = [
+                "💳 Credit Card: Most secure option with buyer protection",
+                "📱 PayPal: Quick checkout for international customers",
+                "🍎 Apple Pay: Instant payment with biometric security",
+                "₿ Crypto: Future-forward payment for tech enthusiasts",
+                "🏦 Bank Transfer: Traditional and reliable for large orders"
+            ];
+
+            // Show helper after delay
+            setTimeout(() => {
+                helper.classList.add('show');
+                showMessage(welcomeMessages[0]);
+            }, 2000);
+
+            // Cycle through welcome messages
+            const messageInterval = setInterval(() => {
+                if (!isInteractive) {
+                    currentMessageIndex = (currentMessageIndex + 1) % welcomeMessages.length;
+                    showMessage(welcomeMessages[currentMessageIndex]);
+                }
+            }, 6000);
+
+            // Interactive click for help
+            helper.addEventListener('click', () => {
+                isInteractive = true;
+                clearInterval(messageInterval);
+                showHelpMessages();
+            });
+
+            // Form field focus guidance
+            const formInputs = document.querySelectorAll('.form-input');
+            formInputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    const fieldName = input.name || input.id;
+                    const fieldMessages = {
+                        'firstName': '👤 Enter your first name for delivery',
+                        'lastName': '👥 Your family name for the shipping label',
+                        'email': '📧 Email for order confirmation and tracking',
+                        'address': '🏠 Full street address for accurate delivery',
+                        'cardNumber': '💳 Enter your 16-digit card number',
+                        'expiry': '📅 Format: MM/YY (Month/Year)',
+                        'cvv': '🔒 3-4 digit security code on your card',
+                        'cardName': '✍️ Name exactly as shown on your card'
+                    };
+
+                    if (fieldMessages[fieldName]) {
+                        showMessage(fieldMessages[fieldName]);
+                    }
+                });
+            });
+
+            function showMessage(message) {
+                const messageEl = document.getElementById('dostik-message');
+                messageEl.style.opacity = '0';
+                setTimeout(() => {
+                    messageEl.textContent = message;
+                    messageEl.style.opacity = '1';
+                }, 150);
+            }
+
+            function showHelpMessages() {
+                let helpIndex = 0;
+                const showNextHelp = () => {
+                    if (helpIndex < helpMessages.length) {
+                        showMessage(helpMessages[helpIndex]);
+                        helpIndex++;
+                        setTimeout(showNextHelp, 3000);
+                    } else {
+                        showMessage("🐉 That's all! Click anywhere on the form to continue.");
+                        setTimeout(() => {
+                            isInteractive = false;
+                            currentMessageIndex = 0;
+                        }, 3000);
+                    }
+                };
+                showNextHelp();
+            }
+        }
+    </script>
+    -->
+</body>
+</html>

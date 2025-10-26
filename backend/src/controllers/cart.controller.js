@@ -1,0 +1,111 @@
+/**
+ * Cart Controller
+ * Handles cart operations for both authenticated and guest users
+ */
+
+const cartService = require('../services/cart.service');
+const { success } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/errorHandler');
+
+class CartController {
+  /**
+   * Get cart (user or guest)
+   * @route GET /api/v1/cart
+   */
+  getCart = asyncHandler(async (req, res) => {
+    let cart;
+
+    if (req.user) {
+      // Authenticated user - get from database
+      cart = await cartService.getUserCart(req.user.id);
+    } else {
+      // Guest user - get from session
+      cart = await cartService.getGuestCart(req.session);
+    }
+
+    return success(res, cart, 'Cart retrieved successfully');
+  });
+
+  /**
+   * Add item to cart
+   * @route POST /api/v1/cart/items
+   */
+  addItem = asyncHandler(async (req, res) => {
+    const { product_id, quantity } = req.body;
+    let cart;
+
+    if (req.user) {
+      cart = await cartService.addItemToUserCart(req.user.id, product_id, quantity);
+    } else {
+      cart = await cartService.addItemToGuestCart(req.session, product_id, quantity);
+    }
+
+    return success(res, cart, 'Item added to cart successfully', 201);
+  });
+
+  /**
+   * Update cart item quantity
+   * @route PUT /api/v1/cart/items/:productId
+   */
+  updateItem = asyncHandler(async (req, res) => {
+    const { productId } = req.params;
+    const { quantity } = req.body;
+    let cart;
+
+    if (req.user) {
+      cart = await cartService.updateUserCartItem(req.user.id, productId, quantity);
+    } else {
+      cart = await cartService.updateGuestCartItem(req.session, productId, quantity);
+    }
+
+    return success(res, cart, 'Cart item updated successfully');
+  });
+
+  /**
+   * Remove item from cart
+   * @route DELETE /api/v1/cart/items/:productId
+   */
+  removeItem = asyncHandler(async (req, res) => {
+    const { productId } = req.params;
+    let cart;
+
+    if (req.user) {
+      cart = await cartService.removeItemFromUserCart(req.user.id, productId);
+    } else {
+      cart = await cartService.removeItemFromGuestCart(req.session, productId);
+    }
+
+    return success(res, cart, 'Item removed from cart successfully');
+  });
+
+  /**
+   * Clear cart
+   * @route DELETE /api/v1/cart
+   */
+  clearCart = asyncHandler(async (req, res) => {
+    let cart;
+
+    if (req.user) {
+      cart = await cartService.clearUserCart(req.user.id);
+    } else {
+      cart = cartService.clearGuestCart(req.session);
+    }
+
+    return success(res, cart, 'Cart cleared successfully');
+  });
+
+  /**
+   * Merge guest cart to user cart (called after login)
+   * @route POST /api/v1/cart/merge
+   */
+  mergeCart = asyncHandler(async (req, res) => {
+    if (!req.user) {
+      return success(res, { items: [], totals: { subtotal: 0, item_count: 0 } }, 'No user logged in');
+    }
+
+    const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
+    return success(res, cart, 'Cart merged successfully');
+  });
+}
+
+module.exports = new CartController();

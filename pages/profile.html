@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Dostan Marketplace</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-xxl: 3rem;
+            --radius-sm: 0.25rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 1rem;
+        }
+        body { font-family: Inter, system-ui, sans-serif; }
+        .profile-page { padding-top: 120px; min-height: 100vh; background: linear-gradient(135deg, #f5f7fa, #e8f0f2); }
+        .profile-container { max-width: 1200px; margin: 0 auto; padding: var(--space-xl); }
+        .profile-layout { display: grid; grid-template-columns: 300px 1fr; gap: var(--space-xl); align-items: start; }
+        .profile-sidebar { position: sticky; top: 120px; background: white; border-radius: var(--radius-lg); padding: var(--space-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .profile-header { text-align: center; margin-bottom: var(--space-xl); padding-bottom: var(--space-xl); border-bottom: 1px solid #e5e7eb; }
+        .profile-avatar { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #2d6853, #3d8863); margin: 0 auto var(--space-md); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 600; color: white; box-shadow: 0 4px 20px rgba(45,104,83,0.3); }
+        .profile-name { font-size: 1.25rem; font-weight: 600; color: #1f2937; margin-bottom: 0.25rem; }
+        .profile-email { color: #6b7280; font-size: 0.875rem; }
+        .profile-role { display: inline-block; margin-top: var(--space-sm); padding: 0.25rem 0.75rem; background: #dbeafe; color: #1e40af; border-radius: var(--radius-md); font-size: 0.75rem; font-weight: 500; text-transform: capitalize; }
+        .profile-nav { list-style: none; padding: 0; margin: 0; }
+        .nav-link { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-md); color: #6b7280; text-decoration: none; border-radius: var(--radius-md); transition: all 0.2s; cursor: pointer; }
+        .nav-link:hover { background: #f3f4f6; color: #2d6853; }
+        .nav-link.active { background: #ecfdf5; color: #2d6853; font-weight: 500; }
+        .profile-content { background: white; border-radius: var(--radius-lg); padding: var(--space-xxl); box-shadow: 0 4px 20px rgba(0,0,0,0.08); min-height: 500px; }
+        .loading-spinner { text-align: center; padding: var(--space-xxl); color: #6b7280; }
+        .btn { padding: var(--space-md) var(--space-xl); border: none; border-radius: var(--radius-md); font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #2d6853; color: white; }
+        .btn-primary:hover { background: #1f4a3a; transform: translateY(-2px); }
+        @media (max-width: 768px) { .profile-layout { grid-template-columns: 1fr; } .profile-sidebar { position: static; } }
+    </style>
+</head>
+<body>
+    <header style="position: fixed; top: 0; left: 0; right: 0; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; padding: 1.5rem 2rem;">
+        <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0; color: #2d6853; font-size: 1.5rem;">Dostan Marketplace</h1>
+            <nav style="display: flex; gap: 1.5rem;">
+                <a href="../index.html" style="color: #6b7280; text-decoration: none;">Home</a>
+                <a href="products.html" style="color: #6b7280; text-decoration: none;">Products</a>
+                <a href="cart.html" style="color: #6b7280; text-decoration: none;">Cart</a>
+                <a href="#" id="logoutBtn" style="color: #dc2626; text-decoration: none;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="profile-page">
+        <div class="profile-container">
+            <div class="profile-layout">
+                <aside class="profile-sidebar">
+                    <div class="profile-header">
+                        <div class="profile-avatar"><span>?</span></div>
+                        <div class="profile-name">Loading...</div>
+                        <div class="profile-email">loading@example.com</div>
+                        <span class="profile-role">buyer</span>
+                    </div>
+                    <ul class="profile-nav">
+                        <li><a class="nav-link active" data-section="overview">📊 Overview</a></li>
+                        <li><a class="nav-link" data-section="orders">📦 My Orders</a></li>
+                        <li><a class="nav-link" data-section="returns">↩️ My Returns</a></li>
+                        <li><a class="nav-link" data-section="addresses">📍 Addresses</a></li>
+                        <li><a class="nav-link" data-section="settings">⚙️ Settings</a></li>
+                    </ul>
+                </aside>
+                <main class="profile-content">
+                    <div class="loading-spinner">Loading your profile...</div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance & Security - Load First -->
+    <script src="../assets/js/security-utils.js"></script>
+    <script src="../assets/js/error-handler.js"></script>
+    <script src="../assets/js/lazy-load.js"></script>
+    <script src="../assets/js/performance-monitor.js"></script>
+
+    <!-- Core Scripts -->
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/return-api.js"></script>
+    <script src="../assets/js/profile-api.js"></script>
+</body>
+</html>

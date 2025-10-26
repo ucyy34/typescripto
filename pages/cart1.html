@@ -1,0 +1,2445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - DostanWebCSS Nordic Marketplace</title>
+    <meta name="description" content="Review your selected Nordic treasures and complete your purchase with AI recommendations from Dostik">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://dostanwebcss.com/pages/cart.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dostanwebcss.com/pages/cart.html">
+    <meta property="og:title" content="Shopping Cart - DostanWebCSS Nordic Marketplace">
+    <meta property="og:description" content="Review your selected Nordic treasures and complete your purchase with AI recommendations from Dostik">
+    <meta property="og:site_name" content="DostanWebCSS">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Shopping Cart - DostanWebCSS Nordic Marketplace">
+    <meta name="twitter:description" content="Review your selected Nordic treasures and complete your purchase with AI recommendations from Dostik">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap"></noscript>
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="../assets/css/main.css" as="style">
+    <link rel="preload" href="../assets/js/dostik-ai.js" as="script">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+
+    <style>
+        .cart-page {
+            padding-top: 120px;
+            min-height: 100vh;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .cart-container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: var(--space-xxl);
+            align-items: start;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .cart-items {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .cart-item {
+            display: grid;
+            grid-template-columns: 120px 1fr auto auto;
+            gap: var(--space-lg);
+            align-items: center;
+            padding: var(--space-lg) 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-image {
+            width: 120px;
+            height: 120px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: var(--cream-warm);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-details h3 {
+            font-size: 1.25rem;
+            margin-bottom: var(--space-xs);
+            color: var(--forest-deep);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-artisan {
+            color: var(--bark-brown);
+            font-family: var(--font-accent);
+            margin-bottom: var(--space-sm);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--forest-deep);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .item-original-price {
+            font-size: 0.9rem;
+            color: var(--warm-brown);
+            text-decoration: line-through;
+            margin-left: var(--space-sm);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .quantity-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--glass-bg);
+            cursor: pointer;
+            color: var(--forest-deep);
+            transition: background-color var(--transition-fast);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .quantity-btn:hover {
+            background: var(--forest-medium);
+            color: white;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .quantity-input {
+            width: 50px;
+            height: 32px;
+            border: none;
+            text-align: center;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .remove-item {
+            background: none;
+            border: none;
+            color: var(--warm-brown);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: var(--space-sm);
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .remove-item:hover {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            transform: scale(1.1);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .cart-summary {
+            position: sticky;
+            top: 120px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            height: fit-content;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-md);
+            font-size: 1.1rem;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .summary-row.total {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--forest-deep);
+            padding-top: var(--space-md);
+            border-top: 2px solid var(--glass-border);
+            margin-top: var(--space-lg);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .promo-code {
+            margin: var(--space-lg) 0;
+            padding: var(--space-md);
+            background: var(--cream-warm);
+            border-radius: var(--radius-md);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .promo-input {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-sm);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .promo-input input {
+            flex: 1;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            background: white;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .promo-input button {
+            padding: var(--space-sm) var(--space-md);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background-color var(--transition-fast);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .checkout-btn {
+            width: 100%;
+            padding: var(--space-lg);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: var(--space-lg);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-medium);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .checkout-btn:hover {
+            background: var(--forest-medium);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .empty-cart {
+            text-align: center;
+            padding: var(--space-xxl);
+            color: var(--warm-brown);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .empty-cart-icon {
+            font-size: 4rem;
+            margin-bottom: var(--space-lg);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .dostik-recommendations {
+            margin-top: var(--space-xxl);
+            background: linear-gradient(135deg, var(--aurora-green), var(--aurora-blue));
+            color: white;
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .dostik-recommendations::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .recommendation-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-lg);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .recommendation-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            transition: all var(--transition-medium);
+            cursor: pointer;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .recommendation-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .saved-items {
+            margin-top: var(--space-xxl);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .saved-items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-lg);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .saved-item {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            text-align: center;
+            transition: all var(--transition-medium);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .saved-item:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .saved-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .trust-signals {
+            display: flex;
+            justify-content: space-around;
+            margin: var(--space-lg) 0;
+            padding: var(--space-md);
+            background: var(--cream-warm);
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            color: var(--forest-deep);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .trust-signal {
+            text-align: center;
+            flex: 1;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .trust-signal-icon {
+            font-size: 1.5rem;
+            margin-bottom: var(--space-xs);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 1024px) {
+            .cart-container {
+                grid-template-columns: 1fr;
+                gap: var(--space-lg);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .cart-summary {
+                position: static;
+                order: -1;
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .cart-item {
+                grid-template-columns: 80px 1fr;
+                gap: var(--space-md);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .item-image {
+                width: 80px;
+                height: 80px;
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .quantity-controls {
+                margin-top: var(--space-sm);
+                justify-self: start;
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .remove-item {
+                grid-column: 1 / -1;
+                justify-self: end;
+                margin-top: var(--space-sm);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 768px) {
+            .recommendation-cards {
+                grid-template-columns: 1fr;
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .saved-items-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            .trust-signals {
+                flex-direction: column;
+                gap: var(--space-md);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card" role="banner" style="position: fixed; top: 0; left: 0; right: 0; z-index: 100; margin: var(--space-md); border-radius: var(--radius-lg);">
+        <nav class="navbar container" role="navigation" aria-label="Main navigation">
+            <div class="nav-brand">
+                <h1 style="margin: 0; font-size: 1.5rem; background: var(--aurora-green); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    <a href="../index.html" style="text-decoration: none; color: inherit;">🐉 DostanWebCSS</a>
+                </h1>
+            </div>
+
+            <div class="nav-search" style="flex: 1; max-width: 400px; margin: 0 var(--space-lg);">
+                <div style="position: relative;">
+                    <label for="searchInput" class="sr-only">Search for treasures</label>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search magical treasures..." aria-label="Search for treasures"
+                           style="width: 100%; padding: var(--space-sm) var(--space-lg) var(--space-sm) 2.5rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); backdrop-filter: var(--glass-backdrop);">
+                    <span style="position: absolute; left: var(--space-md); top: 50%; transform: translateY(-50%); color: var(--warm-brown);" aria-hidden="true">🔍</span>
+                </div>
+            </div>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: var(--space-md);">
+                <a href="products.html" class="nav-link" style="background: none; border: none; color: var(--forest-deep); text-decoration: none;">
+                    Treasures
+                </a>
+                <a href="artisan.html" class="nav-link" style="background: none; border: none; color: var(--forest-deep); text-decoration: none;">
+                    Artisans
+                </a>
+                <div class="cart-icon active" style="position: relative; color: var(--forest-deep); font-weight: 600;" aria-current="page">
+                    <span style="font-size: 1.5rem;" aria-hidden="true">🛒</span>
+                    <span class="cart-count" style="position: absolute; top: -8px; right: -8px; background: var(--aurora-green); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold;" aria-label="3 items in cart">3</span>
+                </div>
+                <a href="profile.html" class="profile-btn" style="background: none; border: none; font-size: 1.5rem; text-decoration: none;" aria-label="User profile">
+                    <span aria-hidden="true">👤</span>
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="cart-page" role="main">
+        <div class="container">
+            <!-- Page Header -->
+            <div class="text-center mb-xl">
+                <h1>🛒 Your Nordic Treasury</h1>
+                <p class="hero-text">Review your selected treasures before the final journey</p>
+            </div>
+
+            <!-- Cart Content -->
+            <div class="cart-container" id="cartContainer">
+                <!-- Cart Items -->
+                <section class="cart-items" id="cartItems">
+                    <!-- Cart items will be dynamically loaded by cart-api.js -->
+                    <div class="loading-state" style="text-align: center; padding: 3rem;">
+                        <div class="spinner" style="margin: 0 auto 1rem; width: 40px; height: 40px; border: 3px solid var(--cream-warm); border-top-color: var(--forest-medium); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        <p>Loading your cart...</p>
+                    </div>
+                </section>
+
+                <!-- Cart Summary -->
+                <aside class="cart-summary">
+                    <h3 style="margin-bottom: var(--space-lg); text-align: center;">Order Summary</h3>
+
+                    <div class="summary-row">
+                        <span>Subtotal (4 items):</span>
+                        <span id="subtotal">$474.97</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Shipping:</span>
+                        <span id="shipping" style="color: var(--aurora-green);">FREE</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Tax:</span>
+                        <span id="tax">$42.75</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Discount:</span>
+                        <span id="discount" style="color: var(--aurora-green);">-$50.00</span>
+                    </div>
+
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="total">$467.72</span>
+                    </div>
+
+                    <!-- Promo Code -->
+                    <div class="promo-code">
+                        <div style="font-weight: 500; margin-bottom: var(--space-sm);">🎫 Promo Code</div>
+                        <div class="promo-input">
+                            <input type="text" placeholder="Enter code..." id="promoInput">
+                            <button id="applyPromo">Apply</button>
+                        </div>
+                        <div id="promoMessage" style="margin-top: var(--space-sm); font-size: 0.9rem; display: none;"></div>
+                    </div>
+
+                    <!-- Trust Signals -->
+                    <div class="trust-signals">
+                        <div class="trust-signal">
+                            <div class="trust-signal-icon">🔒</div>
+                            <div>Secure<br>Payment</div>
+                        </div>
+                        <div class="trust-signal">
+                            <div class="trust-signal-icon">🚚</div>
+                            <div>Free<br>Shipping</div>
+                        </div>
+                        <div class="trust-signal">
+                            <div class="trust-signal-icon">↩️</div>
+                            <div>Easy<br>Returns</div>
+                        </div>
+                    </div>
+
+                    <button class="checkout-btn" id="checkoutBtn">
+                        ⚡ Proceed to Checkout
+                    </button>
+
+                    <div style="text-align: center; margin-top: var(--space-md); font-size: 0.9rem; color: var(--warm-brown);">
+                        <p>✨ Protected by Dostik's Dragon Magic</p>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- Dostik's AI Recommendations -->
+            <section class="dostik-recommendations">
+                <div style="position: relative; z-index: 2;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: var(--space-md); margin-bottom: var(--space-lg);">
+                        <div style="width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem;">🐉</div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.5rem;">Dostik's Mystical Suggestions</h3>
+                            <p style="margin: 0; opacity: 0.9;">Treasures that complement your selection perfectly</p>
+                        </div>
+                    </div>
+
+                    <div class="recommendation-cards">
+                        <div class="recommendation-card">
+                            <img src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&w=300&h=200" alt="Viking Leather Satchel" style="width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: var(--space-sm);">
+                            <h4 style="margin-bottom: var(--space-xs);">Viking Leather Satchel</h4>
+                            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: var(--space-sm);">Perfect companion for your Nordic sculpture collection</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600;">$299.99</span>
+                                <button class="btn btn-secondary" style="padding: var(--space-xs) var(--space-sm); font-size: 0.9rem;">Add to Cart</button>
+                            </div>
+                        </div>
+
+                        <div class="recommendation-card">
+                            <img src="https://images.unsplash.com/photo-1601027847350-0285867c31f7?ixlib=rb-4.0.3&w=300&h=200" alt="Sage Wood Carving" style="width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: var(--space-sm);">
+                            <h4 style="margin-bottom: var(--space-xs);">Sage Wood Carving</h4>
+                            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: var(--space-sm);">Another masterpiece from Erik's collection</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600;">$449.99</span>
+                                <button class="btn btn-secondary" style="padding: var(--space-xs) var(--space-sm); font-size: 0.9rem;">Add to Cart</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Saved for Later -->
+            <section class="saved-items">
+                <h3 style="margin-bottom: var(--space-md);">💝 Saved for Later</h3>
+                <p style="color: var(--warm-brown); margin-bottom: var(--space-lg);">Treasures waiting for the right moment</p>
+
+                <div class="saved-items-grid">
+                    <div class="saved-item">
+                        <img src="https://images.unsplash.com/photo-1578749556568-bc2c40e68393?ixlib=rb-4.0.3&w=200&h=200" alt="Fjord Ceramic Vase">
+                        <h4 style="font-size: 1rem; margin-bottom: var(--space-xs);">Fjord Ceramic Vase</h4>
+                        <p style="font-size: 0.9rem; color: var(--warm-brown); margin-bottom: var(--space-sm);">$79.99</p>
+                        <div style="display: flex; gap: var(--space-xs);">
+                            <button class="btn btn-secondary" style="flex: 1; padding: var(--space-xs); font-size: 0.8rem;">Move to Cart</button>
+                            <button style="background: none; border: none; color: var(--warm-brown); cursor: pointer;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <div class="saved-item">
+                        <img src="https://images.unsplash.com/photo-1578758460717-78f011ce1b38?ixlib=rb-4.0.3&w=200&h=200" alt="Nordic Rune Set">
+                        <h4 style="font-size: 1rem; margin-bottom: var(--space-xs);">Nordic Rune Set</h4>
+                        <p style="font-size: 0.9rem; color: var(--warm-brown); margin-bottom: var(--space-sm);">$149.99</p>
+                        <div style="display: flex; gap: var(--space-xs);">
+                            <button class="btn btn-secondary" style="flex: 1; padding: var(--space-xs); font-size: 0.8rem;">Move to Cart</button>
+                            <button style="background: none; border: none; color: var(--warm-brown); cursor: pointer;">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+
+    <!-- Page Scripts -->
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/cart-api.js"></script>
+
+    <!-- Old inline code - now replaced by cart-api.js
+    <script>
+        class CartPage {
+            constructor() {
+                this.cartItems = [
+                    {
+                        id: 'nordic-sculpture',
+                        name: 'Nordic Forest Sculpture',
+                        artisan: 'Erik Nordström',
+                        price: 189.99,
+                        originalPrice: 239.99,
+                        quantity: 1,
+                        image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=300&h=300'
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        },
+                    {
+                        id: 'aurora-bowl',
+                        name: 'Aurora Glass Bowl',
+                        artisan: 'Astrid Björk',
+                        price: 124.99,
+                        quantity: 2,
+                        image: 'https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=300&h=300'
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        },
+                    {
+                        id: 'pine-candle',
+                        name: 'Mountain Pine Candle',
+                        artisan: 'Ingrid Svensson',
+                        price: 34.99,
+                        quantity: 1,
+                        image: 'https://images.unsplash.com/photo-1602874801007-b1fc7effca14?ixlib=rb-4.0.3&w=300&h=300'
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                ];
+
+                this.promoCode = '';
+                this.discount = 50.00;
+                this.shippingThreshold = 150;
+
+                this.init();
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            init() {
+                this.setupEventListeners();
+                this.updateCartSummary();
+                this.setupDostikRecommendations();
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            setupEventListeners() {
+                // Quantity controls
+                document.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('increase-qty')) {
+                        this.changeQuantity(e.target, 1);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        } else if (e.target.classList.contains('decrease-qty')) {
+                        this.changeQuantity(e.target, -1);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        } else if (e.target.classList.contains('remove-item')) {
+                        this.removeItem(e.target);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Quantity input changes
+                document.addEventListener('change', (e) => {
+                    if (e.target.classList.contains('quantity-input')) {
+                        this.updateQuantity(e.target);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Promo code
+                document.getElementById('applyPromo').addEventListener('click', () => {
+                    this.applyPromoCode();
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Clear cart
+                document.getElementById('clearCart').addEventListener('click', () => {
+                    this.clearCart();
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Checkout
+                document.getElementById('checkoutBtn').addEventListener('click', () => {
+                    this.proceedToCheckout();
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Recommendation cards
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.recommendation-card button')) {
+                        this.addRecommendationToCart(e.target.closest('.recommendation-card'));
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                // Saved items
+                document.addEventListener('click', (e) => {
+                    if (e.target.textContent === 'Move to Cart') {
+                        this.moveToCart(e.target.closest('.saved-item'));
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            changeQuantity(button, change) {
+                const cartItem = button.closest('.cart-item');
+                const quantityInput = cartItem.querySelector('.quantity-input');
+                const currentQuantity = parseInt(quantityInput.value);
+                const newQuantity = Math.max(1, Math.min(10, currentQuantity + change));
+
+                quantityInput.value = newQuantity;
+                this.updateItemQuantity(cartItem.dataset.itemId, newQuantity);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            updateQuantity(input) {
+                const cartItem = input.closest('.cart-item');
+                const quantity = Math.max(1, Math.min(10, parseInt(input.value) || 1));
+                input.value = quantity;
+                this.updateItemQuantity(cartItem.dataset.itemId, quantity);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            updateItemQuantity(itemId, quantity) {
+                const item = this.cartItems.find(item => item.id === itemId);
+                if (item) {
+                    item.quantity = quantity;
+                    this.updateCartSummary();
+                    this.saveCartToStorage();
+
+                    // Add visual feedback
+                    const cartItem = document.querySelector(`[data-item-id="${itemId}"]`);
+                    cartItem.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        cartItem.style.transform = '';
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 200);
+
+                    // Dostik commentary
+                    if (window.dostikAI && quantity > 3) {
+                        window.dostikAI.addChatMessage("Excellent choice! Stocking up on magical treasures shows great wisdom! 🐉✨");
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            removeItem(button) {
+                const cartItem = button.closest('.cart-item');
+                const itemId = cartItem.dataset.itemId;
+
+                // Add removal animation
+                cartItem.style.transform = 'translateX(-100%)';
+                cartItem.style.opacity = '0';
+                cartItem.style.transition = 'all 0.3s ease-out';
+
+                setTimeout(() => {
+                    // Remove from array
+                    this.cartItems = this.cartItems.filter(item => item.id !== itemId);
+
+                    // Remove from DOM
+                    cartItem.remove();
+
+                    this.updateCartSummary();
+                    this.saveCartToStorage();
+
+                    // Check if cart is empty
+                    if (this.cartItems.length === 0) {
+                        this.showEmptyCart();
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+                    // Dostik sympathy
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage("Sometimes we must let treasures go... but they'll find their way to the right keeper! 🐉💙");
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 300);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            updateCartSummary() {
+                const subtotal = this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+                const tax = subtotal * 0.09; // 9% tax
+                const shipping = subtotal >= this.shippingThreshold ? 0 : 15.99;
+                const total = subtotal + tax + shipping - this.discount;
+
+                document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+                document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
+                document.getElementById('shipping').textContent = shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`;
+                document.getElementById('discount').textContent = this.discount > 0 ? `-$${this.discount.toFixed(2)}` : '$0.00';
+                document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+
+                // Update cart count in header
+                const totalItems = this.cartItems.reduce((total, item) => total + item.quantity, 0);
+                const cartCount = document.querySelector('.cart-count');
+                if (cartCount) {
+                    cartCount.textContent = totalItems;
+                    cartCount.style.display = totalItems > 0 ? 'flex' : 'none';
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+                // Update shipping message
+                if (subtotal >= this.shippingThreshold) {
+                    document.getElementById('shipping').style.color = 'var(--aurora-green)';
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        } else {
+                    const remaining = this.shippingThreshold - subtotal;
+                    document.getElementById('shipping').innerHTML = `$15.99<br><small>$${remaining.toFixed(2)} more for free shipping</small>`;
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            applyPromoCode() {
+                const promoInput = document.getElementById('promoInput');
+                const promoMessage = document.getElementById('promoMessage');
+                const code = promoInput.value.trim().toUpperCase();
+
+                const validCodes = {
+                    'DOSTIK20': { discount: 20, type: 'percentage', message: '🐉 Dostik\'s blessing applied! 20% off!' },
+                    'NORDIC50': { discount: 50, type: 'fixed', message: '❄️ Nordic magic activated! $50 off!' },
+                    'FIRSTTIME': { discount: 15, type: 'percentage', message: '✨ Welcome bonus applied! 15% off!' }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        };
+
+                if (validCodes[code]) {
+                    const promo = validCodes[code];
+                    const subtotal = this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+                    if (promo.type === 'percentage') {
+                        this.discount = subtotal * (promo.discount / 100);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        } else {
+                        this.discount = promo.discount;
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+                    promoMessage.textContent = promo.message;
+                    promoMessage.style.color = 'var(--aurora-green)';
+                    promoMessage.style.display = 'block';
+
+                    promoInput.disabled = true;
+                    document.getElementById('applyPromo').disabled = true;
+                    document.getElementById('applyPromo').textContent = 'Applied!';
+
+                    this.updateCartSummary();
+
+                    // Dostik celebration
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage("Magnificent! You've unlocked ancient Nordic savings magic! 🐉💰");
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        } else {
+                    promoMessage.textContent = 'Invalid promo code. Try again!';
+                    promoMessage.style.color = '#e74c3c';
+                    promoMessage.style.display = 'block';
+
+                    // Shake animation for invalid code
+                    promoInput.style.animation = 'shake 0.5s ease-in-out';
+                    setTimeout(() => {
+                        promoInput.style.animation = '';
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 500);
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            clearCart() {
+                if (confirm('Are you sure you want to clear all items from your cart?')) {
+                    // Animate all items out
+                    const cartItems = document.querySelectorAll('.cart-item');
+                    cartItems.forEach((item, index) => {
+                        setTimeout(() => {
+                            item.style.transform = 'translateX(-100%)';
+                            item.style.opacity = '0';
+                        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, index * 100);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+
+                    setTimeout(() => {
+                        this.cartItems = [];
+                        this.updateCartSummary();
+                        this.saveCartToStorage();
+                        this.showEmptyCart();
+
+                        if (window.dostikAI) {
+                            window.dostikAI.addChatMessage("The treasury has been cleared! Ready for a fresh treasure hunt! 🐉🗑️");
+                        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, cartItems.length * 100 + 300);
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            showEmptyCart() {
+                const cartItems = document.getElementById('cartItems');
+                cartItems.innerHTML = `
+                    <div class="empty-cart">
+                        <div class="empty-cart-icon">🐉</div>
+                        <h3>Your treasury is empty!</h3>
+                        <p>Discover magnificent Nordic treasures waiting for you</p>
+                        <a href="products.html" class="btn btn-primary" style="margin-top: var(--space-lg);">
+                            🌟 Explore Treasures
+                        </a>
+                    </div>
+                `;
+
+                // Hide cart summary
+                document.querySelector('.cart-summary').style.display = 'none';
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            proceedToCheckout() {
+                const checkoutBtn = document.getElementById('checkoutBtn');
+                const originalText = checkoutBtn.textContent;
+
+                // Loading animation
+                checkoutBtn.textContent = '✨ Preparing checkout magic...';
+                checkoutBtn.disabled = true;
+
+                // Simulate checkout process
+                setTimeout(() => {
+                    checkoutBtn.textContent = '🔮 Securing your treasures...';
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 1000);
+
+                setTimeout(() => {
+                    checkoutBtn.textContent = '🐉 Dostik approves!';
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 2000);
+
+                setTimeout(() => {
+                    alert('🎉 Checkout complete! Your Nordic treasures are on their way!\n\nOrder confirmation sent to your email.');
+
+                    // Dostik celebration
+                    if (window.dostikAI) {
+                        window.dostikAI.celebratePurchase();
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+                    checkoutBtn.textContent = originalText;
+                    checkoutBtn.disabled = false;
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 3000);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            addRecommendationToCart(card) {
+                const title = card.querySelector('h4').textContent;
+                const button = card.querySelector('button');
+
+                // Visual feedback
+                button.textContent = '✅ Added!';
+                button.disabled = true;
+                card.style.transform = 'scale(0.95)';
+
+                setTimeout(() => {
+                    button.textContent = 'Add to Cart';
+                    button.disabled = false;
+                    card.style.transform = '';
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 2000);
+
+                // Dostik recommendation success
+                if (window.dostikAI) {
+                    window.dostikAI.addChatMessage(`Perfect choice! The ${title} will complement your collection beautifully! 🐉✨`);
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            moveToCart(savedItem) {
+                const title = savedItem.querySelector('h4').textContent;
+
+                // Animate item moving
+                savedItem.style.transform = 'translateY(-20px)';
+                savedItem.style.opacity = '0';
+
+                setTimeout(() => {
+                    savedItem.remove();
+
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage(`${title} has been moved to your cart! Ready to complete your collection! 🐉🛒`);
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 300);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            setupDostikRecommendations() {
+                // Show Dostik insights after a delay
+                setTimeout(() => {
+                    if (window.dostikAI) {
+                        window.dostikAI.addChatMessage("I sense great wisdom in your treasure selection! These pieces will bring Nordic harmony to your realm! 🐉✨");
+                    }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }, 2000);
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+            saveCartToStorage() {
+                localStorage.setItem('dostanCart', JSON.stringify(this.cartItems));
+            }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        // Initialize cart page
+        document.addEventListener('DOMContentLoaded', () => {
+            new CartPage();
+
+            // Add shake animation CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
+                }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+            `;
+            document.head.appendChild(style);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        });
+    </script>
+    -->
+
+    <!-- Footer -->
+    <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+                <div>
+                    <h4 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h4>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <div style="display: flex; gap: var(--space-md);">
+                        <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">🐦</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📷</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Quick Links</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="../index.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a></li>
+                        <li><a href="products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
+                        <li><a href="artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
+                        <li><a href="cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Support</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Nordic Wisdom</h5>
+                    <p style="opacity: 0.8; font-style: italic; margin-bottom: var(--space-md);">
+                        "Every treasure tells a story, every artisan carries ancient wisdom."
+                    </p>
+                    <p style="opacity: 0.6; font-size: 0.9rem;">
+                        - Dostik the Dragon
+                    </p>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+                <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

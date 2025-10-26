@@ -1,0 +1,145 @@
+{
+  "name": "DostanWebCSS - Nordic Marketplace",
+  "short_name": "DostanWebCSS",
+  "description": "Revolutionary Nordic marketplace with AI companion Dostik",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f2eb",
+  "theme_color": "#2d6853",
+  "orientation": "portrait-primary",
+  "categories": ["shopping", "lifestyle", "entertainment"],
+  "lang": "en",
+  "dir": "ltr",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "assets/images/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "assets/images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/images/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "DostanWebCSS Nordic Marketplace"
+    },
+    {
+      "src": "assets/images/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile Nordic Shopping Experience"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Treasures",
+      "short_name": "Browse",
+      "description": "Explore Nordic treasures",
+      "url": "/pages/products.html",
+      "icons": [
+        {
+          "src": "assets/images/shortcut-browse.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Meet Artisans",
+      "short_name": "Artisans",
+      "description": "Discover master craftspeople",
+      "url": "/pages/artisan.html",
+      "icons": [
+        {
+          "src": "assets/images/shortcut-artisans.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Your Profile",
+      "short_name": "Profile",
+      "description": "Manage your Nordic journey",
+      "url": "/pages/profile.html",
+      "icons": [
+        {
+          "src": "assets/images/shortcut-profile.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Chat with Dostik",
+      "short_name": "Dostik",
+      "description": "Talk to your AI dragon companion",
+      "url": "/?dostik=chat",
+      "icons": [
+        {
+          "src": "assets/images/shortcut-dostik.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+dostanwebcss",
+      "url": "/?action=%s"
+    }
+  ]
+}

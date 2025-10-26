@@ -1,0 +1,59 @@
+# DostanWebCSS Robots.txt
+# Nordic Marketplace - SEO Optimized
+
+User-agent: *
+Allow: /
+Allow: /pages/
+Allow: /assets/css/
+Allow: /assets/images/
+
+# Disallow admin and private areas
+Disallow: /backend/
+Disallow: /vendorcss/
+Disallow: /assets/js/
+Disallow: /node_modules/
+Disallow: /.git/
+Disallow: /assets/js-backup/
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Disallow search results and filters
+Disallow: /*?*
+Disallow: /pages/products.html?*
+Disallow: /pages/search*
+
+# Allow specific query parameters
+Allow: /pages/product-detail.html?id=*
+
+# Sitemap location
+Sitemap: https://dostanwebcss.com/sitemap.xml
+
+# Crawl delay (be nice to servers)
+Crawl-delay: 1
+
+# Specific bot rules
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+# Block bad bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /

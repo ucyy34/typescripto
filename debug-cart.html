@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart Debug Tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .debug-section {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2d6853;
+        }
+        h2 {
+            color: #8b6d47;
+            margin-top: 0;
+        }
+        .cart-item {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: #f9f9f9;
+            border-left: 4px solid #2d6853;
+        }
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        button {
+            background: #2d6853;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #1f4a39;
+        }
+        .danger {
+            background: #dc2626;
+        }
+        .danger:hover {
+            background: #991b1b;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #2d6853 0%, #1f4a39 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .stat-label {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐉 Sepet Debug Aracı</h1>
+
+    <div class="debug-section">
+        <h2>Sepet İstatistikleri</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Toplam Ürün Çeşidi</div>
+                <div class="stat-value" id="totalItems">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam Adet</div>
+                <div class="stat-value" id="totalQuantity">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">LocalStorage Boyutu</div>
+                <div class="stat-value" id="storageSize">-</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Sepet İçeriği</h2>
+        <div id="cartContents"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Raw Data (JSON)</h2>
+        <pre id="rawData"></pre>
+    </div>
+
+    <div class="debug-section">
+        <h2>İşlemler</h2>
+        <button onclick="refreshData()">🔄 Yenile</button>
+        <button onclick="testAddProduct()">➕ Test Ürün Ekle</button>
+        <button onclick="clearCart()" class="danger">🗑️ Sepeti Temizle</button>
+        <button onclick="exportCart()">💾 JSON'u İndir</button>
+        <button onclick="fixCart()">🔧 Sepeti Düzelt</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>Sistem Bilgisi</h2>
+        <div id="systemInfo"></div>
+    </div>
+
+    <script>
+        function getCart() {
+            const raw = localStorage.getItem('cart');
+            if (!raw) return null;
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                console.error('Cart parse error:', e);
+                return null;
+            }
+        }
+
+        function displayCart() {
+            const cart = getCart();
+            const container = document.getElementById('cartContents');
+            const rawData = document.getElementById('rawData');
+            const totalItems = document.getElementById('totalItems');
+            const totalQuantity = document.getElementById('totalQuantity');
+            const storageSize = document.getElementById('storageSize');
+
+            if (!cart || cart.length === 0) {
+                container.innerHTML = '<p class="error">❌ Sepet boş veya bulunamadı</p>';
+                rawData.textContent = 'Veri yok';
+                totalItems.textContent = '0';
+                totalQuantity.textContent = '0';
+                storageSize.textContent = '0 KB';
+                return;
+            }
+
+            // Stats
+            totalItems.textContent = cart.length;
+            totalQuantity.textContent = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+            const jsonStr = JSON.stringify(cart);
+            storageSize.textContent = (jsonStr.length / 1024).toFixed(2) + ' KB';
+
+            // Items
+            let html = '';
+            cart.forEach((item, index) => {
+                const hasProduct = item.product && typeof item.product === 'object';
+                const title = hasProduct ? item.product.title : (item.title || 'Bilinmeyen Ürün');
+                const price = hasProduct ? item.product.price : (item.price || 0);
+                const image = hasProduct && item.product.images ? item.product.images[0] : null;
+
+                html += `
+                    <div class="cart-item">
+                        <strong>#${index + 1}</strong> |
+                        <strong>ID:</strong> ${item.product_id || 'YOK'} |
+                        <strong>Başlık:</strong> ${title} |
+                        <strong>Fiyat:</strong> ₺${price} |
+                        <strong>Adet:</strong> ${item.quantity || 0}<br>
+                        ${!hasProduct ? '<span class="error">⚠️ Ürün verisi eksik!</span>' : '<span class="success">✅ Ürün verisi tamam</span>'}
+                        ${image ? ` | <strong>Resim:</strong> ✅` : ' | <span class="error">Resim: ❌</span>'}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+
+            // Raw JSON
+            rawData.textContent = JSON.stringify(cart, null, 2);
+        }
+
+        function displaySystemInfo() {
+            const info = document.getElementById('systemInfo');
+            const cart = getCart();
+
+            let issues = [];
+            if (cart) {
+                cart.forEach((item, i) => {
+                    if (!item.product_id) issues.push(`Item ${i}: product_id eksik`);
+                    if (!item.product) issues.push(`Item ${i}: product verisi eksik`);
+                    if (!item.quantity || item.quantity < 1) issues.push(`Item ${i}: geçersiz quantity`);
+                });
+            }
+
+            info.innerHTML = `
+                <p><strong>Tarayıcı:</strong> ${navigator.userAgent}</p>
+                <p><strong>LocalStorage Destegi:</strong> ${typeof(Storage) !== "undefined" ? '✅ Evet' : '❌ Hayır'}</p>
+                <p><strong>Sepet Key:</strong> 'cart'</p>
+                <p><strong>Sorunlar:</strong> ${issues.length === 0 ? '<span class="success">✅ Sorun bulunamadı</span>' : '<span class="error">' + issues.join(', ') + '</span>'}</p>
+            `;
+        }
+
+        function refreshData() {
+            displayCart();
+            displaySystemInfo();
+        }
+
+        function clearCart() {
+            if (!confirm('Sepeti temizlemek istediğinizden emin misiniz?')) return;
+            localStorage.removeItem('cart');
+            alert('✅ Sepet temizlendi!');
+            refreshData();
+        }
+
+        function testAddProduct() {
+            let cart = getCart() || [];
+            const testProduct = {
+                product_id: 'test-' + Date.now(),
+                product: {
+                    id: 'test-' + Date.now(),
+                    title: 'Test Ürün ' + (cart.length + 1),
+                    price: 99.99,
+                    images: ['https://via.placeholder.com/300'],
+                    stock: 10,
+                    store: { name: 'Test Mağaza' }
+                },
+                quantity: 1,
+                price: 99.99
+            };
+
+            cart.push(testProduct);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            alert('✅ Test ürün eklendi!');
+            refreshData();
+        }
+
+        function exportCart() {
+            const cart = getCart();
+            if (!cart) {
+                alert('❌ Sepet boş!');
+                return;
+            }
+
+            const dataStr = JSON.stringify(cart, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cart-debug-' + new Date().toISOString().slice(0,10) + '.json';
+            link.click();
+            alert('✅ Sepet JSON olarak indirildi!');
+        }
+
+        function fixCart() {
+            let cart = getCart();
+            if (!cart || cart.length === 0) {
+                alert('❌ Sepet boş, düzeltilecek bir şey yok!');
+                return;
+            }
+
+            // Fix invalid items
+            const fixed = cart.filter(item => {
+                // Must have product_id
+                if (!item.product_id) {
+                    console.warn('Removed item without product_id:', item);
+                    return false;
+                }
+
+                // Fix missing product object
+                if (!item.product || typeof item.product !== 'object') {
+                    item.product = {
+                        id: item.product_id,
+                        title: item.title || 'Unknown Product',
+                        price: item.price || 0,
+                        images: item.images || [],
+                        stock: item.stock || 99,
+                        store: item.store || null
+                    };
+                    console.log('Fixed product data for:', item.product_id);
+                }
+
+                // Fix quantity
+                if (!item.quantity || item.quantity < 1) {
+                    item.quantity = 1;
+                }
+
+                // Ensure price exists
+                if (!item.price && item.product && item.product.price) {
+                    item.price = item.product.price;
+                }
+
+                return true;
+            });
+
+            localStorage.setItem('cart', JSON.stringify(fixed));
+            alert(`✅ Sepet düzeltildi! ${cart.length - fixed.length} geçersiz ürün kaldırıldı.`);
+            refreshData();
+        }
+
+        // Auto-refresh on load
+        window.addEventListener('load', refreshData);
+
+        // Auto-refresh when localStorage changes
+        window.addEventListener('storage', refreshData);
+
+        // Listen for custom cart events
+        document.addEventListener('cartUpdated', refreshData);
+    </script>
+</body>
+</html>

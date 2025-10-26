@@ -1,0 +1,92 @@
+/**
+ * Category Controller
+ * Handle category HTTP requests
+ */
+
+const categoryService = require('../services/category.service');
+const { success, created, noContent } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/errorHandler');
+
+class CategoryController {
+  /**
+   * Get all categories (tree structure)
+   * GET /api/v1/categories
+   */
+  getAllCategories = asyncHandler(async (req, res) => {
+    const categories = await categoryService.getAllCategories();
+
+    return success(res, categories, 'Categories retrieved successfully');
+  });
+
+  /**
+   * Get top-level categories
+   * GET /api/v1/categories/top-level
+   */
+  getTopLevelCategories = asyncHandler(async (req, res) => {
+    const categories = await categoryService.getTopLevelCategories();
+
+    return success(res, categories, 'Top-level categories retrieved successfully');
+  });
+
+  /**
+   * Get featured categories
+   * GET /api/v1/categories/featured
+   */
+  getFeaturedCategories = asyncHandler(async (req, res) => {
+    const categories = await categoryService.getFeaturedCategories();
+
+    return success(res, categories, 'Featured categories retrieved successfully');
+  });
+
+  /**
+   * Get category by ID
+   * GET /api/v1/categories/:id
+   */
+  getCategoryById = asyncHandler(async (req, res) => {
+    const category = await categoryService.getCategoryById(req.params.id);
+
+    return success(res, category, 'Category retrieved successfully');
+  });
+
+  /**
+   * Create category (admin only)
+   * POST /api/v1/categories
+   */
+  createCategory = asyncHandler(async (req, res) => {
+    const category = await categoryService.createCategory(req.body);
+
+    return created(res, category, 'Category created successfully');
+  });
+
+  /**
+   * Update category (admin only)
+   * PUT /api/v1/categories/:id
+   */
+  updateCategory = asyncHandler(async (req, res) => {
+    const category = await categoryService.updateCategory(req.params.id, req.body);
+
+    return success(res, category, 'Category updated successfully');
+  });
+
+  /**
+   * Delete category (admin only)
+   * DELETE /api/v1/categories/:id
+   */
+  deleteCategory = asyncHandler(async (req, res) => {
+    await categoryService.deleteCategory(req.params.id);
+
+    return noContent(res);
+  });
+
+  /**
+   * Get variants for a category
+   * GET /api/v1/categories/:id/variants
+   */
+  getCategoryVariants = asyncHandler(async (req, res) => {
+    const variants = await categoryService.getCategoryVariants(req.params.id);
+
+    return success(res, variants, 'Category variants retrieved successfully');
+  });
+}
+
+module.exports = new CategoryController();

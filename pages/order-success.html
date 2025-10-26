@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed - Dostan Marketplace</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a4a3a, #2d6853);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .success-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.6s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .success-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: bounce 1s ease;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        h1 {
+            color: #2d6853;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .order-number {
+            background: #f0f7f4;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2d6853;
+        }
+        .order-items {
+            text-align: left;
+            margin: 2rem 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .order-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            align-items: center;
+        }
+        .order-item img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .order-item-details {
+            flex: 1;
+        }
+        .order-item-details h4 {
+            margin: 0 0 0.25rem 0;
+            font-size: 0.9rem;
+        }
+        .order-item-details p {
+            margin: 0;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .countdown {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+        .btn {
+            background: #2d6853;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #1a4a3a;
+            transform: translateY(-2px);
+        }
+        .total-box {
+            text-align: right;
+            padding: 1rem;
+            background: #f8f8f8;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        @media (max-width: 768px) {
+            .success-container {
+                padding: 2rem 1.5rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+            .success-icon {
+                font-size: 3.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">✅</div>
+        <h1>Order Confirmed!</h1>
+        <p style="color:#666;margin-bottom:1.5rem;">
+            Thank you! Your order has been successfully placed.
+        </p>
+
+        <div class="order-number">
+            Order #<span id="orderNumber">Loading...</span>
+        </div>
+
+        <h3 style="text-align:left;margin:1.5rem 0 1rem 0;">Order Details</h3>
+        <div class="order-items" id="orderItems">
+            <p style="text-align:center;color:#666;">Loading...</p>
+        </div>
+
+        <div class="total-box">
+            <strong>Total: <span id="totalAmount">$0.00</span></strong>
+        </div>
+
+        <p class="countdown">
+            Redirecting to homepage in <span id="countdown">5</span> seconds...
+        </p>
+
+        <a href="../index.html" class="btn">
+            🏠 Return to Homepage
+        </a>
+    </div>
+
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script>
+        // Get order ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('orderId');
+
+        async function loadOrderDetails() {
+            if (!orderId) {
+                document.getElementById('orderNumber').textContent = 'Not Found';
+                document.getElementById('orderItems').innerHTML = '<p style="text-align:center;color:red;">Order ID not provided</p>';
+                return;
+            }
+
+            try {
+                document.getElementById('orderNumber').textContent = orderId.substring(0, 8).toUpperCase();
+
+                // Get order from localStorage cart (since it was just created)
+                const cart = JSON.parse(localStorage.getItem('lastOrder')) || [];
+
+                const itemsContainer = document.getElementById('orderItems');
+                if (cart && cart.items && cart.items.length > 0) {
+                    itemsContainer.innerHTML = cart.items.map(item => {
+                        const product = item.product;
+                        const price = parseFloat(item.price || product?.price || 0);
+                        const itemTotal = price * item.quantity;
+                        const mainImage = product?.images?.[0] || 'https://via.placeholder.com/60x60';
+
+                        return `
+                            <div class="order-item">
+                                <img src="${mainImage}" alt="${product?.title || 'Product'}">
+                                <div class="order-item-details">
+                                    <h4>${product?.title || 'Product'}</h4>
+                                    <p>${item.quantity} x $${price.toFixed(2)}</p>
+                                </div>
+                                <strong>$${itemTotal.toFixed(2)}</strong>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Display total
+                    if (cart.total) {
+                        document.getElementById('totalAmount').textContent = `$${cart.total.toFixed(2)}`;
+                    }
+                } else {
+                    itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">No items found</p>';
+                }
+
+                // Clear localStorage order
+                setTimeout(() => {
+                    localStorage.removeItem('lastOrder');
+                }, 10000);
+
+            } catch (error) {
+                console.error('Order load error:', error);
+                document.getElementById('orderItems').innerHTML = '<p style="text-align:center;color:red;">Failed to load order details</p>';
+            }
+        }
+
+        // Countdown timer
+        let seconds = 5;
+        const countdownEl = document.getElementById('countdown');
+        const interval = setInterval(() => {
+            seconds--;
+            countdownEl.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                window.location.href = '../index.html';
+            }
+        }, 1000);
+
+        // Load order on page load
+        document.addEventListener('DOMContentLoaded', loadOrderDetails);
+    </script>
+</body>
+</html>

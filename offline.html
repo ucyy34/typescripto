@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - DostanWebCSS Nordic Marketplace</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f2eb 0%, #ede7d9 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a4a3a;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .offline-container {
+            text-align: center;
+            max-width: 600px;
+            padding: 2rem;
+            background: rgba(245, 242, 235, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(245, 242, 235, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(26, 74, 58, 0.2);
+            position: relative;
+            z-index: 2;
+        }
+
+        .dostik-sleeping {
+            font-size: 6rem;
+            margin-bottom: 2rem;
+            display: block;
+            animation: breathe 4s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1) rotate(-2deg); }
+            50% { transform: scale(1.1) rotate(2deg); }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #2d6853 0%, #4a8b6c 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .offline-message {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            color: #8b6d47;
+        }
+
+        .offline-tips {
+            background: rgba(139, 109, 71, 0.1);
+            border: 1px solid rgba(139, 109, 71, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            text-align: left;
+        }
+
+        .offline-tips h3 {
+            color: #2d6853;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .offline-tips ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .offline-tips li {
+            padding: 0.5rem 0;
+            padding-left: 2rem;
+            position: relative;
+            color: #4a8b6c;
+        }
+
+        .offline-tips li::before {
+            content: '🐉';
+            position: absolute;
+            left: 0;
+            top: 0.5rem;
+        }
+
+        .retry-btn {
+            background: linear-gradient(135deg, #2d6853 0%, #4a8b6c 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 1rem 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(74, 139, 108, 0.3);
+        }
+
+        .offline-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(139, 109, 71, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #8b6d47;
+            font-weight: 500;
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #4a8b6c;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 8s linear infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+            90% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg) scale(0);
+                opacity: 0;
+            }
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 3;
+        }
+
+        .connection-status.offline {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.2);
+            color: #c0392b;
+        }
+
+        .connection-status.online {
+            background: rgba(46, 125, 50, 0.1);
+            border: 1px solid rgba(46, 125, 50, 0.2);
+            color: #2e7d32;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .offline .status-dot {
+            background: #e74c3c;
+        }
+
+        .online .status-dot {
+            background: #27ae60;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .cached-content {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: rgba(74, 139, 108, 0.05);
+            border: 1px solid rgba(74, 139, 108, 0.1);
+            border-radius: 12px;
+        }
+
+        .cached-content h3 {
+            color: #2d6853;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cached-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .cached-link {
+            display: block;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(139, 109, 71, 0.2);
+            border-radius: 8px;
+            text-decoration: none;
+            color: #2d6853;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .cached-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(26, 74, 58, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .cached-link-icon {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .offline-container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .dostik-sleeping {
+                font-size: 4rem;
+            }
+
+            .offline-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .cached-links {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Connection Status -->
+    <div class="connection-status offline" id="connectionStatus">
+        <div class="status-dot"></div>
+        <span>Offline Mode</span>
+    </div>
+
+    <!-- Floating Particles -->
+    <div class="floating-particles" id="floatingParticles"></div>
+
+    <!-- Main Content -->
+    <div class="offline-container">
+        <span class="dostik-sleeping">🐉💤</span>
+
+        <h1>Dostik is Resting</h1>
+
+        <p class="offline-message">
+            The Nordic realm has lost its mystical connection to the digital winds.
+            Fear not! Dostik is gathering his strength and will return shortly with magical treasures.
+        </p>
+
+        <div class="offline-stats">
+            <div class="stat-card">
+                <span class="stat-icon">📱</span>
+                <div class="stat-label">PWA Active</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">💾</span>
+                <div class="stat-label">Cache Ready</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">🔄</span>
+                <div class="stat-label">Auto-Sync</div>
+            </div>
+        </div>
+
+        <div class="offline-tips">
+            <h3>🐉 While Dostik Sleeps</h3>
+            <ul>
+                <li>Some cached pages may still be available</li>
+                <li>Your cart and wishlist are safely stored</li>
+                <li>Connection will automatically restore</li>
+                <li>Background sync will update when online</li>
+            </ul>
+        </div>
+
+        <div class="cached-content">
+            <h3>
+                💾 Available Offline Content
+            </h3>
+            <p style="color: #8b6d47; margin-bottom: 1rem;">
+                These cached pages are available while offline:
+            </p>
+            <div class="cached-links">
+                <a href="/" class="cached-link">
+                    <span class="cached-link-icon">🏠</span>
+                    Homepage
+                </a>
+                <a href="/pages/products.html" class="cached-link">
+                    <span class="cached-link-icon">🎨</span>
+                    Products
+                </a>
+                <a href="/pages/artisan.html" class="cached-link">
+                    <span class="cached-link-icon">👨‍🎨</span>
+                    Artisans
+                </a>
+                <a href="/pages/profile.html" class="cached-link">
+                    <span class="cached-link-icon">👤</span>
+                    Profile
+                </a>
+            </div>
+        </div>
+
+        <button class="retry-btn" onclick="checkConnection()">
+            🔄 Wake Dostik
+        </button>
+
+        <button class="retry-btn" onclick="window.location.reload()">
+            ⚡ Refresh Realm
+        </button>
+    </div>
+
+    <script>
+        // Create floating particles
+        function createParticles() {
+            const container = document.getElementById('floatingParticles');
+            const particleCount = window.innerWidth < 768 ? 10 : 20;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 8 + 's';
+                particle.style.animationDuration = (8 + Math.random() * 12) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Check connection status
+        function updateConnectionStatus() {
+            const status = document.getElementById('connectionStatus');
+            const isOnline = navigator.onLine;
+
+            if (isOnline) {
+                status.className = 'connection-status online';
+                status.innerHTML = '<div class="status-dot"></div><span>Back Online!</span>';
+
+                // Auto-redirect after a brief moment
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                status.className = 'connection-status offline';
+                status.innerHTML = '<div class="status-dot"></div><span>Offline Mode</span>';
+            }
+        }
+
+        // Manual connection check
+        function checkConnection() {
+            if (navigator.onLine) {
+                window.location.reload();
+            } else {
+                // Show message that we're still offline
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.innerHTML = '😴 Still Sleeping...';
+                button.disabled = true;
+
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }, 2000);
+            }
+        }
+
+        // Service Worker communication
+        function registerServiceWorkerListeners() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'CONNECTION_RESTORED') {
+                        updateConnectionStatus();
+                    }
+                });
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            updateConnectionStatus();
+            registerServiceWorkerListeners();
+
+            // Listen for online/offline events
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+
+            // Add some personality to cached links
+            document.querySelectorAll('.cached-link').forEach(link => {
+                link.addEventListener('mouseenter', () => {
+                    // Small chance of Dostik message
+                    if (Math.random() < 0.1) {
+                        const messages = [
+                            "This path is clear, noble explorer! 🐉",
+                            "The cache spirits guard this page well! ✨",
+                            "Even offline, Nordic magic flows here! 🌟"
+                        ];
+                        const message = messages[Math.floor(Math.random() * messages.length)];
+                        console.log(message);
+                    }
+                });
+            });
+
+            // Periodic connection check
+            setInterval(updateConnectionStatus, 5000);
+        });
+
+        // Console message for developers
+        console.log(`
+🐉 DOSTANWEBCSS OFFLINE MODE
+
+The Nordic realm is temporarily disconnected, but the magic continues!
+
+Features still available:
+- Cached pages and assets
+- Local data storage
+- Service Worker functionality
+- Automatic sync when reconnected
+
+Dostik will awaken when the connection returns! ✨
+        `);
+    </script>
+</body>
+</html>

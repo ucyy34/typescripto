@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #1a4a3a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2d6853;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Dostan Market API Test</h1>
+
+    <div class="test-section">
+        <h2>1. Backend Health Check</h2>
+        <button onclick="testHealth()">Test Health</button>
+        <pre id="health-result">Tıklayın...</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Login Test</h2>
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="goToAdminPanel()" style="background: #10b981;">Admin Panele Git</button>
+        <pre id="login-result">Tıklayın...</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Categories Test</h2>
+        <button onclick="testCategories()">Test Categories</button>
+        <pre id="categories-result">Tıklayın...</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Stores Test</h2>
+        <button onclick="testStores()">Test Stores (Vendors)</button>
+        <pre id="stores-result">Tıklayın...</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Products Test</h2>
+        <button onclick="testProducts()">Test Products</button>
+        <pre id="products-result">Tıklayın...</pre>
+    </div>
+
+    <!-- Load API scripts -->
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/auth-manager.js"></script>
+
+    <script>
+        console.log('🚀 Test sayfası yüklendi');
+        console.log('API_CONFIG:', API_CONFIG);
+        console.log('apiClient:', apiClient);
+        console.log('AuthManager:', AuthManager);
+
+        async function testHealth() {
+            const result = document.getElementById('health-result');
+            result.textContent = 'Test ediliyor...';
+
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                result.innerHTML = '<span class="success">✅ BAŞARILI</span>\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.innerHTML = '<span class="error">❌ HATA</span>\n' + error.message;
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('login-result');
+            result.textContent = 'Login test ediliyor...';
+
+            try {
+                const response = await apiClient.login('admin@dostanmarket.com', 'Admin@123456');
+                result.innerHTML = '<span class="success">✅ BAŞARILI</span>\n' + JSON.stringify(response, null, 2);
+
+                // Save tokens
+                if (response.success && response.data) {
+                    AuthManager.login(response.data.tokens, response.data.user);
+                    result.innerHTML += '\n\n<span class="success">✅ Token kaydedildi!</span>';
+                    result.innerHTML += '\n\n<span class="success">🎉 Şimdi "Admin Panele Git" butonuna tıklayın!</span>';
+                }
+            } catch (error) {
+                result.innerHTML = '<span class="error">❌ HATA</span>\n' + error.message;
+            }
+        }
+
+        function goToAdminPanel() {
+            if (!AuthManager.isLoggedIn()) {
+                alert('Önce "Test Login" butonuna tıklayın!');
+                return;
+            }
+            window.location.href = 'index.html';
+        }
+
+        async function testCategories() {
+            const result = document.getElementById('categories-result');
+            result.textContent = 'Kategoriler test ediliyor...';
+
+            try {
+                const response = await apiClient.getTopLevelCategories();
+                result.innerHTML = '<span class="success">✅ BAŞARILI</span>\n';
+                result.innerHTML += 'Kategori sayısı: ' + response.data.length + '\n\n';
+                result.innerHTML += JSON.stringify(response, null, 2);
+            } catch (error) {
+                result.innerHTML = '<span class="error">❌ HATA</span>\n' + error.message;
+                console.error('Categories error:', error);
+            }
+        }
+
+        async function testStores() {
+            const result = document.getElementById('stores-result');
+            result.textContent = 'Mağazalar test ediliyor...';
+
+            try {
+                const response = await apiClient.getStores({ status: 'pending' });
+                result.innerHTML = '<span class="success">✅ BAŞARILI</span>\n';
+                result.innerHTML += 'Bekleyen mağaza sayısı: ' + response.data.length + '\n\n';
+                result.innerHTML += JSON.stringify(response, null, 2);
+            } catch (error) {
+                result.innerHTML = '<span class="error">❌ HATA</span>\n' + error.message;
+                console.error('Stores error:', error);
+            }
+        }
+
+        async function testProducts() {
+            const result = document.getElementById('products-result');
+            result.textContent = 'Ürünler test ediliyor...';
+
+            try {
+                const response = await apiClient.getProducts({ status: 'pending' });
+                result.innerHTML = '<span class="success">✅ BAŞARILI</span>\n';
+                result.innerHTML += 'Bekleyen ürün sayısı: ' + response.data.length + '\n\n';
+                result.innerHTML += JSON.stringify(response, null, 2);
+            } catch (error) {
+                result.innerHTML = '<span class="error">❌ HATA</span>\n' + error.message;
+                console.error('Products error:', error);
+            }
+        }
+
+        // Auto test on load
+        console.log('Otomatik testler başlatılıyor...');
+        setTimeout(() => {
+            testHealth();
+            setTimeout(testCategories, 1000);
+        }, 500);
+    </script>
+</body>
+</html>

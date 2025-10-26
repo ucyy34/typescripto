@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vendor Sections</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .section {
+            display: none;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .section.active {
+            display: block;
+        }
+        .menu {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .menu-item {
+            padding: 10px 20px;
+            background: #2d6853;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .menu-item:hover {
+            background: #1a4a3a;
+        }
+        .menu-item.active {
+            background: #8b6d47;
+        }
+        #console-log {
+            background: #1e293b;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Vendor Dashboard Section Test</h1>
+        <p>Bu sayfada tüm section'ların çalışıp çalışmadığını test edebilirsin.</p>
+
+        <div class="menu">
+            <button class="menu-item active" data-section="dashboard">Dashboard</button>
+            <button class="menu-item" data-section="products">Products</button>
+            <button class="menu-item" data-section="orders">Orders</button>
+            <button class="menu-item" data-section="analytics">Analytics</button>
+            <button class="menu-item" data-section="inventory">Inventory</button>
+            <button class="menu-item" data-section="messages">Messages</button>
+            <button class="menu-item" data-section="profile">Profile</button>
+        </div>
+
+        <div id="dashboard-section" class="section active">
+            <h2>📊 Dashboard</h2>
+            <p>Dashboard section is visible!</p>
+        </div>
+
+        <div id="products-section" class="section">
+            <h2>🏺 Products</h2>
+            <div id="products-list">
+                <p>Products will load here...</p>
+            </div>
+        </div>
+
+        <div id="orders-section" class="section">
+            <h2>📦 Orders</h2>
+            <div id="orders-list">
+                <p>Orders will load here...</p>
+            </div>
+        </div>
+
+        <div id="analytics-section" class="section">
+            <h2>📈 Analytics</h2>
+            <div id="analytics-content">
+                <p>Analytics will load here...</p>
+            </div>
+        </div>
+
+        <div id="inventory-section" class="section">
+            <h2>📋 Inventory</h2>
+            <div id="inventory-content">
+                <p>Inventory will load here...</p>
+            </div>
+        </div>
+
+        <div id="messages-section" class="section">
+            <h2>💬 Messages</h2>
+            <div id="messages-content">
+                <p>Messages will load here...</p>
+            </div>
+        </div>
+
+        <div id="profile-section" class="section">
+            <h2>👤 Profile</h2>
+            <div id="profile-content">
+                <p>Profile will load here...</p>
+            </div>
+        </div>
+
+        <div id="console-log">
+            <div>--- Console Log ---</div>
+        </div>
+    </div>
+
+    <script>
+        // Mock console.log
+        const consoleDiv = document.getElementById('console-log');
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const line = document.createElement('div');
+            line.textContent = args.join(' ');
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+
+        // Test navigation
+        const menuItems = document.querySelectorAll('.menu-item');
+
+        menuItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const section = item.dataset.section;
+                console.log('Clicking section:', section);
+
+                // Hide all sections
+                document.querySelectorAll('.section').forEach(s => {
+                    s.classList.remove('active');
+                    s.style.display = 'none';
+                    console.log('Hiding section:', s.id);
+                });
+
+                // Show selected section
+                const targetSection = document.getElementById(`${section}-section`);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                    targetSection.style.display = 'block';
+                    console.log('Showing section:', targetSection.id);
+                } else {
+                    console.log('ERROR: Section not found:', `${section}-section`);
+                }
+
+                // Update active menu item
+                menuItems.forEach(m => m.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+
+        console.log('Test page loaded successfully!');
+        console.log('All sections:', Array.from(document.querySelectorAll('.section')).map(s => s.id));
+    </script>
+</body>
+</html>

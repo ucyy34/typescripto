@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nordic Seramik Vazo - DostanWebCSS</title>
+    <meta name="description" content="Eda zanaatkârından el yapımı doğal seramik vazo - Nordic tarzı ev dekorasyonu">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/product-cards.css">
+    <link rel="stylesheet" href="../assets/css/product-modal.css">
+    <link rel="stylesheet" href="../assets/css/product-reviews.css">
+
+    <style>
+        /* Stage 2 Product Detail Page Styles */
+        .product-detail-page {
+            min-height: 100vh;
+            background: #f9fafb;
+            padding-top: 100px;
+        }
+
+        .product-detail-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .product-detail-breadcrumb {
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .product-detail-breadcrumb span:last-child {
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        .product-detail-card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .product-detail-main {
+            display: flex;
+            gap: 0;
+        }
+
+        /* Left Side - Images (60%) */
+        .product-images-section {
+            flex: 3;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+
+        .product-main-image-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .product-badge-detail {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #10b981;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            border: 2px solid #d1fae5;
+            text-transform: uppercase;
+            z-index: 10;
+        }
+
+        .product-main-image {
+            width: 100%;
+            height: 32rem;
+            object-fit: cover;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .product-main-image:hover {
+            transform: scale(1.02);
+        }
+
+        .product-thumbnail-gallery {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .product-thumbnail {
+            width: 5rem;
+            height: 5rem;
+            background: #e5e7eb;
+            border-radius: 0.5rem;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .product-thumbnail:hover,
+        .product-thumbnail.active {
+            border-color: #10b981;
+            transform: translateY(-2px);
+        }
+
+        .product-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Right Side - Product Info (40%) */
+        .product-info-section {
+            flex: 2;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .product-title-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .product-detail-title {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .product-action-icons {
+            display: flex;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .product-icon-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border: none;
+            background: #f3f4f6;
+            border-radius: 50%;
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-icon-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .product-icon-btn.heart:hover {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .product-artisan-section {
+            color: #6b7280;
+            font-size: 1rem;
+        }
+
+        .product-price-large {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+        }
+
+        /* Size Selection */
+        .product-size-section {
+            background: #f8fafc;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .size-section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 1rem 0;
+        }
+
+        .size-options {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .size-option {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .size-option:hover,
+        .size-option.selected {
+            border-color: #10b981;
+            background: #f0f9f4;
+            color: #059669;
+        }
+
+        /* Action Buttons */
+        .product-action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-btn {
+            padding: 1.25rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            border: none;
+        }
+
+        .product-btn-primary {
+            background: #059669;
+            color: white;
+        }
+
+        .product-btn-primary:hover {
+            background: #047857;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
+        }
+
+        .product-btn-secondary {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .product-btn-secondary:hover {
+            background: #d97706;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Quick Info Grid */
+        .product-quick-info {
+            background: #f0f9f4;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .quick-info-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 1rem 0;
+        }
+
+        .quick-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .quick-info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .info-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #111827;
+            font-weight: 600;
+        }
+
+        /* Artisan Info */
+        .product-artisan-card {
+            background: #f0f9f4;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .artisan-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .artisan-avatar-large {
+            width: 4rem;
+            height: 4rem;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .artisan-info {
+            flex: 1;
+        }
+
+        .artisan-name {
+            font-weight: 600;
+            color: #111827;
+            font-size: 1.125rem;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .artisan-location {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .artisan-verified {
+            color: #059669;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* Tabs Section */
+        .product-tabs-section {
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .product-tab-headers {
+            display: flex;
+            background: #f8fafc;
+        }
+
+        .product-tab-header {
+            padding: 1.25rem 2rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
+            position: relative;
+        }
+
+        .product-tab-header:hover {
+            color: #374151;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .product-tab-header.active {
+            color: #059669;
+            border-bottom-color: #059669;
+            background: white;
+        }
+
+        .product-tab-content {
+            padding: 2rem;
+            background: white;
+        }
+
+        /* Reviews Section */
+        .reviews-summary {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .reviews-score {
+            text-align: center;
+            padding: 2rem;
+            background: #f8fafc;
+            border-radius: 1rem;
+        }
+
+        .score-number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #059669;
+            margin: 0;
+        }
+
+        .score-stars {
+            font-size: 1.5rem;
+            color: #fbbf24;
+            margin: 0.5rem 0;
+        }
+
+        .reviews-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .review-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .bar-bg {
+            flex: 1;
+            height: 0.5rem;
+            background: #e5e7eb;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #059669;
+            transition: width 0.3s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .product-detail-main {
+                flex-direction: column;
+            }
+
+            .product-images-section,
+            .product-info-section {
+                flex: none;
+            }
+
+            .quick-info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .reviews-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .product-detail-container {
+                padding: 1rem;
+            }
+
+            .product-images-section,
+            .product-info-section {
+                padding: 1.5rem;
+            }
+
+            .product-detail-title {
+                font-size: 1.75rem;
+            }
+
+            .product-price-large {
+                font-size: 2.25rem;
+            }
+
+            .product-thumbnail-gallery {
+                flex-wrap: wrap;
+            }
+
+            .product-tab-headers {
+                flex-wrap: wrap;
+            }
+
+            .product-tab-header {
+                padding: 1rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card">
+        <nav class="navbar container">
+            <div class="nav-brand">
+                <h1><a href="../index.html">🐉 DostanWebCSS</a></h1>
+            </div>
+
+            <div class="nav-search">
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch">
+                    <span class="search-icon">🔍</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <button class="nav-link" onclick="window.location.href='products.html'">
+                    Treasures
+                </button>
+                <button class="nav-link" onclick="window.location.href='artisan.html'">
+                    Artisans
+                </button>
+                <div class="cart-icon" onclick="window.location.href='cart.html'">
+                    <span>🛒</span>
+                    <span class="cart-count">0</span>
+                </div>
+                <button class="profile-btn" onclick="window.location.href='profile.html'">👤</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Product Detail Page -->
+    <div class="product-detail-page">
+        <div class="product-detail-container">
+            <!-- Breadcrumb -->
+            <div class="product-detail-breadcrumb">
+                <span>Kategoriler</span>
+                <span>/</span>
+                <span>Ev Dekorasyonu</span>
+                <span>/</span>
+                <span>Seramik Vazo</span>
+            </div>
+
+            <!-- Product Card -->
+            <div class="product-detail-card">
+                <!-- Main Product Section -->
+                <div class="product-detail-main">
+                    <!-- Left Side - Images (60%) -->
+                    <div class="product-images-section">
+                        <div class="product-main-image-container">
+                            <div class="product-badge-detail">ETİK ÜRETİM</div>
+                            <img id="mainProductImage" src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&crop=center" alt="Nordic Seramik Vazo" class="product-main-image">
+                        </div>
+
+                        <!-- Thumbnail Gallery -->
+                        <div class="product-thumbnail-gallery">
+                            <div class="product-thumbnail active" data-image="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop">
+                                <img src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=100&h=100&fit=crop" alt="View 1">
+                            </div>
+                            <div class="product-thumbnail" data-image="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=800&fit=crop">
+                                <img src="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=100&h=100&fit=crop" alt="View 2">
+                            </div>
+                            <div class="product-thumbnail" data-image="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=800&h=800&fit=crop">
+                                <img src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=100&h=100&fit=crop" alt="View 3">
+                            </div>
+                            <div class="product-thumbnail" data-image="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=800&fit=crop">
+                                <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=100&h=100&fit=crop" alt="View 4">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side - Product Info (40%) -->
+                    <div class="product-info-section">
+                        <div class="product-title-section">
+                            <h1 class="product-detail-title">Nordic Seramik Vazo</h1>
+                            <div class="product-action-icons">
+                                <button class="product-icon-btn heart">♡</button>
+                                <button class="product-icon-btn share">📤</button>
+                            </div>
+                        </div>
+
+                        <p class="product-artisan-section">El yapımı doğal seramik</p>
+
+                        <div class="product-price-large">₺ 650</div>
+
+                        <!-- Size Selection -->
+                        <div class="product-size-section">
+                            <h3 class="size-section-title">Boyut Seçimi</h3>
+                            <div class="size-options">
+                                <div class="size-option selected" data-size="medium">Orta (16cm)</div>
+                                <div class="size-option" data-size="small">Küçük (12cm)</div>
+                                <div class="size-option" data-size="large">Büyük (24cm)</div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="product-action-buttons">
+                            <button class="product-btn product-btn-primary">
+                                <span>🛒</span>
+                                Sepete Ekle
+                            </button>
+                            <button class="product-btn product-btn-secondary">
+                                <span>🐉</span>
+                                Dostik'e Sor
+                            </button>
+                        </div>
+
+                        <!-- Quick Info -->
+                        <div class="product-quick-info">
+                            <h3 class="quick-info-title">Hızlı Bilgiler</h3>
+                            <div class="quick-info-grid">
+                                <div class="quick-info-item">
+                                    <span class="info-label">Boyut:</span>
+                                    <span class="info-value">16 cm x 6 cm</span>
+                                </div>
+                                <div class="quick-info-item">
+                                    <span class="info-label">Malzeme:</span>
+                                    <span class="info-value">Doğal seramik</span>
+                                </div>
+                                <div class="quick-info-item">
+                                    <span class="info-label">Üretim:</span>
+                                    <span class="info-value">El yapımı</span>
+                                </div>
+                                <div class="quick-info-item">
+                                    <span class="info-label">Kargo:</span>
+                                    <span class="info-value">2-3 iş günü</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Artisan Info -->
+                        <div class="product-artisan-card">
+                            <div class="artisan-profile">
+                                <div class="artisan-avatar-large">E</div>
+                                <div class="artisan-info">
+                                    <h4 class="artisan-name">Eda</h4>
+                                    <p class="artisan-location">Küçüköilcekli atölyesinden</p>
+                                    <div class="artisan-verified">
+                                        <span>✓</span> Doğrulanmış zanaatkâr
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Section -->
+                <div class="product-tabs-section">
+                    <div class="product-tab-headers">
+                        <button class="product-tab-header active" data-tab="details">Ürün Detayları</button>
+                        <button class="product-tab-header" data-tab="reviews">Değerlendirmeler</button>
+                        <button class="product-tab-header" data-tab="dostik">Dostik Önerileri</button>
+                        <button class="product-tab-header" data-tab="similar">Benzer Ürünler</button>
+                    </div>
+
+                    <div class="product-tab-content" id="productTabContent">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Dostik Chat -->
+    <div class="modal-dostik-chat" id="dostikChat" style="display: none;">
+        <div class="dostik-chat-header">
+            <div class="dostik-avatar">🐉</div>
+            <div class="dostik-info">
+                <div class="dostik-name">Dostik AI Asistan</div>
+                <div class="dostik-status">Online - Yardıma hazır</div>
+            </div>
+            <button class="dostik-close" id="closeDostikChat">&times;</button>
+        </div>
+        <div class="dostik-messages" id="dostikMessages">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="dostik-input">
+            <input type="text" id="dostikInput" placeholder="Dostik'e sor... (boyut, hediye, benzer)">
+            <button id="dostikSend">📤</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- API Integration Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+
+    <!-- Page Scripts -->
+    <script src="../assets/js/seo-meta.js"></script>
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/product-reviews.js"></script>
+    <script src="../assets/js/product-detail-api.js"></script>
+
+    <!-- Old inline code - now replaced by product-detail-api.js
+    <script>
+        class ProductDetailPage {
+            constructor() {
+                this.activeTab = 'details';
+                this.chatMessages = [];
+                this.selectedSize = 'medium';
+                this.timeOnPage = 0;
+                this.productData = null;
+
+                this.init();
+            }
+
+            init() {
+                this.setupURLRouting();
+                this.loadProductData();
+                this.setupEventListeners();
+                this.loadTabContent('details');
+                this.startPageTimer();
+            }
+
+            setupURLRouting() {
+                // Set up browser history support
+                window.addEventListener('popstate', (e) => {
+                    this.handleBackButton();
+                });
+
+                // Set page state in history
+                this.setPageState();
+            }
+
+            setPageState() {
+                const pageTitle = this.productData ?
+                    `${this.productData.title} - Ürün Detayı` :
+                    'Ürün Detayı';
+
+                history.replaceState({
+                    page: 'product-detail',
+                    productData: this.productData
+                }, pageTitle, window.location.href);
+            }
+
+            handleBackButton() {
+                // When back button is pressed, check where to go
+                const urlParams = new URLSearchParams(window.location.search);
+                const fromModal = sessionStorage.getItem('fromModal');
+
+                if (fromModal) {
+                    // Go back to main page with modal closed
+                    sessionStorage.removeItem('fromModal');
+                    sessionStorage.removeItem('selectedProduct');
+
+                    // Determine correct path back to main page
+                    const currentPath = window.location.pathname;
+                    const mainPagePath = currentPath.includes('/pages/') ? '../index.html' : 'index.html';
+                    window.location.href = mainPagePath;
+                } else {
+                    // Normal back navigation
+                    history.back();
+                }
+            }
+
+            loadProductData() {
+                // Try to get product data from sessionStorage first
+                const storedProduct = sessionStorage.getItem('selectedProduct');
+
+                if (storedProduct) {
+                    this.productData = JSON.parse(storedProduct);
+                    sessionStorage.setItem('fromModal', 'true');
+                    this.populateProductDetails();
+                } else {
+                    // Fallback to default product data if none provided
+                    this.setDefaultProduct();
+                }
+            }
+
+            setDefaultProduct() {
+                this.productData = {
+                    title: "Nordic Seramik Vazo",
+                    artisan: "Eda",
+                    price: "₺ 650",
+                    originalPrice: "₺ 850",
+                    image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop",
+                    rating: "4.8",
+                    reviews: "127 satış",
+                    badges: ["Premium"],
+                    category: "El Sanatları",
+                    material: "Doğal Seramik",
+                    dimensions: "18cm × 12cm × 20cm",
+                    weight: "1.2kg",
+                    technique: "Geleneksel çömlek tekniği",
+                    artisanBio: "15 yıldır seramik sanatıyla uğraşan usta zanaatkâr.",
+                    artisanLocation: "Çanakkale, Türkiye"
+                };
+                this.populateProductDetails();
+            }
+
+            populateProductDetails() {
+                if (!this.productData) return;
+
+                // Update page title
+                document.title = `${this.productData.title} - DostanWebCSS`;
+
+                // Update breadcrumb
+                const categoryElement = document.querySelector('.product-detail-breadcrumb span:nth-child(3)');
+                const productElement = document.querySelector('.product-detail-breadcrumb span:nth-child(5)');
+
+                if (categoryElement) categoryElement.textContent = this.productData.category;
+                if (productElement) productElement.textContent = this.productData.title;
+
+                // Update main content
+                const titleElement = document.querySelector('.product-title-main');
+                const artisanElement = document.querySelector('.product-artisan-name');
+                const priceElement = document.querySelector('.product-price-current');
+                const imageElement = document.querySelector('.product-main-image');
+                const badgeElement = document.querySelector('.product-badge-detail');
+
+                if (titleElement) titleElement.textContent = this.productData.title;
+                if (artisanElement) artisanElement.textContent = this.productData.artisan;
+                if (priceElement) priceElement.textContent = this.productData.price;
+                if (imageElement) {
+                    imageElement.src = this.productData.image;
+                    imageElement.alt = this.productData.title;
+                }
+                if (badgeElement && this.productData.badges.length > 0) {
+                    badgeElement.textContent = this.productData.badges[0].toUpperCase();
+                }
+            }
+
+            setupEventListeners() {
+                // Thumbnail switching
+                document.querySelectorAll('.product-thumbnail').forEach(thumb => {
+                    thumb.addEventListener('click', (e) => {
+                        this.switchMainImage(thumb);
+                    });
+                });
+
+                // Size selection
+                document.querySelectorAll('.size-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        this.selectSize(option);
+                    });
+                });
+
+                // Tab switching
+                document.querySelectorAll('.product-tab-header').forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        this.switchTab(e.target.dataset.tab);
+                    });
+                });
+
+                // Dostik chat
+                document.querySelector('.product-btn-secondary').addEventListener('click', () => {
+                    this.toggleDostikChat();
+                });
+
+                document.getElementById('closeDostikChat').addEventListener('click', () => {
+                    this.toggleDostikChat(false);
+                });
+
+                document.getElementById('dostikSend').addEventListener('click', () => {
+                    this.sendDostikMessage();
+                });
+
+                document.getElementById('dostikInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendDostikMessage();
+                    }
+                });
+
+                // Add to cart
+                document.querySelector('.product-btn-primary').addEventListener('click', () => {
+                    this.addToCart();
+                });
+            }
+
+            startPageTimer() {
+                setInterval(() => {
+                    this.timeOnPage++;
+
+                    // Proactive Dostik messages
+                    if (this.timeOnPage === 10) {
+                        this.showDostikFloatingMessage("Bu vazo hakkında bir şey merak ediyor musun? 🤔");
+                    }
+                    if (this.timeOnPage === 30) {
+                        this.showDostikFloatingMessage("Hediye paketi seçeneklerini görmek ister misin? 🎁");
+                    }
+                }, 1000);
+            }
+
+            switchMainImage(thumbnail) {
+                document.querySelectorAll('.product-thumbnail').forEach(t => t.classList.remove('active'));
+                thumbnail.classList.add('active');
+
+                const newImageSrc = thumbnail.dataset.image;
+                document.getElementById('mainProductImage').src = newImageSrc;
+            }
+
+            selectSize(option) {
+                document.querySelectorAll('.size-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                this.selectedSize = option.dataset.size;
+
+                // Update price based on size
+                const prices = { small: 450, medium: 650, large: 850 };
+                document.querySelector('.product-price-large').textContent = `₺ ${prices[this.selectedSize]}`;
+            }
+
+            switchTab(tabName) {
+                this.activeTab = tabName;
+
+                // Update tab headers
+                document.querySelectorAll('.product-tab-header').forEach(header => {
+                    header.classList.toggle('active', header.dataset.tab === tabName);
+                });
+
+                // Update tab content
+                this.loadTabContent(tabName);
+            }
+
+            loadTabContent(tabName) {
+                const content = document.getElementById('productTabContent');
+
+                switch (tabName) {
+                    case 'details':
+                        content.innerHTML = this.getDetailsTabContent();
+                        break;
+                    case 'reviews':
+                        content.innerHTML = this.getReviewsTabContent();
+                        break;
+                    case 'dostik':
+                        content.innerHTML = this.getDostikTabContent();
+                        break;
+                    case 'similar':
+                        content.innerHTML = this.getSimilarTabContent();
+                        break;
+                }
+            }
+
+            getDetailsTabContent() {
+                return `
+                    <div class="tab-details">
+                        <div class="details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <div class="details-column">
+                                <h3>Ürün Özellikleri</h3>
+                                <ul class="details-list" style="list-style: none; padding: 0;">
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🌿 Doğal seramik malzeme
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        ✋ Elle şekillendirilmiş geleneksel teknik
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        📏 16cm x 6cm boyutları (orta boy)
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        ⚖️ Hafif ve dayanıklı yapı
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🎨 Özgün Nordic tasarım dili
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="details-column">
+                                <h3>Bakım Önerileri</h3>
+                                <ul class="details-list" style="list-style: none; padding: 0;">
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🧼 Ilık sabunlu su ile temizlenebilir
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🚿 Bulaşık makinesinde yıkanabilir
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        ☀️ Direkt güneş ışığından uzak tutun
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🧽 Yumuşak bez ile kurulayın
+                                    </li>
+                                    <li style="padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        🌡️ Ani sıcaklık değişimlerinden kaçının
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getReviewsTabContent() {
+                return `
+                    <div class="reviews-summary">
+                        <div class="reviews-score">
+                            <div class="score-number">4.8</div>
+                            <div class="score-stars">★★★★★</div>
+                            <div style="color: #6b7280; font-size: 0.875rem;">127 değerlendirme</div>
+                        </div>
+                        <div class="reviews-breakdown">
+                            <div class="review-bar">
+                                <span>5★</span>
+                                <div class="bar-bg"><div class="bar-fill" style="width: 85%;"></div></div>
+                                <span>85%</span>
+                            </div>
+                            <div class="review-bar">
+                                <span>4★</span>
+                                <div class="bar-bg"><div class="bar-fill" style="width: 12%;"></div></div>
+                                <span>12%</span>
+                            </div>
+                            <div class="review-bar">
+                                <span>3★</span>
+                                <div class="bar-bg"><div class="bar-fill" style="width: 2%;"></div></div>
+                                <span>2%</span>
+                            </div>
+                            <div class="review-bar">
+                                <span>2★</span>
+                                <div class="bar-bg"><div class="bar-fill" style="width: 1%;"></div></div>
+                                <span>1%</span>
+                            </div>
+                            <div class="review-bar">
+                                <span>1★</span>
+                                <div class="bar-bg"><div class="bar-fill" style="width: 0%;"></div></div>
+                                <span>0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 2rem;">
+                        <h3>Son Yorumlar</h3>
+                        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem;">
+                            <div style="border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <strong>Ayşe K.</strong>
+                                    <span style="color: #fbbf24;">★★★★★</span>
+                                </div>
+                                <p style="color: #6b7280; margin: 0;">Çok güzel bir ürün. Kalitesi gerçekten harika ve tam istediğim gibiydi. Hızlı kargo için teşekkürler!</p>
+                            </div>
+                            <div style="border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <strong>Mehmet D.</strong>
+                                    <span style="color: #fbbf24;">★★★★★</span>
+                                </div>
+                                <p style="color: #6b7280; margin: 0;">Salon masasında harika duruyor. El işçiliği çok güzel, Eda teyzenin eline sağlık!</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getDostikTabContent() {
+                return `
+                    <div class="dostik-suggestions">
+                        <div class="suggestion-card">
+                            <div class="suggestion-icon">📊</div>
+                            <h3>Ürün Karşılaştırması</h3>
+                            <p>Benzer ürünlerle boyut, fiyat ve özellik karşılaştırması</p>
+                            <button class="suggestion-btn">Karşılaştır</button>
+                        </div>
+                        <div class="suggestion-card">
+                            <div class="suggestion-icon">🎁</div>
+                            <h3>Hediye Paketi</h3>
+                            <p>Özel kraft kutu, kart ve sürdürülebilir ambalaj</p>
+                            <button class="suggestion-btn">+50₺ Ekle</button>
+                        </div>
+                        <div class="suggestion-card">
+                            <div class="suggestion-icon">✨</div>
+                            <h3>Kişiselleştirme</h3>
+                            <p>İsim gravürü veya özel renk seçenekleri</p>
+                            <button class="suggestion-btn">Özelleştir</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getSimilarTabContent() {
+                return `
+                    <div class="similar-products">
+                        <div class="similar-card">
+                            <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=200&h=200&fit=crop" alt="Küçük Vazo">
+                            <h3>Küçük Nordic Vazo</h3>
+                            <p>12 cm - Masa üstü için ideal</p>
+                            <div class="similar-price">₺ 450</div>
+                            <button class="similar-btn">İncele</button>
+                        </div>
+                        <div class="similar-card">
+                            <img src="https://images.unsplash.com/photo-1581539250439-c96689b516dd?w=200&h=200&fit=crop" alt="Büyük Vazo">
+                            <h3>Büyük Nordic Vazo</h3>
+                            <p>24 cm - Salon için mükemmel</p>
+                            <div class="similar-price">₺ 850</div>
+                            <button class="similar-btn">İncele</button>
+                        </div>
+                        <div class="similar-card">
+                            <img src="https://images.unsplash.com/photo-1610701596007-11502861dcfa?w=200&h=200&fit=crop" alt="Nordic Set">
+                            <h3>Nordic Kase Seti</h3>
+                            <p>Aynı atölyeden 3'lü set</p>
+                            <div class="similar-price">₺ 580</div>
+                            <button class="similar-btn">İncele</button>
+                        </div>
+                        <div class="similar-card">
+                            <img src="https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?w=200&h=200&fit=crop" alt="Cam Vazo">
+                            <h3>Aurora Cam Vazo</h3>
+                            <p>Işık geçiren tasarım</p>
+                            <div class="similar-price">₺ 720</div>
+                            <button class="similar-btn">İncele</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            toggleDostikChat(show = null) {
+                const chatDiv = document.getElementById('dostikChat');
+                const isVisible = chatDiv.style.display !== 'none';
+
+                if (show === null) {
+                    show = !isVisible;
+                }
+
+                chatDiv.style.display = show ? 'flex' : 'none';
+
+                if (show && this.chatMessages.length === 0) {
+                    setTimeout(() => {
+                        this.addDostikMessage("Merhaba! Bu güzel vazo hakkında sana nasıl yardımcı olabilirim? 🐲");
+                    }, 500);
+                }
+            }
+
+            addDostikMessage(message) {
+                this.chatMessages.push({ type: 'dostik', message, timestamp: Date.now() });
+                this.updateDostikMessages();
+            }
+
+            sendDostikMessage() {
+                const input = document.getElementById('dostikInput');
+                const message = input.value.trim();
+
+                if (!message) return;
+
+                this.chatMessages.push({ type: 'user', message, timestamp: Date.now() });
+                input.value = '';
+                this.updateDostikMessages();
+
+                // AI response
+                setTimeout(() => {
+                    const response = this.getAIResponse(message);
+                    this.addDostikMessage(response);
+                }, 1000);
+            }
+
+            getAIResponse(input) {
+                const lowerInput = input.toLowerCase();
+                const responses = {
+                    'boyut': `Bu vazo ${this.selectedSize === 'small' ? '12cm' : this.selectedSize === 'large' ? '24cm' : '16cm'} boyunda! Seçtiğin boyut harika bir tercih. Farklı boyutlar da mevcut 📏`,
+                    'malzeme': "Tamamen doğal seramik malzemeden yapılmış! Eda teyze özel kilinden elle şekillendiriyor. Hiç kimyasal yok, çevre dostu 🌱",
+                    'hediye': "Süper hediye paketi seçeneklerimiz var! Kraft kutu + özel kart + çevre dostu ambalaj. Sadece +50₺ ekstra. İster misin? 🎁",
+                    'kargo': "Özel paketleme ile 2-3 iş günü! Türkiye'nin her yerine güvenli teslimat. Kırılma garantili paketleme 📦",
+                    'fiyat': `Seçtiğin boyutta ${this.selectedSize === 'small' ? '450₺' : this.selectedSize === 'large' ? '850₺' : '650₺'}! El yapımı için çok uygun. Taksit de var 💳`,
+                    'renk': "Bu modelde doğal seramik rengi mevcut. Özel renk siparişi de alıyoruz! Hangi renk istiyorsun? 🎨",
+                    'bakım': "Çok kolay bakım! Ilık sabunlu suyla yıka, yumuşak bezle kurula. Bulaşık makinesi de OK! 🧼",
+                    'default': "Bu konuda sana nasıl yardımcı olabilirim? Boyut, malzeme, hediye, kargo hakkında sorabilirsin! 🐲"
+                };
+
+                for (const [keyword, response] of Object.entries(responses)) {
+                    if (lowerInput.includes(keyword)) {
+                        return response;
+                    }
+                }
+                return responses.default;
+            }
+
+            updateDostikMessages() {
+                const messagesDiv = document.getElementById('dostikMessages');
+                messagesDiv.innerHTML = this.chatMessages.map(msg => `
+                    <div class="dostik-message ${msg.type}">
+                        <div class="message-bubble">
+                            ${msg.message}
+                        </div>
+                    </div>
+                `).join('');
+
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            showDostikFloatingMessage(message) {
+                const messageEl = document.createElement('div');
+                messageEl.style.cssText = `
+                    position: fixed;
+                    top: 20%;
+                    right: 2rem;
+                    background: rgba(245, 158, 11, 0.95);
+                    color: white;
+                    padding: 1rem 1.5rem;
+                    border-radius: 1rem;
+                    font-size: 0.9rem;
+                    z-index: 1000;
+                    max-width: 300px;
+                    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+                    animation: slideInRight 0.5s ease-out;
+                    backdrop-filter: blur(10px);
+                    cursor: pointer;
+                `;
+
+                messageEl.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.2rem;">🐉</span>
+                        <span>${message}</span>
+                    </div>
+                `;
+
+                messageEl.addEventListener('click', () => {
+                    this.toggleDostikChat(true);
+                    document.body.removeChild(messageEl);
+                });
+
+                document.body.appendChild(messageEl);
+
+                // Remove after 6 seconds
+                setTimeout(() => {
+                    if (document.body.contains(messageEl)) {
+                        document.body.removeChild(messageEl);
+                    }
+                }, 6000);
+            }
+
+            addToCart() {
+                // Add to cart logic
+                const sizes = { small: 450, medium: 650, large: 850 };
+                const sizeNames = { small: 'Küçük (12cm)', medium: 'Orta (16cm)', large: 'Büyük (24cm)' };
+
+                alert(`✅ Sepete eklendi!\n\nNordic Seramik Vazo\nBoyut: ${sizeNames[this.selectedSize]}\nFiyat: ₺${sizes[this.selectedSize]}`);
+
+                // Update cart count
+                const cartCount = document.querySelector('.cart-count');
+                const currentCount = parseInt(cartCount.textContent) || 0;
+                cartCount.textContent = currentCount + 1;
+                cartCount.classList.add('show');
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            window.productDetailPage = new ProductDetailPage();
+        });
+    </script>
+    -->
+
+    <!-- Footer -->
+    <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+                <div>
+                    <h4 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h4>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <div style="display: flex; gap: var(--space-md);">
+                        <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">🐦</span>
+                        <span style="font-size: 1.5rem; cursor: pointer;">📷</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Quick Links</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="../index.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a></li>
+                        <li><a href="products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
+                        <li><a href="artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
+                        <li><a href="cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Support</h5>
+                    <ul style="list-style: none; padding: 0;">
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
+                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h5 style="margin-bottom: var(--space-md);">Nordic Wisdom</h5>
+                    <p style="opacity: 0.8; font-style: italic; margin-bottom: var(--space-md);">
+                        "Every treasure tells a story, every artisan carries ancient wisdom."
+                    </p>
+                    <p style="opacity: 0.6; font-size: 0.9rem;">
+                        - Dostik the Dragon
+                    </p>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+                <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

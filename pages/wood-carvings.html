@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nordic Wood Carvings - Handcrafted Treasures | DostanWebCSS</title>
+    <meta name="description" content="Discover 47+ authentic Nordic wood carvings by 12 master artisans. Premium pine & birch sculptures, bowls, figurines with 4.8★ rating. Free shipping on orders $100+">
+    <meta name="keywords" content="Nordic wood carvings, handcrafted sculptures, Viking art, wooden bowls, Nordic figurines, traditional craftsmanship">
+    <meta name="author" content="DostanWebCSS Nordic Marketplace">
+    <link rel="canonical" href="https://dostanwebcss.com/pages/wood-carvings.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dostanwebcss.com/pages/wood-carvings.html">
+    <meta property="og:title" content="Nordic Wood Carvings - Handcrafted Treasures">
+    <meta property="og:description" content="Discover 47+ authentic Nordic wood carvings by master artisans. Premium sculptures, bowls & figurines with traditional techniques.">
+    <meta property="og:image" content="https://dostanwebcss.com/assets/images/wood-carvings-og.jpg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://dostanwebcss.com/pages/wood-carvings.html">
+    <meta property="twitter:title" content="Nordic Wood Carvings - Handcrafted Treasures">
+    <meta property="twitter:description" content="Discover 47+ authentic Nordic wood carvings by master artisans">
+
+    <!-- Performance & SEO -->
+    <link rel="preload" href="../assets/css/main.css" as="style">
+    <link rel="preload" href="../assets/js/main.js" as="script">
+    <link rel="dns-prefetch" href="//images.unsplash.com">
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+
+    <!-- Critical CSS inline -->
+    <style>
+        /* CSS Variables needed for critical styles */
+        :root{--forest-deep:#1a4a3a;--forest-medium:#2d6853;--cream-soft:#f5f2eb;--cream-warm:#ede7d9;--forest-deep-rgb:26,74,58;--forest-medium-rgb:45,104,83;--font-primary:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;--space-xs:0.25rem;--space-sm:0.5rem;--space-md:1rem;--space-lg:1.5rem;--space-xl:2rem;--space-xxl:3rem;--radius-sm:8px;--radius-md:12px;--radius-lg:20px;--shadow-soft:0 4px 20px rgba(26,74,58,0.1);--glass-bg:rgba(245,242,235,0.1);--glass-backdrop:blur(20px);--glass-border:rgba(245,242,235,0.2);--transition-fast:0.3s ease}
+        [data-theme="dark"]{--cream-soft:#1a1f2e;--cream-warm:#252a3a;--forest-deep:#4a8b6c;--forest-medium:#6ba085;--glass-bg:rgba(26,31,46,0.1);--glass-border:rgba(74,139,108,0.2)}
+        /* Critical above-fold styles with theme support */
+        body{margin:0;font-family:var(--font-primary);background:var(--cream-soft);color:var(--forest-deep);transition:all var(--transition-fast)}
+        .header{position:fixed;top:0;left:0;right:0;z-index:1000;margin:var(--space-md);border-radius:var(--radius-lg);background:var(--glass-bg);backdrop-filter:var(--glass-backdrop);border:1px solid var(--glass-border);box-shadow:var(--shadow-soft)}
+        .navbar{display:flex;align-items:center;justify-content:space-between;padding:var(--space-md) var(--space-lg)}
+        .nav-brand h1{margin:0;color:var(--forest-deep);font-size:1.5rem}
+        .nav-actions{display:flex;align-items:center;gap:var(--space-md)}
+        .category-hero{background:linear-gradient(135deg,rgba(var(--forest-deep-rgb),0.9),rgba(var(--forest-medium-rgb),0.8)),url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=1200&h=400') center/cover;padding:var(--space-xxl) 0;margin-top:80px;text-align:center;color:var(--cream-soft)}
+        .container{max-width:1200px;margin:0 auto;padding:0 var(--space-md)}
+        .category-hero h1{font-size:3rem;margin-bottom:var(--space-md);text-shadow:2px 2px 4px rgba(0,0,0,0.3);color:var(--cream-soft)}
+        .category-hero p{font-size:1.2rem;max-width:600px;margin:0 auto;opacity:0.9;color:var(--cream-soft)}
+        .loading-placeholder{min-height:400px;background:var(--cream-warm);border-radius:var(--radius-md);animation:pulse 1.5s ease-in-out infinite alternate}
+        @keyframes pulse{0%{opacity:0.6}100%{opacity:1}}
+
+        /* Filter Sidebar Styles */
+        .filters-sidebar{background:var(--glass-bg);backdrop-filter:var(--glass-backdrop);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:var(--space-xl);position:sticky;top:100px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--forest-medium) transparent}
+        .filter-group{margin-bottom:var(--space-xl)}
+        .filter-group h4{color:var(--forest-deep);margin-bottom:var(--space-md);font-size:1.1rem}
+        .filter-option{display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-sm);cursor:pointer;transition:color var(--transition-fast)}
+        .filter-option:hover{color:var(--forest-deep)}
+        .filter-option input{margin:0}
+        .price-range-slider{width:100%;margin:var(--space-md) 0}
+        .mobile-filter-toggle{background:var(--forest-deep);color:var(--cream-soft);border:none;padding:var(--space-md);border-radius:var(--radius-md);margin-bottom:var(--space-lg);font-size:1rem;cursor:pointer}
+        .products-layout{margin-top:var(--space-xl)}
+        .products-main .asymmetric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-md);padding:var(--space-xxl) 0;align-items:stretch}
+        .products-main .product-card{min-height:380px;height:100%}
+        @media (max-width:1200px){.products-main .asymmetric-grid{grid-template-columns:repeat(4,1fr)}}
+        @media (max-width:900px){.products-main .asymmetric-grid{grid-template-columns:repeat(3,1fr)}}
+        @media (max-width:600px){.products-main .asymmetric-grid{grid-template-columns:repeat(2,1fr)}}
+        @media (max-width:400px){.products-main .asymmetric-grid{grid-template-columns:1fr}}
+        @media (max-width:768px){
+            .products-layout{grid-template-columns:1fr!important}
+            .filters-sidebar{position:fixed;top:0;left:-100%;width:80%;max-width:300px;height:100vh;z-index:1000;overflow-y:auto;transition:left 0.3s ease}
+            .filters-sidebar.open{left:0}
+            .mobile-filter-toggle{display:block!important}
+            .filter-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;opacity:0;visibility:hidden;transition:all 0.3s ease}
+            .filter-overlay.active{opacity:1;visibility:visible}
+        }
+
+        /* Footer Styles */
+        .footer{background:var(--forest-deep);color:var(--cream-soft);padding:var(--space-xxl) 0}
+        .footer-content{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--space-xl);margin-bottom:var(--space-xl)}
+        .footer-section h3,.footer-section h4{color:var(--cream-soft);margin-bottom:var(--space-md)}
+        .footer-links{list-style:none;padding:0;margin:0}
+        .footer-links li{margin-bottom:var(--space-sm)}
+        .footer-links a{color:var(--cream-soft);text-decoration:none;opacity:0.8;transition:opacity var(--transition-fast)}
+        .footer-links a:hover{opacity:1}
+        .footer-bottom{border-top:1px solid rgba(255,255,255,0.1);padding-top:var(--space-lg);text-align:center}
+        .footer-bottom p{margin:var(--space-sm) 0}
+
+        /* Custom scrollbar for filter sidebar */
+        .filters-sidebar::-webkit-scrollbar{width:6px}
+        .filters-sidebar::-webkit-scrollbar-track{background:transparent;border-radius:3px}
+        .filters-sidebar::-webkit-scrollbar-thumb{background:var(--forest-medium);border-radius:3px;transition:background var(--transition-fast)}
+        .filters-sidebar::-webkit-scrollbar-thumb:hover{background:var(--forest-deep)}
+    </style>
+
+    <!-- Non-critical CSS -->
+    <link rel="stylesheet" href="../assets/css/main.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="../assets/css/product-cards.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="../assets/css/product-modal.css" media="print" onload="this.media='all'">
+
+    <style>
+        /* Category page specific styles */
+        .category-hero {
+            background: linear-gradient(135deg, rgba(var(--forest-deep-rgb), 0.9), rgba(var(--bark-brown-rgb), 0.8)),
+                        url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=1200&h=400') center/cover;
+            padding: var(--space-xxl) 0;
+            margin-top: 80px;
+            text-align: center;
+            color: var(--cream-soft);
+        }
+
+        .category-hero h1 {
+            font-size: 3rem;
+            margin-bottom: var(--space-md);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .category-hero p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 0 auto;
+            opacity: 0.9;
+        }
+
+        .category-stats {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-xl);
+            margin-top: var(--space-xl);
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .category-stats {
+                gap: var(--space-md);
+            }
+        }
+
+        .stat-item {
+            text-align: center;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .category-filters {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin: var(--space-xl) 0;
+        }
+
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            justify-content: center;
+        }
+
+        .filter-btn {
+            background: var(--cream-soft);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-lg);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            color: var(--forest-deep);
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--forest-deep);
+            color: var(--cream-soft);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .products-section {
+            padding: var(--space-xl) 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+        }
+
+        .section-title h2 {
+            color: var(--forest-deep);
+            margin-bottom: var(--space-sm);
+        }
+
+        .breadcrumb {
+            padding: var(--space-lg) 0;
+            margin-top: 80px;
+            background: var(--cream-soft);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            color: var(--forest-medium);
+        }
+
+        .breadcrumb-nav a {
+            color: var(--forest-medium);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        .breadcrumb-nav a:hover {
+            color: var(--forest-deep);
+        }
+
+        .breadcrumb-nav a:hover {
+            color: var(--forest-deep);
+        }
+
+        @media (max-width: 768px) {
+            .category-hero h1 {
+                font-size: 2rem;
+            }
+
+            .category-stats {
+                flex-direction: column;
+                gap: var(--space-md);
+            }
+
+            .filter-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card">
+        <nav class="navbar container">
+            <div class="nav-brand" onclick="window.location.href='../index.html'" style="cursor: pointer;">
+                <h1>🐉 DostanWebCSS</h1>
+            </div>
+
+            <div class="nav-search">
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search wood carvings..." id="globalSearch">
+                    <span class="search-icon">🔍</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <button class="nav-link" onclick="window.location.href='products.html'">
+                    All Treasures
+                </button>
+                <button class="nav-link" onclick="window.location.href='artisan.html'">
+                    Artisans
+                </button>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                    🌙
+                </button>
+                <div class="cart-icon" onclick="window.location.href='cart.html'">
+                    <span>🛒</span>
+                    <span class="cart-count">0</span>
+                </div>
+                <button class="profile-btn" onclick="window.location.href='profile.html'">👤</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Breadcrumb Navigation -->
+    <section class="breadcrumb">
+        <div class="container">
+            <nav class="breadcrumb-nav">
+                <a href="../index.html">🏠 Home</a>
+                <span>›</span>
+                <a href="products.html">All Treasures</a>
+                <span>›</span>
+                <span>🌳 Wood Carvings</span>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Category Hero Section -->
+    <section class="category-hero">
+        <div class="container">
+            <h1>🌳 Nordic Wood Carvings</h1>
+            <p>Discover masterfully crafted wooden treasures, each piece carved from premium Nordic timber using traditional techniques passed down through generations of skilled artisans.</p>
+
+            <div class="category-stats">
+                <div class="stat-item">
+                    <span class="stat-number">47</span>
+                    <span class="stat-label">Unique Pieces</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">12</span>
+                    <span class="stat-label">Master Artisans</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">4.8</span>
+                    <span class="stat-label">Average Rating</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Category Filters -->
+    <section class="container">
+        <div class="category-filters">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Wood Carvings</button>
+                <button class="filter-btn" data-filter="sculptures">Sculptures</button>
+                <button class="filter-btn" data-filter="bowls">Bowls & Vessels</button>
+                <button class="filter-btn" data-filter="figurines">Figurines</button>
+                <button class="filter-btn" data-filter="decorative">Decorative Items</button>
+                <button class="filter-btn" data-filter="functional">Functional Art</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products-section">
+        <div class="container">
+            <div class="section-title">
+                <h2>Handcrafted Wood Treasures</h2>
+                <p>Each piece tells a story of Nordic craftsmanship and natural beauty</p>
+            </div>
+
+            <!-- Mobile Filter Toggle -->
+            <button class="mobile-filter-toggle" id="mobileFilterToggle" style="display: none;">🔍 Filters</button>
+            <div class="filter-overlay" id="filterOverlay"></div>
+
+            <!-- Main Layout -->
+            <div class="products-layout" style="display: grid; grid-template-columns: 220px 1fr; gap: var(--space-xl);">
+                <!-- Filters Sidebar -->
+                <aside class="filters-sidebar" id="filtersSidebar">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
+                        <h3 style="margin: 0;">🌲 Wood Filters</h3>
+                        <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                    </div>
+
+                    <!-- Wood Type Filter -->
+                    <div class="filter-group">
+                        <h4>🌳 Wood Type</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="pine">
+                            <span>Nordic Pine</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="birch">
+                            <span>Silver Birch</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="oak">
+                            <span>Ancient Oak</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="maple">
+                            <span>Norwegian Maple</span>
+                        </label>
+                    </div>
+
+                    <!-- Product Type Filter -->
+                    <div class="filter-group">
+                        <h4>🏺 Product Type</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="bowls">
+                            <span>Bowls & Vessels</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="sculptures">
+                            <span>Sculptures</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="functional">
+                            <span>Functional Items</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="decorative">
+                            <span>Decorative Art</span>
+                        </label>
+                    </div>
+
+                    <!-- Price Range -->
+                    <div class="filter-group">
+                        <h4>💰 Price Range</h4>
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="500" value="250">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
+                            <span>$0</span>
+                            <span id="priceValue">$250</span>
+                            <span>$500+</span>
+                        </div>
+                    </div>
+
+                    <!-- Artisan Filter -->
+                    <div class="filter-group">
+                        <h4>🎨 Master Carvers</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="erik">
+                            <span>Erik Nordström</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="bjorn">
+                            <span>Björn Ironwood</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="astrid">
+                            <span>Astrid Woodcraft</span>
+                        </label>
+                    </div>
+
+                    <!-- Clear Filters -->
+                    <button class="btn btn-secondary" id="clearFilters" style="width: 100%; margin-top: var(--space-lg);">Clear All Filters</button>
+                </aside>
+
+                <!-- Products Grid -->
+                <div class="products-main">
+                    <div class="asymmetric-grid" id="wood-carvings-products">
+                        <!-- Products will be dynamically generated -->
+                    </div>
+
+                    <div class="text-center mt-xl">
+                        <button class="btn btn-primary" id="loadMoreWoodCarvings">
+                            🌟 Load More Wood Carvings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>🐉 DostanWebCSS</h3>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <div class="social-links">
+                        <a href="#">📘</a>
+                        <a href="#">📷</a>
+                        <a href="#">🐦</a>
+                        <a href="#">📌</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Categories</h4>
+                    <ul class="footer-links">
+                        <li><a href="wood-carvings.html">🌳 Wood Carvings</a></li>
+                        <li><a href="glass-art.html">💎 Glass Art</a></li>
+                        <li><a href="leather-goods.html">🛡️ Leather Goods</a></li>
+                        <li><a href="ceramics.html">🏺 Ceramics</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul class="footer-links">
+                        <li><a href="../index.html">🏠 Home</a></li>
+                        <li><a href="products.html">🏰 All Treasures</a></li>
+                        <li><a href="artisan.html">🎨 Artisans</a></li>
+                        <li><a href="cart.html">🛒 Cart</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <ul class="footer-links">
+                        <li>📧 treasures@dostanwebcss.com</li>
+                        <li>📞 +46 8 123 456 789</li>
+                        <li>📍 Stockholm, Sweden</li>
+                        <li>🕒 Mon-Fri 9:00-18:00</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2024 DostanWebCSS Nordic Marketplace. All rights reserved.</p>
+                <p style="font-style: italic; opacity: 0.7;">
+                    "Craft is the bridge between tradition and innovation."<br>
+                    - Dostik the Dragon
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts - Optimized loading -->
+    <script defer src="../assets/js/main.js"></script>
+    <script defer src="../assets/js/product-modal.js"></script>
+    <script defer src="../assets/js/dostik-ai.js"></script>
+
+    <script>
+        // Wood Carvings specific functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const woodCarvingsData = [
+                {
+                    id: 'wc_1',
+                    title: 'Nordic Forest Guardian',
+                    artisan: 'Erik Nordström',
+                    price: 189.99,
+                    originalPrice: 239.99,
+                    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.8,
+                    sold: 127,
+                    category: 'sculptures',
+                    badges: ['handmade', 'limited'],
+                    description: 'A mesmerizing wood carving that captures the spirit of ancient Nordic forests.'
+                },
+                {
+                    id: 'wc_2',
+                    title: 'Viking Ceremonial Bowl',
+                    artisan: 'Astrid Nordahl',
+                    price: 149.99,
+                    originalPrice: 199.99,
+                    image: 'https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.9,
+                    sold: 89,
+                    category: 'bowls',
+                    badges: ['traditional', 'premium'],
+                    description: 'Handcrafted ceremonial bowl inspired by ancient Viking traditions.'
+                },
+                {
+                    id: 'wc_3',
+                    title: 'Mjolnir Decorative Hammer',
+                    artisan: 'Magnus Eriksson',
+                    price: 234.99,
+                    originalPrice: 299.99,
+                    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.7,
+                    sold: 156,
+                    category: 'decorative',
+                    badges: ['mythology', 'detailed'],
+                    description: 'Intricate wooden replica of Thor\'s legendary hammer.'
+                },
+                {
+                    id: 'wc_4',
+                    title: 'Forest Spirit Totem',
+                    artisan: 'Ingrid Svensson',
+                    price: 178.99,
+                    originalPrice: 229.99,
+                    image: 'https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.8,
+                    sold: 203,
+                    category: 'figurines',
+                    badges: ['spiritual', 'unique'],
+                    description: 'Mystical totem representing the guardian spirits of Nordic forests.'
+                },
+                {
+                    id: 'wc_5',
+                    title: 'Rune-Carved Drinking Horn',
+                    artisan: 'Olaf Gustafsson',
+                    price: 129.99,
+                    originalPrice: 169.99,
+                    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.6,
+                    sold: 134,
+                    category: 'functional',
+                    badges: ['authentic', 'usable'],
+                    description: 'Functional drinking horn with ancient rune inscriptions.'
+                },
+                {
+                    id: 'wc_6',
+                    title: 'Yggdrasil Tree of Life',
+                    artisan: 'Erik Nordström',
+                    price: 299.99,
+                    originalPrice: 389.99,
+                    image: 'https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.9,
+                    sold: 67,
+                    category: 'sculptures',
+                    badges: ['masterpiece', 'limited'],
+                    description: 'Stunning representation of the World Tree from Norse mythology.'
+                }
+            ];
+
+            const container = document.getElementById('wood-carvings-products');
+            let currentFilter = 'all';
+            let displayedProducts = 0;
+            const productsPerLoad = 6;
+
+            function generateProductHTML(product) {
+                return `
+                    <div class="product-card ${product.category === 'sculptures' ? 'premium' : 'warm'} breathe"
+                         data-product-id="${product.id}"
+                         data-category="${product.category}"
+                         data-filter="${product.category}">
+                        <div class="journey-indicator"></div>
+                        <div class="product-image">
+                            <img src="${product.image}"
+                                 alt="${product.title}"
+                                 loading="lazy"
+                                 decoding="async"
+                                 width="400"
+                                 height="300"
+                                 onload="this.style.opacity=1"
+                                 style="opacity:0;transition:opacity 0.3s ease">
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-title">${product.title}</h3>
+                            <p class="product-artisan">by ${product.artisan}</p>
+                            <p class="product-description">${product.description}</p>
+                            <div class="social-proof">
+                                <span class="rating-stars">★★★★★</span>
+                                <span class="rating-value">${product.rating}</span>
+                                <span class="purchases-count">${product.sold} sold</span>
+                            </div>
+                            <div class="product-badges">
+                                ${product.badges.map(badge => `<span class="badge ${badge}">${badge}</span>`).join('')}
+                            </div>
+                            <div class="product-price">
+                                <span class="price-current">$${product.price}</span>
+                                ${product.originalPrice ? `<span class="price-original">$${product.originalPrice}</span>` : ''}
+                            </div>
+                            <div class="product-actions">
+                                <button class="btn btn-card btn-add-cart" data-product-id="${product.id}">
+                                    Add to Cart
+                                </button>
+                                <button class="btn btn-card btn-wishlist" data-product-id="${product.id}">
+                                    <span class="heart-icon">♡</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function loadProducts() {
+                const filteredProducts = currentFilter === 'all'
+                    ? woodCarvingsData
+                    : woodCarvingsData.filter(p => p.category === currentFilter);
+
+                const productsToShow = filteredProducts.slice(displayedProducts, displayedProducts + productsPerLoad);
+
+                productsToShow.forEach(product => {
+                    container.insertAdjacentHTML('beforeend', generateProductHTML(product));
+                });
+
+                displayedProducts += productsToShow.length;
+
+                // Hide load more button if all products shown
+                const loadMoreBtn = document.getElementById('loadMoreWoodCarvings');
+                if (displayedProducts >= filteredProducts.length) {
+                    loadMoreBtn.style.display = 'none';
+                } else {
+                    loadMoreBtn.style.display = 'block';
+                }
+            }
+
+            function resetProducts() {
+                container.innerHTML = '';
+                displayedProducts = 0;
+                loadProducts();
+            }
+
+            // Filter functionality
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    resetProducts();
+                });
+            });
+
+            // Load more functionality
+            document.getElementById('loadMoreWoodCarvings').addEventListener('click', loadProducts);
+
+            // Initial load
+            loadProducts();
+
+            // Filter System
+            setupFilterSystem();
+
+            function setupFilterSystem() {
+                const mobileToggle = document.getElementById('mobileFilterToggle');
+                const filterOverlay = document.getElementById('filterOverlay');
+                const sidebar = document.getElementById('filtersSidebar');
+                const closeMobile = document.getElementById('closeMobileFilters');
+                const clearFilters = document.getElementById('clearFilters');
+                const priceRange = document.getElementById('priceRange');
+                const priceValue = document.getElementById('priceValue');
+
+                // Mobile filter toggle
+                mobileToggle?.addEventListener('click', () => {
+                    sidebar.classList.add('open');
+                    filterOverlay.classList.add('active');
+                });
+
+                // Close mobile filters
+                closeMobile?.addEventListener('click', closeMobileFilters);
+                filterOverlay?.addEventListener('click', closeMobileFilters);
+
+                function closeMobileFilters() {
+                    sidebar.classList.remove('open');
+                    filterOverlay.classList.remove('active');
+                }
+
+                // Price range update
+                priceRange?.addEventListener('input', (e) => {
+                    priceValue.textContent = `$${e.target.value}`;
+                    applyFilters();
+                });
+
+                // Filter checkboxes
+                document.querySelectorAll('.filter-option input').forEach(input => {
+                    input.addEventListener('change', applyFilters);
+                });
+
+                // Clear filters
+                clearFilters?.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-option input').forEach(input => {
+                        input.checked = false;
+                    });
+                    if (priceRange) {
+                        priceRange.value = 250;
+                        priceValue.textContent = '$250';
+                    }
+                    applyFilters();
+                });
+
+                function applyFilters() {
+                    const products = document.querySelectorAll('.product-card');
+                    const checkedFilters = {
+                        'wood-type': Array.from(document.querySelectorAll('input[name="wood-type"]:checked')).map(el => el.value),
+                        'product-type': Array.from(document.querySelectorAll('input[name="product-type"]:checked')).map(el => el.value),
+                        'artisan': Array.from(document.querySelectorAll('input[name="artisan"]:checked')).map(el => el.value)
+                    };
+                    const maxPrice = priceRange ? parseInt(priceRange.value) : 500;
+
+                    products.forEach(product => {
+                        const productData = woodCarvingData.find(p => p.id === product.dataset.productId);
+                        if (!productData) return;
+
+                        let show = true;
+
+                        // Price filter
+                        if (productData.price > maxPrice) show = false;
+
+                        // Category filters
+                        if (checkedFilters['product-type'].length > 0) {
+                            if (!checkedFilters['product-type'].includes(productData.category)) show = false;
+                        }
+
+                        // Artisan filter
+                        if (checkedFilters['artisan'].length > 0) {
+                            const artisanKey = productData.artisan.toLowerCase().split(' ')[0];
+                            if (!checkedFilters['artisan'].includes(artisanKey)) show = false;
+                        }
+
+                        product.style.display = show ? 'flex' : 'none';
+                    });
+                }
+            }
+        });
+    </script>
+
+    <!-- Dostik AI System -->
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
+</body>
+</html>
