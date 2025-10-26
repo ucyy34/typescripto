@@ -24,16 +24,16 @@ class CartManager {
      * Get cart items (from backend or localStorage)
      * @returns {Promise<Array>} Cart items
      */
-    async getCart(forceRefresh = false) {
+    async getCart(forceRefresh = false, allowRecovery = true) {
         try {
             // Always check current login status before fetching
             this.isLoggedIn = !!localStorage.getItem('accessToken');
             if (this.isLoggedIn && !this.apiClient) {
                 this.initializeApiClient();
             }
-            
+
             console.log('[CartManager] getCart - isLoggedIn:', this.isLoggedIn, 'hasApiClient:', !!this.apiClient);
-            
+
             if (this.isLoggedIn && this.apiClient) {
                 // Clear cache if force refresh
                 if (forceRefresh && window.apiCache) {
@@ -49,6 +49,17 @@ class CartManager {
 
                     // Normalize backend items to frontend shape
                     const normalized = (response.data.items || []).map(item => this.normalizeBackendItem(item));
+
+                    if (allowRecovery && normalized.length === 0) {
+                        const localCart = this.getLocalCart();
+                        if (localCart.length > 0) {
+                            console.warn('[CartManager] Backend cart empty but local cart has items - attempting recovery');
+                            await this.recoverBackendCartFromLocal(localCart);
+
+                            // After recovery attempt, fetch again without triggering recovery loop
+                            return await this.getCart(true, false);
+                        }
+                    }
 
                     // Sync to localStorage as backup
                     this.syncToLocalStorage(normalized);
@@ -136,6 +147,39 @@ class CartManager {
 
         console.log('[CartManager] Valid items after migration:', valid.length);
         return valid;
+    }
+
+    /**
+     * Attempt to restore backend cart using the local cart snapshot
+     * @param {Array} localCart - Items stored in localStorage
+     */
+    async recoverBackendCartFromLocal(localCart) {
+        if (!this.isLoggedIn || !this.apiClient || !Array.isArray(localCart) || localCart.length === 0) {
+            return;
+        }
+
+        try {
+            console.warn('[CartManager] Recovering backend cart from local snapshot (items:', localCart.length, ')');
+
+            for (const item of localCart) {
+                if (!item || !item.product_id) continue;
+
+                try {
+                    await this.apiClient.post('/cart/items', {
+                        product_id: item.product_id,
+                        quantity: item.quantity || 1
+                    });
+                } catch (itemError) {
+                    console.error('[CartManager] Failed to restore item during recovery:', item.product_id, itemError);
+                }
+            }
+
+            if (window.apiCache) {
+                window.apiCache.clearPattern('/cart');
+            }
+        } catch (error) {
+            console.error('[CartManager] Error during backend cart recovery:', error);
+        }
     }
 
     /**
