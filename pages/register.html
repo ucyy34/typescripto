@@ -177,6 +177,25 @@
             margin-top: 0.5rem;
         }
 
+        .seller-fields {
+            display: none;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+        }
+
+        .seller-fields h3 {
+            margin: 0 0 1rem 0;
+            color: #2d6853;
+            font-size: 1.1rem;
+        }
+
+        .form-note {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 0.5rem;
+        }
+
         @media (max-width: 768px) {
             .register-container {
                 padding: 2rem 1.5rem;
@@ -241,6 +260,30 @@
                 </select>
             </div>
 
+            <div id="sellerFields" class="seller-fields">
+                <h3>Seller Store Details</h3>
+                <div class="form-group">
+                    <label for="storeName">Store Name</label>
+                    <input type="text" id="storeName" name="storeName" placeholder="Nordic Treasures">
+                </div>
+                <div class="form-group">
+                    <label for="storeDescription">Store Description</label>
+                    <textarea id="storeDescription" name="storeDescription" rows="3" placeholder="Tell us about your products"
+                        style="width: 100%; padding: 0.875rem; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem; transition: border-color 0.3s; box-sizing: border-box;"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="storeCity">City</label>
+                        <input type="text" id="storeCity" name="storeCity" placeholder="İstanbul">
+                    </div>
+                    <div class="form-group">
+                        <label for="storePhone">Phone</label>
+                        <input type="tel" id="storePhone" name="storePhone" placeholder="+90 555 123 45 67">
+                    </div>
+                </div>
+                <p class="form-note">Mağazanız admin onayı sonrası yayına alınacaktır.</p>
+            </div>
+
             <button type="submit" class="btn" id="registerBtn">
                 Create Account
             </button>
@@ -264,6 +307,18 @@
         const registerBtn = document.getElementById('registerBtn');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
+        const roleSelect = document.getElementById('role');
+        const sellerFields = document.getElementById('sellerFields');
+
+        const toggleSellerFields = () => {
+            if (!roleSelect || !sellerFields) return;
+            sellerFields.style.display = roleSelect.value === 'seller' ? 'block' : 'none';
+        };
+
+        if (roleSelect) {
+            toggleSellerFields();
+            roleSelect.addEventListener('change', toggleSellerFields);
+        }
 
         // Check if already logged in
         if (AuthManager.getToken()) {
@@ -279,6 +334,10 @@
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             const role = document.getElementById('role').value;
+            const storeNameInput = document.getElementById('storeName');
+            const storeDescriptionInput = document.getElementById('storeDescription');
+            const storeCityInput = document.getElementById('storeCity');
+            const storePhoneInput = document.getElementById('storePhone');
 
             // Hide previous messages
             errorMessage.classList.remove('show');
@@ -304,13 +363,19 @@
                 return;
             }
 
+            if (role === 'seller' && storeNameInput && storeNameInput.value.trim().length < 3) {
+                errorMessage.textContent = 'Please enter a store name to create your seller account.';
+                errorMessage.classList.add('show');
+                return;
+            }
+
             // Disable button
             registerBtn.disabled = true;
             registerBtn.textContent = '⏳ Creating account...';
 
             try {
                 const apiClient = new ApiClient();
-                const response = await apiClient.post('/auth/register', {
+                const response = await apiClient.register({
                     first_name: firstName,
                     last_name: lastName,
                     email: email,
@@ -318,36 +383,69 @@
                     role: role
                 });
 
-                console.log('Register response:', response);
+                if (!response.success) {
+                    throw new Error(response.message || 'Registration failed. Please try again.');
+                }
 
-                // API client already extracts data, so response is the data object
-                const data = response.data || response;
+                const data = response.data || {};
+                const tokens = data.tokens || {};
+                const user = data.user || data;
 
-                // Save token
-                const token = data.tokens?.accessToken || data.accessToken;
-                const refreshToken = data.tokens?.refreshToken || data.refreshToken;
-
-                if (!token) {
+                if (!tokens.accessToken) {
                     throw new Error('No token received from server');
                 }
 
-                AuthManager.setToken(token);
-                if (refreshToken) {
-                    localStorage.setItem('refresh_token', refreshToken);
+                AuthManager.login(tokens, user);
+
+                let storeCreated = false;
+                let storeError = null;
+
+                if (role === 'seller') {
+                    const storePayload = {
+                        name: storeNameInput?.value.trim(),
+                    };
+
+                    if (storeDescriptionInput && storeDescriptionInput.value.trim()) {
+                        storePayload.description = storeDescriptionInput.value.trim();
+                    }
+                    if (storeCityInput && storeCityInput.value.trim()) {
+                        storePayload.city = storeCityInput.value.trim();
+                    }
+                    if (storePhoneInput && storePhoneInput.value.trim()) {
+                        storePayload.phone = storePhoneInput.value.trim();
+                    }
+
+                    try {
+                        const storeResponse = await apiClient.createStore(storePayload);
+                        if (storeResponse.success) {
+                            storeCreated = true;
+                        } else {
+                            storeError = storeResponse.message || 'Store could not be created automatically.';
+                        }
+                    } catch (storeErr) {
+                        storeError = storeErr.message || 'Store creation failed. You can complete it later from the vendor panel.';
+                    }
+
+                    if (storeError) {
+                        console.warn('Automatic store creation failed:', storeError);
+                        errorMessage.textContent = `Account created but store creation failed: ${storeError}`;
+                        errorMessage.classList.add('show');
+                    }
                 }
 
-                // Save user info
-                const user = data.user || data;
-                localStorage.setItem('user', JSON.stringify(user));
-
                 // Show success
-                successMessage.textContent = 'Account created successfully! Redirecting...';
+                if (role === 'seller') {
+                    successMessage.textContent = storeCreated
+                        ? 'Seller account and store created successfully! Redirecting to vendor panel...'
+                        : 'Seller account created. You can finalize your store setup in the vendor panel.';
+                } else {
+                    successMessage.textContent = 'Account created successfully! Redirecting...';
+                }
                 successMessage.classList.add('show');
 
                 // Redirect based on role
                 setTimeout(() => {
-                    const user = response.data.user;
-                    if (user.role === 'seller') {
+                    if (role === 'seller') {
                         window.location.href = '../vendorcss/index.html';
                     } else {
                         window.location.href = 'profile.html';
@@ -364,6 +462,7 @@
                 registerBtn.textContent = 'Create Account';
             }
         });
+
     </script>
 </body>
 </html>
