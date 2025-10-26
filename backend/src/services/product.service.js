@@ -48,12 +48,47 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
-    // Create product
-    const product = await Product.create({
+    const normalizedImages = Array.isArray(productData.images)
+      ? productData.images.filter((image) => typeof image === 'string' && image.trim().length > 0)
+      : [];
+
+    const normalizedBadges = Array.isArray(productData.badges)
+      ? [...new Set(productData.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean))]
+      : [];
+
+    const normalizedTags = Array.isArray(productData.tags)
+      ? productData.tags.map((tag) => tag.trim()).filter(Boolean)
+      : [];
+
+    const normalizedKeywords = Array.isArray(productData.meta_keywords)
+      ? productData.meta_keywords.map((keyword) => keyword.trim()).filter(Boolean)
+      : [];
+
+    const seoTitle = (productData.seo_title || productData.title || '').trim().substring(0, 200);
+    const seoDescriptionSource =
+      (productData.seo_description && productData.seo_description.trim()) ||
+      (productData.short_description && productData.short_description.trim()) ||
+      (productData.description && productData.description.trim()) ||
+      '';
+
+    const payload = {
       ...productData,
+      images: normalizedImages,
+      badges: normalizedBadges,
+      tags: normalizedTags,
+      meta_keywords: normalizedKeywords,
+      seo_title: seoTitle || null,
+      seo_description: seoDescriptionSource ? seoDescriptionSource.substring(0, 500) : null,
       slug,
-      status: 'pending', // Needs admin approval
-    });
+      status: 'pending',
+    };
+
+    if (payload.title) payload.title = payload.title.trim();
+    if (payload.short_description) payload.short_description = payload.short_description.trim();
+    if (payload.description) payload.description = payload.description.trim();
+
+    // Create product
+    const product = await Product.create(payload);
 
     // Create variants if provided
     if (Array.isArray(productData.variants) && productData.variants.length > 0) {
@@ -97,6 +132,7 @@ class ProductService {
     if (!includeInactive) {
       where.status = 'approved';
       where.is_active = true;
+      where.stock = { [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -187,9 +223,17 @@ class ProductService {
 
     // If no status filter and includeAllStatuses is not true, only show approved and active products
     // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
-    if (!status && !shouldIncludeAll) {
-      where.status = 'approved';
-      where.is_active = true;
+    if (!shouldIncludeAll) {
+      const shouldEnforceAvailability = !status || status === 'approved';
+      if (shouldEnforceAvailability) {
+        where.status = 'approved';
+        if (where.is_active === undefined) {
+          where.is_active = true;
+        }
+        if (!where.stock) {
+          where.stock = { [Op.gt]: 0 };
+        }
+      }
     }
 
     // Parse sort
@@ -281,7 +325,66 @@ class ProductService {
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
 
-    await product.update(updateData);
+    const sanitizedUpdate = { ...updateData };
+
+    if (sanitizedUpdate.images) {
+      sanitizedUpdate.images = sanitizedUpdate.images.filter(
+        (image) => typeof image === 'string' && image.trim().length > 0
+      );
+    }
+
+    if (sanitizedUpdate.badges) {
+      sanitizedUpdate.badges = [...new Set(
+        sanitizedUpdate.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean)
+      )];
+    }
+
+    if (sanitizedUpdate.tags) {
+      sanitizedUpdate.tags = sanitizedUpdate.tags.map((tag) => tag.trim()).filter(Boolean);
+    }
+
+    if (sanitizedUpdate.meta_keywords) {
+      sanitizedUpdate.meta_keywords = sanitizedUpdate.meta_keywords.map((keyword) => keyword.trim()).filter(Boolean);
+    }
+
+    if (sanitizedUpdate.seo_title) {
+      sanitizedUpdate.seo_title = sanitizedUpdate.seo_title.trim().substring(0, 200);
+    }
+
+    if (sanitizedUpdate.seo_description) {
+      sanitizedUpdate.seo_description = sanitizedUpdate.seo_description.trim().substring(0, 500);
+    }
+
+    if (sanitizedUpdate.title && sanitizedUpdate.seo_title === undefined) {
+      const existingSeoMatchesTitle =
+        !product.seo_title || product.seo_title.trim() === (product.title || '').trim();
+      if (existingSeoMatchesTitle) {
+        sanitizedUpdate.seo_title = sanitizedUpdate.title;
+      }
+    }
+
+    const hasDescriptionUpdate =
+      sanitizedUpdate.short_description !== undefined || sanitizedUpdate.description !== undefined;
+
+    if (hasDescriptionUpdate && sanitizedUpdate.seo_description === undefined) {
+      const referenceShort =
+        sanitizedUpdate.short_description !== undefined
+          ? sanitizedUpdate.short_description
+          : product.short_description;
+      const referenceDescription =
+        sanitizedUpdate.description !== undefined ? sanitizedUpdate.description : product.description;
+
+      const existingSeo = product.seo_description ? product.seo_description.trim() : '';
+      const shortMatch = referenceShort ? referenceShort.trim() : '';
+      const descriptionMatch = referenceDescription ? referenceDescription.trim() : '';
+
+      if (!existingSeo || existingSeo === shortMatch || existingSeo === descriptionMatch) {
+        const fallbackDescription = shortMatch || descriptionMatch;
+        sanitizedUpdate.seo_description = fallbackDescription ? fallbackDescription.substring(0, 500) : null;
+      }
+    }
+
+    await product.update(sanitizedUpdate);
 
     // Clear cache
     await cache.del(`product:${productId}`);
@@ -403,6 +506,7 @@ class ProductService {
       where: {
         status: 'approved',
         is_active: true,
+        stock: { [Op.gt]: 0 },
       },
       include: [
         { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },

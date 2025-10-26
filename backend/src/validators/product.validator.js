@@ -5,6 +5,30 @@
 
 const Joi = require('joi');
 
+const imageUrlSchema = Joi.string()
+  .max(2048)
+  .custom((value, helpers) => {
+    if (!value) return value;
+    const trimmed = value.trim();
+    if (trimmed.startsWith('/uploads/')) {
+      return trimmed;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (['http:', 'https:'].includes(parsed.protocol)) {
+        return trimmed;
+      }
+    } catch (err) {
+      // Swallow, we will reject below
+    }
+
+    return helpers.error('any.invalid');
+  }, 'Image URL validation')
+  .messages({
+    'any.invalid': 'Image URL must be a valid URL or start with /uploads/',
+  });
+
 /**
  * Create product validation schema
  */
@@ -33,7 +57,7 @@ const createProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).default(0),
   low_stock_threshold: Joi.number().integer().min(0).default(10),
-  images: Joi.array().items(Joi.string().uri()).max(10).default([]),
+  images: Joi.array().items(imageUrlSchema).max(10).default([]),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -66,6 +90,7 @@ const createProductSchema = Joi.object({
   ).optional().default([]),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional().default([]),
   is_active: Joi.boolean().default(true),
 });
 
@@ -83,7 +108,7 @@ const updateProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
-  images: Joi.array().items(Joi.string().uri()).max(10).optional(),
+  images: Joi.array().items(imageUrlSchema).max(10).optional(),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -101,6 +126,7 @@ const updateProductSchema = Joi.object({
     }),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   is_active: Joi.boolean().optional(),
 });
 

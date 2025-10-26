@@ -156,6 +156,54 @@ class ApiClient {
   }
 
   /**
+   * Upload request (multipart/form-data)
+   */
+  async upload(endpoint, formData, options = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const url = `${this.baseURL}${endpoint}`;
+      const headers = this.buildHeaders(options.headers);
+      delete headers['Content-Type'];
+
+      const config = {
+        method: options.method || 'POST',
+        body: formData,
+        headers,
+        signal: controller.signal,
+      };
+
+      console.log(`[API] UPLOAD ${endpoint}`);
+
+      const response = await fetch(url, config);
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error(`[API] Upload Error ${response.status}:`, data);
+        if (data.message) {
+          return {
+            success: false,
+            message: data.message,
+            error: data.error || 'API_ERROR',
+            status: response.status,
+          };
+        }
+
+        return this.handleError(new Error(data.message || 'Upload failed'), response);
+      }
+
+      console.log('[API] Upload success:', data);
+      return data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * GET request with caching
    */
   async get(endpoint, params = {}, options = {}) {
@@ -348,6 +396,15 @@ class ApiClient {
       data.rejection_reason = rejectionReason;
     }
     return this.patch(API_CONFIG.ENDPOINTS.PRODUCTS.STATUS(productId), data);
+  }
+
+  /**
+   * Upload a product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    return this.upload(API_CONFIG.ENDPOINTS.PRODUCTS.UPLOAD_IMAGE, formData);
   }
 
   // ==========================================

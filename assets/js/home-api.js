@@ -115,6 +115,22 @@ const HomeAPI = {
 
         const storeName = product.store?.name || 'Unknown Store';
 
+        const badgeLabels = {
+            'handmade': '🖐️ Handmade',
+            'limited': '⭐ Limited',
+            'eco-friendly': '🌿 Eco-Friendly',
+            'spiritual': '🔮 Spiritual',
+            'traditional': '🏛️ Traditional',
+            'artisan': '🎨 Artisan'
+        };
+
+        const badges = Array.isArray(product.badges)
+            ? product.badges
+                .map(badge => badgeLabels[badge] ? `<span class="badge ${badge}">${badgeLabels[badge]}</span>` : '')
+                .filter(Boolean)
+                .join('')
+            : '';
+
         return `
             <div class="product-card" data-product-id="${product.id}">
                 <div class="product-image">
@@ -124,6 +140,7 @@ const HomeAPI = {
                     <h3 class="product-title">${product.title}</h3>
                     <p class="product-artisan">by ${storeName}</p>
                     <p class="product-description">${product.short_description || product.description || ''}</p>
+                    ${badges ? `<div class="product-badges">${badges}</div>` : ''}
                 </div>
                 <div class="product-footer">
                     <div class="product-price">
