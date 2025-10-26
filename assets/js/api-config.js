@@ -96,12 +96,35 @@ const API_CONFIG = {
       STORE_ORDERS: (storeId) => `/stores/${storeId}/orders`,
     },
 
+    // Campaign endpoints
+    CAMPAIGNS: {
+      BASE: '/campaigns',
+      BY_ID: (id) => `/campaigns/${id}`,
+      APPROVAL: (id) => `/campaigns/${id}/approval`,
+      STATS: (id) => `/campaigns/${id}/stats`,
+      STORE_BASE: (storeId) => `/stores/${storeId}/campaigns`,
+      STORE_BY_ID: (storeId, id) => `/stores/${storeId}/campaigns/${id}`,
+      STORE_STATS: (storeId, id) => `/stores/${storeId}/campaigns/${id}/stats`,
+    },
+
     // Cart endpoints
     CART: {
       BASE: '/cart',
       ITEMS: '/cart/items',
       ITEM_BY_ID: (productId) => `/cart/items/${productId}`,
       MERGE: '/cart/merge',
+    },
+
+    // Wishlist endpoints
+    WISHLIST: {
+      BASE: '/wishlist',
+      SYNC: '/wishlist/sync',
+      ITEM: (productId) => `/wishlist/${productId}`,
+    },
+
+    // Recommendation endpoints
+    RECOMMENDATIONS: {
+      CART: '/cart/recommendations',
     },
 
     // Dashboard/Stats endpoints (might need to be created)

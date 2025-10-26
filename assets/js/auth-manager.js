@@ -23,6 +23,17 @@ class AuthManager {
       localStorage.setItem(this.STORAGE_KEYS.USER, JSON.stringify(user));
 
       console.log('[Auth] User logged in:', user.email);
+
+      try {
+        if (typeof window !== 'undefined' && window.wishlistManager && typeof window.wishlistManager.handleAuthLogin === 'function') {
+          window.wishlistManager.handleAuthLogin().catch((error) => {
+            console.warn('[Auth] Wishlist sync after login failed:', error);
+          });
+        }
+      } catch (error) {
+        console.warn('[Auth] Wishlist login hook error:', error);
+      }
+
       return true;
     } catch (error) {
       console.error('[Auth] Failed to save login data:', error);
@@ -40,6 +51,16 @@ class AuthManager {
       localStorage.removeItem(this.STORAGE_KEYS.USER);
 
       console.log('[Auth] User logged out');
+
+      try {
+        if (typeof window !== 'undefined' && window.wishlistManager && typeof window.wishlistManager.handleAuthLogout === 'function') {
+          window.wishlistManager.handleAuthLogout().catch((error) => {
+            console.warn('[Auth] Wishlist logout hook error:', error);
+          });
+        }
+      } catch (error) {
+        console.warn('[Auth] Wishlist logout hook error:', error);
+      }
 
       if (redirectToLogin) {
         // Redirect to login page

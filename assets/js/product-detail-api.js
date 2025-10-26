@@ -513,32 +513,60 @@ class ProductDetailAPI {
     }
 
     async addToWishlist() {
+        if (!this.productId || !this.product) {
+            this.showError('Product bilgisi eksik');
+            return;
+        }
+
         try {
-            console.log('[Product Detail API] Adding to wishlist:', this.productId);
+            const metadata = {
+                product: {
+                    id: this.productId,
+                    title: this.product.title,
+                    price: parseFloat(this.product.price),
+                    images: this.product.images || [],
+                    store: this.product.store ? { id: this.product.store.id, name: this.product.store.name } : null,
+                }
+            };
 
-            // For now, just use localStorage
-            let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
-
-            if (wishlist.includes(this.productId)) {
-                this.showSuccessMessage('Already in wishlist!');
-                return;
+            let added;
+            if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                added = await window.wishlistManager.toggle(this.productId, metadata);
+            } else {
+                added = this.toggleLegacyWishlist();
             }
 
-            wishlist.push(this.productId);
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            this.showSuccessMessage(added ? 'Favorilere eklendi!' : 'Favorilerden çıkarıldı');
 
-            this.showSuccessMessage('Added to wishlist!');
-
-            // Update wishlist icon
             const wishlistBtn = document.getElementById('addToWishlistBtn');
             if (wishlistBtn) {
-                wishlistBtn.innerHTML = '♥ In Wishlist';
-                wishlistBtn.classList.add('in-wishlist');
+                wishlistBtn.innerHTML = added ? '♥ Favoride' : '♡ Favorilere Ekle';
+                wishlistBtn.classList.toggle('in-wishlist', added);
             }
         } catch (error) {
-            console.error('[Product Detail API] Error adding to wishlist:', error);
-            this.showError('Failed to add to wishlist');
+            console.error('[Product Detail API] Error toggling wishlist:', error);
+            this.showError('Favori işlemi başarısız oldu');
         }
+    }
+
+    toggleLegacyWishlist() {
+        let wishlist = [];
+        try {
+            wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+        } catch (_) {
+            wishlist = [];
+        }
+
+        const index = wishlist.indexOf(this.productId);
+        if (index > -1) {
+            wishlist.splice(index, 1);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            return false;
+        }
+
+        wishlist.push(this.productId);
+        localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        return true;
     }
 
     showLoading() {

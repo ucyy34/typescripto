@@ -377,33 +377,68 @@
             }
         }
 
-        addToWishlistQuick(productId, triggerButton) {
+        async addToWishlistQuick(productId, triggerButton) {
             const product = this.marketplaceProductMap.get(productId);
             if (!product) {
                 console.warn('[ÇarşıPazar] Product not found for wishlist:', productId);
                 return;
             }
 
-            let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+            const button = triggerButton || this.modal?.querySelector(`[data-marketplace-action="wishlist"][data-product-id="${productId}"]`);
+            const actionLabel = button?.querySelector('.marketplace-action-label');
+            const defaultLabel = button?.dataset.defaultLabel || 'Beğen';
+            const metadata = {
+                product: {
+                    id: product.id,
+                    title: product.title,
+                    price: typeof product.price === 'number' ? product.price : null,
+                    images: product.images || [],
+                    store: product.store || null,
+                }
+            };
+
+            try {
+                let added;
+                if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                    added = await window.wishlistManager.toggle(product.id, metadata);
+                } else {
+                    added = this.toggleLegacyWishlist(product, metadata.product);
+                }
+
+                if (button && actionLabel) {
+                    button.classList.toggle('added', added);
+                    actionLabel.textContent = added ? 'Favoride' : defaultLabel;
+                }
+
+                if (added) {
+                    this.notifyDostik(`${product.title} favorilere eklendi! 💖`, true);
+                } else {
+                    this.notifyDostik(`${product.title} favorilerden çıkarıldı.`, false);
+                }
+            } catch (error) {
+                console.error('[ÇarşıPazar] Failed to toggle wishlist:', error);
+                if (button && actionLabel) {
+                    actionLabel.textContent = 'Tekrar dene';
+                }
+            }
+        }
+
+        toggleLegacyWishlist(product, productData = {}) {
+            let wishlist = [];
+            try {
+                wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+            } catch (_) {
+                wishlist = [];
+            }
+
             const existingIndex = wishlist.findIndex(item =>
                 item.product_id === product.id || item.title === product.title
             );
 
-            const button = triggerButton || this.modal?.querySelector(`[data-marketplace-action="wishlist"][data-product-id="${productId}"]`);
-            const actionLabel = button?.querySelector('.marketplace-action-label');
-            const defaultLabel = button?.dataset.defaultLabel || 'Beğen';
-
             if (existingIndex > -1) {
                 wishlist.splice(existingIndex, 1);
                 localStorage.setItem('wishlist', JSON.stringify(wishlist));
-
-                if (button && actionLabel) {
-                    button.classList.remove('added');
-                    actionLabel.textContent = defaultLabel;
-                }
-
-                this.notifyDostik(`${product.title} favorilerden çıkarıldı.`, false);
-                return;
+                return false;
             }
 
             const wishlistEntry = {
@@ -411,19 +446,13 @@
                 title: product.title,
                 price: product.price,
                 images: product.images || [],
-                store: product.store || null,
+                store: product.store || productData.store || null,
                 source: 'marketplace'
             };
 
             wishlist.push(wishlistEntry);
             localStorage.setItem('wishlist', JSON.stringify(wishlist));
-
-            if (button && actionLabel) {
-                button.classList.add('added');
-                actionLabel.textContent = 'Favoride';
-            }
-
-            this.notifyDostik(`${product.title} favorilere eklendi!`, false);
+            return true;
         }
 
         notifyDostik(message, openChat = false) {

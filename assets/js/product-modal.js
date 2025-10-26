@@ -849,49 +849,81 @@ class ProductModal {
         }
     }
 
-    toggleWishlist() {
+    async toggleWishlist() {
         if (!this.currentProduct) return;
 
         const heartBtn = document.querySelector('.modal-heart-btn');
-        const isLiked = heartBtn.classList.contains('liked');
+        if (!heartBtn) return;
 
-        if (isLiked) {
-            // Remove from wishlist
-            heartBtn.classList.remove('liked');
-            heartBtn.innerHTML = '♡';
-            this.removeFromWishlist();
-        } else {
-            // Add to wishlist
-            heartBtn.classList.add('liked');
-            heartBtn.innerHTML = '♥';
-            this.addToWishlist();
-        }
-    }
-
-    addToWishlist() {
-        let wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        const exists = wishlist.find(item => item.title === this.currentProduct.title);
-
-        if (!exists) {
-            wishlist.push({
-                id: Date.now(),
+        const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
+        const metadata = {
+            product: {
+                id: productId,
                 title: this.currentProduct.title,
-                price: this.currentProduct.price,
-                image: this.currentProduct.image,
-                artisan: this.currentProduct.artisan
-            });
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+                price: this.parsePrice(this.currentProduct.price),
+                images: this.currentProduct.image ? [this.currentProduct.image] : [],
+                store: this.currentProduct.artisan ? { name: this.currentProduct.artisan } : null,
+            }
+        };
 
-            setTimeout(() => {
-                this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
-            }, 300);
+        try {
+            let added;
+            if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                added = await window.wishlistManager.toggle(productId, metadata);
+            } else {
+                added = this.toggleLegacyWishlist(productId, metadata.product);
+            }
+
+            heartBtn.classList.toggle('liked', added);
+            heartBtn.innerHTML = added ? '♥' : '♡';
+
+            if (added) {
+                setTimeout(() => {
+                    this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
+                }, 300);
+            } else {
+                this.addDostikMessage(`${this.currentProduct.title} favorilerden çıkarıldı.`);
+            }
+        } catch (error) {
+            console.error('[ProductModal] Failed to toggle wishlist:', error);
+            this.addDostikMessage('Favorilere eklenirken bir hata oluştu.');
         }
     }
 
-    removeFromWishlist() {
-        let wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        wishlist = wishlist.filter(item => item.title !== this.currentProduct.title);
+    toggleLegacyWishlist(productId, productData) {
+        let wishlist = [];
+        try {
+            wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        } catch (_) {
+            wishlist = [];
+        }
+
+        const existingIndex = wishlist.findIndex(item =>
+            item.product_id === productId || item.title === productData?.title
+        );
+
+        if (existingIndex > -1) {
+            wishlist.splice(existingIndex, 1);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            return false;
+        }
+
+        wishlist.push({
+            product_id: productId,
+            title: productData?.title || this.currentProduct.title,
+            price: productData?.price || this.parsePrice(this.currentProduct.price),
+            image: productData?.images?.[0] || this.currentProduct.image,
+            artisan: productData?.store?.name || this.currentProduct.artisan
+        });
         localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        return true;
+    }
+
+    parsePrice(value) {
+        if (typeof value === 'number') return value;
+        if (!value) return null;
+        const numeric = parseFloat(String(value).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+        return Number.isNaN(numeric) ? null : numeric;
     }
 
     async updateCartCounter() {

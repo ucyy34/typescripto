@@ -8,6 +8,9 @@ class CartPageAPI {
         this.apiClient = new ApiClient();
         this.cart = [];
         this.isLoggedIn = AuthManager.isLoggedIn();
+        this.wishlistItems = [];
+        this.recommendations = [];
+        this.wishlistUnsubscribe = null;
 
         console.log('[Cart Page API] Initializing...');
         this.init();
@@ -15,7 +18,12 @@ class CartPageAPI {
 
     async init() {
         try {
+            if (window.wishlistManager && typeof window.wishlistManager.ensureInitialized === 'function') {
+                await window.wishlistManager.ensureInitialized();
+            }
+
             await this.loadCart();
+            await Promise.all([this.loadWishlist(), this.loadRecommendations()]);
             this.setupEventListeners();
             console.log('[Cart Page API] Initialization complete');
         } catch (error) {
@@ -268,6 +276,253 @@ class CartPageAPI {
         this.updateCartCount();
     }
 
+    async loadWishlist() {
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.getItems === 'function') {
+                const rawItems = window.wishlistManager.getItems();
+                this.wishlistItems = Array.isArray(rawItems)
+                    ? rawItems.map((item) => this.normalizeWishlistItem(item)).filter(Boolean)
+                    : [];
+
+                if (!this.wishlistUnsubscribe && typeof window.wishlistManager.onChange === 'function') {
+                    this.wishlistUnsubscribe = window.wishlistManager.onChange((items) => {
+                        this.wishlistItems = Array.isArray(items)
+                            ? items.map((item) => this.normalizeWishlistItem(item)).filter(Boolean)
+                            : [];
+                        this.renderWishlist();
+                    });
+                }
+            } else {
+                const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                this.wishlistItems = Array.isArray(stored)
+                    ? stored.map((item) => this.normalizeWishlistItem(item)).filter(Boolean)
+                    : [];
+            }
+
+            this.renderWishlist();
+        } catch (error) {
+            console.error('[Cart Page API] Failed to load wishlist:', error);
+            this.renderWishlist(true);
+        }
+    }
+
+    normalizeWishlistItem(item) {
+        if (!item) return null;
+
+        if (typeof item === 'string') {
+            return { product_id: item, product: null };
+        }
+
+        const productId = item.product_id || item.id || item.title;
+        if (!productId) {
+            return null;
+        }
+
+        const product = item.product || {
+            id: productId,
+            title: item.title || 'Favori Ürün',
+            price: item.price ? parseFloat(item.price) : null,
+            images: item.images || (item.image ? [item.image] : []),
+            store: item.store
+                ? typeof item.store === 'string'
+                    ? { name: item.store }
+                    : item.store
+                : item.artisan
+                ? { name: item.artisan }
+                : null,
+        };
+
+        return {
+            id: item.id || productId,
+            product_id: productId,
+            product,
+            added_at: item.added_at || item.created_at || new Date().toISOString(),
+        };
+    }
+
+    renderWishlist(showError = false) {
+        const grid = document.getElementById('savedItemsGrid');
+        const emptyState = document.getElementById('savedItemsEmpty');
+        if (!grid) return;
+
+        if (showError) {
+            grid.innerHTML = '<p style="color: #dc2626;">Favoriler yüklenemedi. Lütfen daha sonra tekrar deneyin.</p>';
+            if (emptyState) emptyState.style.display = 'none';
+            return;
+        }
+
+        if (!this.wishlistItems || this.wishlistItems.length === 0) {
+            grid.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        grid.innerHTML = this.wishlistItems
+            .map((item) => this.renderWishlistCard(item))
+            .join('');
+    }
+
+    renderWishlistCard(item) {
+        const product = item.product || {};
+        const image = product.images && product.images.length > 0
+            ? product.images[0]
+            : 'https://via.placeholder.com/200x200?text=Wishlist';
+        const title = product.title || 'Favori Ürün';
+        const priceValue = product.price ?? item.price;
+        const price = priceValue ? `₺${parseFloat(priceValue).toFixed(2)}` : '';
+
+        return `
+            <div class="saved-item" data-product-id="${item.product_id}">
+                <img src="${image}" alt="${title}">
+                <h4 style="font-size: 1rem; margin-bottom: var(--space-xs);">${title}</h4>
+                <p style="font-size: 0.9rem; color: var(--warm-brown); margin-bottom: var(--space-sm);">${price || ''}</p>
+                <div style="display: flex; gap: var(--space-xs);">
+                    <button class="btn btn-secondary" style="flex: 1; padding: var(--space-xs); font-size: 0.8rem;" data-action="move-to-cart">Move to Cart</button>
+                    <button class="btn btn-link" data-action="remove-wishlist" aria-label="Remove from wishlist">🗑️</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async removeWishlistItem(productId) {
+        if (!productId) return;
+
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.remove === 'function') {
+                await window.wishlistManager.remove(productId);
+            } else {
+                this.removeLegacyWishlistItem(productId);
+                this.wishlistItems = this.wishlistItems.filter((item) => item.product_id !== productId);
+                this.renderWishlist();
+            }
+
+            this.showMessage('Favoriden kaldırıldı', 'info');
+        } catch (error) {
+            console.error('[Cart Page API] Failed to remove wishlist item:', error);
+            this.showMessage('Favori kaldırılamadı', 'error');
+        }
+    }
+
+    removeLegacyWishlistItem(productId) {
+        try {
+            let wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+            if (Array.isArray(wishlist)) {
+                wishlist = wishlist.filter((entry) => {
+                    if (typeof entry === 'string') {
+                        return entry !== productId;
+                    }
+                    return entry?.product_id !== productId && entry?.id !== productId && entry?.title !== productId;
+                });
+                localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            }
+        } catch (_) {
+            // ignore legacy errors
+        }
+    }
+
+    async moveSavedItemToCart(productId) {
+        const item = this.wishlistItems.find((entry) => entry.product_id === productId);
+        if (!item) {
+            this.showMessage('Favori ürünü bulunamadı', 'error');
+            return;
+        }
+
+        try {
+            let productData = item.product;
+            if (!productData) {
+                const response = await this.apiClient.getProduct(productId);
+                if (response.success) {
+                    productData = response.data;
+                }
+            }
+
+            const added = await window.cartManager.addItem(productId, productData || { id: productId, title: 'Wishlist Item' }, 1);
+            if (added) {
+                this.showMessage('Ürün sepete taşındı', 'success');
+                await this.removeWishlistItem(productId);
+                await this.loadCart(true, false);
+            } else {
+                this.showMessage('Ürün sepete eklenemedi', 'error');
+            }
+        } catch (error) {
+            console.error('[Cart Page API] Failed to move wishlist item to cart:', error);
+            this.showMessage('Ürün sepete eklenemedi', 'error');
+        }
+    }
+
+    async loadRecommendations() {
+        try {
+            const response = await this.apiClient.getCartRecommendations({ limit: 6 });
+            this.recommendations = response.success && response.data?.items ? response.data.items : [];
+        } catch (error) {
+            console.warn('[Cart Page API] Failed to load recommendations:', error);
+            this.recommendations = [];
+        } finally {
+            this.renderRecommendations();
+        }
+    }
+
+    renderRecommendations() {
+        const container = document.getElementById('recommendationCards');
+        const emptyState = document.getElementById('recommendationEmpty');
+        if (!container) return;
+
+        if (!this.recommendations || this.recommendations.length === 0) {
+            container.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        container.innerHTML = this.recommendations
+            .map((item) => this.renderRecommendationCard(item))
+            .join('');
+    }
+
+    renderRecommendationCard(item) {
+        const image = item.images && item.images.length > 0
+            ? item.images[0]
+            : 'https://via.placeholder.com/300x200?text=Recommendation';
+        const price = item.price ? `₺${parseFloat(item.price).toFixed(2)}` : '';
+        const store = item.store?.name ? `<p style="font-size: 0.85rem; color: var(--warm-brown); margin-bottom: var(--space-xs);">${item.store.name}</p>` : '';
+
+        return `
+            <div class="recommendation-card" data-product-id="${item.id}">
+                <img src="${image}" alt="${item.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: var(--space-sm);">
+                <h4 style="margin-bottom: var(--space-xs);">${item.title}</h4>
+                ${store}
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600;">${price}</span>
+                    <button class="btn btn-secondary" data-action="add-recommendation" data-product-id="${item.id}" style="padding: var(--space-xs) var(--space-sm); font-size: 0.9rem;">Add to Cart</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async addRecommendationToCart(productId) {
+        const recommendation = this.recommendations.find((item) => item.id === productId);
+        if (!recommendation) {
+            this.showMessage('Öneri bulunamadı', 'error');
+            return;
+        }
+
+        try {
+            const added = await window.cartManager.addItem(productId, recommendation, 1);
+            if (added) {
+                this.showMessage('Önerilen ürün sepete eklendi', 'success');
+                await this.loadCart(true, false);
+            } else {
+                this.showMessage('Ürün sepete eklenemedi', 'error');
+            }
+        } catch (error) {
+            console.error('[Cart Page API] Failed to add recommendation to cart:', error);
+            this.showMessage('Ürün sepete eklenemedi', 'error');
+        }
+    }
+
     setupEventListeners() {
         // Quantity decrease
         document.addEventListener('click', (e) => {
@@ -302,6 +557,36 @@ class CartPageAPI {
                 const btn = e.target.matches('.remove-item') ? e.target : e.target.closest('.remove-item');
                 const index = parseInt(btn.dataset.index);
                 this.removeItem(index);
+            }
+        });
+
+        // Saved item actions
+        document.addEventListener('click', (e) => {
+            const moveBtn = e.target.closest('[data-action="move-to-cart"]');
+            if (moveBtn) {
+                e.preventDefault();
+                const card = moveBtn.closest('[data-product-id]');
+                const productId = card?.dataset.productId;
+                this.moveSavedItemToCart(productId);
+                return;
+            }
+
+            const removeBtn = e.target.closest('[data-action="remove-wishlist"]');
+            if (removeBtn) {
+                e.preventDefault();
+                const card = removeBtn.closest('[data-product-id]');
+                const productId = card?.dataset.productId;
+                this.removeWishlistItem(productId);
+            }
+        });
+
+        // Recommendation add-to-cart
+        document.addEventListener('click', (e) => {
+            const addBtn = e.target.closest('[data-action="add-recommendation"]');
+            if (addBtn) {
+                e.preventDefault();
+                const productId = addBtn.dataset.productId;
+                this.addRecommendationToCart(productId);
             }
         });
 

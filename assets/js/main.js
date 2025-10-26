@@ -8,7 +8,10 @@ class DostanWebApp {
     constructor() {
         this.currentTheme = localStorage.getItem('theme') || 'light';
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
-        this.wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+        this.wishlist = [];
+        this.wishlistUnsubscribe = null;
+        this.wishlistClickHandlerAttached = false;
+        this.boundWishlistButtonHandler = this.handleWishlistButtonClick.bind(this);
         this.isLoading = false;
 
         this.init();
@@ -361,6 +364,9 @@ class DostanWebApp {
             </div>
         `;
 
+        const wishlistButton = card.querySelector('.btn-wishlist');
+        this.updateWishlistButton(wishlistButton);
+
         return card;
     }
 
@@ -404,8 +410,9 @@ class DostanWebApp {
 
         // Heart animation for wishlist
         document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-wishlist')) {
-                this.animateHeart(e.target);
+            const button = e.target.closest('.btn-wishlist');
+            if (button) {
+                this.animateHeart(button);
             }
         });
     }
@@ -568,39 +575,177 @@ class DostanWebApp {
     }
 
     // Wishlist System
-    setupWishlistSystem() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-wishlist')) {
-                const productId = e.target.closest('.btn-wishlist').dataset.productId;
-                this.toggleWishlist(productId);
-                this.updateWishlistButton(e.target.closest('.btn-wishlist'));
+    async setupWishlistSystem() {
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.ensureInitialized === 'function') {
+                await window.wishlistManager.ensureInitialized();
+                this.wishlist = window.wishlistManager.getWishlistIds();
+
+                if (this.wishlistUnsubscribe) {
+                    this.wishlistUnsubscribe();
+                    this.wishlistUnsubscribe = null;
+                }
+
+                if (typeof window.wishlistManager.onChange === 'function') {
+                    this.wishlistUnsubscribe = window.wishlistManager.onChange((items) => {
+                        this.wishlist = Array.isArray(items)
+                            ? items.map((item) => item.product_id).filter(Boolean)
+                            : [];
+                        this.updateAllWishlistButtons();
+                    });
+                }
+            } else {
+                this.wishlist = this.loadLegacyWishlist();
             }
-        });
+        } catch (error) {
+            console.warn('[DostanWebApp] Wishlist system init failed, falling back to localStorage:', error);
+            this.wishlist = this.loadLegacyWishlist();
+        }
+
+        if (!this.wishlistClickHandlerAttached) {
+            document.addEventListener('click', this.boundWishlistButtonHandler);
+            this.wishlistClickHandlerAttached = true;
+        }
+
+        this.updateAllWishlistButtons();
     }
 
-    toggleWishlist(productId) {
-        const index = this.wishlist.indexOf(productId);
+    async handleWishlistButtonClick(event) {
+        const button = event.target.closest('.btn-wishlist');
+        if (!button) return;
 
+        event.preventDefault();
+
+        const productId = button.dataset.productId;
+        if (!productId) {
+            return;
+        }
+
+        const metadata = this.buildWishlistMetadata(button);
+
+        try {
+            const added = await this.toggleWishlist(productId, metadata);
+            this.updateWishlistButton(button, added);
+            this.updateAllWishlistButtons();
+        } catch (error) {
+            console.error('[DostanWebApp] Failed to toggle wishlist:', error);
+        }
+    }
+
+    async toggleWishlist(productId, metadata = null) {
+        if (!productId) {
+            return false;
+        }
+
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                const added = await window.wishlistManager.toggle(productId, metadata || {});
+                this.wishlist = window.wishlistManager.getWishlistIds();
+                return added;
+            }
+        } catch (error) {
+            console.error('[DostanWebApp] Failed to toggle wishlist via manager:', error);
+        }
+
+        const index = this.wishlist.indexOf(productId);
         if (index > -1) {
             this.wishlist.splice(index, 1);
-        } else {
-            this.wishlist.push(productId);
+            localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+            return false;
         }
 
+        this.wishlist.push(productId);
         localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+        return true;
     }
 
-    updateWishlistButton(button) {
+    buildWishlistMetadata(button) {
+        const card = button.closest('[data-product-id]') || button.closest('.product-card');
+        if (!card) {
+            return null;
+        }
+
+        const productId = button.dataset.productId || card.dataset.productId;
+        const title = card.querySelector('.product-title, .product-name')?.textContent?.trim() || 'Favori Ürün';
+        const priceText = card.querySelector('[data-product-price], .price-current, .product-price, .product-price span')?.textContent;
+        const price = this.parsePrice(priceText);
+        const image = card.querySelector('img')?.src || null;
+
+        let storeName = card.querySelector('.product-artisan')?.textContent || '';
+        if (storeName.toLowerCase().startsWith('by ')) {
+            storeName = storeName.slice(3).trim();
+        }
+        storeName = storeName || null;
+
+        return {
+            product: {
+                id: productId,
+                title,
+                price,
+                images: image ? [image] : [],
+                store: storeName ? { name: storeName } : null,
+            },
+        };
+    }
+
+    parsePrice(value) {
+        if (typeof value === 'number') {
+            return value;
+        }
+
+        if (!value) {
+            return null;
+        }
+
+        const normalized = String(value).replace(/[^0-9,.-]/g, '').replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    updateWishlistButton(button, forceState = null) {
+        if (!button) return;
+
         const productId = button.dataset.productId;
         const heart = button.querySelector('.heart-icon');
+        const inWishlist = typeof forceState === 'boolean'
+            ? forceState
+            : this.wishlist.includes(productId);
 
-        if (this.wishlist.includes(productId)) {
-            heart.textContent = '♥';
-            heart.classList.add('liked');
-        } else {
-            heart.textContent = '♡';
-            heart.classList.remove('liked');
+        if (heart) {
+            heart.textContent = inWishlist ? '♥' : '♡';
+            heart.classList.toggle('liked', inWishlist);
         }
+
+        button.classList.toggle('in-wishlist', inWishlist);
+        button.setAttribute('aria-pressed', inWishlist ? 'true' : 'false');
+    }
+
+    updateAllWishlistButtons() {
+        document.querySelectorAll('.btn-wishlist').forEach((button) => this.updateWishlistButton(button));
+    }
+
+    loadLegacyWishlist() {
+        try {
+            const detailedRaw = JSON.parse(localStorage.getItem('wishlist:detailed') || 'null');
+            if (Array.isArray(detailedRaw) && detailedRaw.length > 0) {
+                const ids = detailedRaw
+                    .map((item) => item?.product_id || item?.id || item?.title)
+                    .filter(Boolean);
+                return [...new Set(ids)];
+            }
+
+            const raw = JSON.parse(localStorage.getItem('wishlist') || '[]');
+            if (Array.isArray(raw)) {
+                const ids = raw
+                    .map((item) => (typeof item === 'string' ? item : item?.product_id || item?.id || item?.title))
+                    .filter(Boolean);
+                return [...new Set(ids)];
+            }
+        } catch (error) {
+            console.warn('[DostanWebApp] Failed to load legacy wishlist:', error);
+        }
+
+        return [];
     }
 
     // Smooth Scrolling

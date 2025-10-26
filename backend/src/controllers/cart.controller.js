@@ -6,6 +6,7 @@
 const cartService = require('../services/cart.service');
 const { success } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
+const recommendationService = require('../services/recommendation.service');
 
 class CartController {
   /**
@@ -105,6 +106,33 @@ class CartController {
 
     const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
     return success(res, cart, 'Cart merged successfully');
+  });
+
+  /**
+   * Get product recommendations for the current cart context
+   * @route GET /api/v1/cart/recommendations
+   */
+  getRecommendations = asyncHandler(async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 6, 20);
+
+    let cart;
+    if (req.user) {
+      cart = await cartService.getUserCart(req.user.id);
+    } else {
+      cart = await cartService.getGuestCart(req.session);
+    }
+
+    const recommendations = await recommendationService.getCartRecommendations({
+      cartItems: cart.items || [],
+      userId: req.user?.id || null,
+      limit,
+    });
+
+    return success(
+      res,
+      { items: recommendations, totals: { count: recommendations.length } },
+      'Recommendations retrieved successfully'
+    );
   });
 }
 
