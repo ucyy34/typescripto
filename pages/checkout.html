@@ -716,6 +716,58 @@
             transform: translateY(-2px);
         }
 
+        .form-alert {
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+
+        .form-alert.success {
+            background: rgba(34, 197, 94, 0.12);
+            color: #166534;
+            border-color: rgba(34, 197, 94, 0.25);
+        }
+
+        .form-alert.error {
+            background: rgba(220, 38, 38, 0.12);
+            color: #b91c1c;
+            border-color: rgba(220, 38, 38, 0.25);
+        }
+
+        .form-alert.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #92400e;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .form-alert.info {
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+
+        .login-summary {
+            margin-top: 1rem;
+        }
+
+        .login-btn.secondary {
+            background: rgba(45, 104, 83, 0.12);
+            color: #1a4a3a;
+        }
+
+        .login-btn.secondary:hover {
+            background: rgba(45, 104, 83, 0.2);
+        }
+
+        .saved-addresses-empty {
+            text-align: center;
+            padding: 1rem;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
         .forgot-link {
             color: var(--aurora-green);
             text-decoration: none;
@@ -1270,20 +1322,22 @@
                     <h2 class="section-title">
                         👤 Member Login
                     </h2>
-                    <div class="login-form">
+                    <div id="loginMessage" style="display: none;"></div>
+                    <div id="loggedInSummary" class="login-summary" style="display: none;"></div>
+                    <form id="checkoutLoginForm" class="login-form">
                         <div class="form-group">
                             <label for="loginEmail" class="form-label">Email Address *</label>
-                            <input type="email" id="loginEmail" name="loginEmail" class="form-input" required>
+                            <input type="email" id="loginEmail" name="loginEmail" class="form-input" autocomplete="email" required>
                         </div>
                         <div class="form-group">
                             <label for="loginPassword" class="form-label">Password *</label>
-                            <input type="password" id="loginPassword" name="loginPassword" class="form-input" required>
+                            <input type="password" id="loginPassword" name="loginPassword" class="form-input" autocomplete="current-password" required>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="login-btn">🔐 Login to Account</button>
+                            <button type="submit" class="login-btn" id="checkoutLoginSubmit">🔐 Login to Account</button>
                             <a href="#" class="forgot-link">Forgot Password?</a>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
                 <!-- Registration Section -->
@@ -1297,6 +1351,63 @@
                         <div class="benefit-item">📊 Order history and tracking</div>
                         <div class="benefit-item">💌 Special offers and rewards</div>
                     </div>
+                    <div id="registerMessage" style="display: none;"></div>
+                    <div id="registerLoggedInNotice" class="form-alert info" style="display: none;">✅ Zaten giriş yaptınız, siparişinizi tamamlamaya devam edebilirsiniz.</div>
+                    <form id="checkoutRegisterForm" class="login-form" style="margin-top: var(--space-lg);">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="registerFirstName" class="form-label">First Name *</label>
+                                <input type="text" id="registerFirstName" name="registerFirstName" class="form-input" autocomplete="given-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerLastName" class="form-label">Last Name *</label>
+                                <input type="text" id="registerLastName" name="registerLastName" class="form-input" autocomplete="family-name" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="registerEmail" class="form-label">Email Address *</label>
+                                <input type="email" id="registerEmail" name="registerEmail" class="form-input" autocomplete="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerPassword" class="form-label">Password *</label>
+                                <input type="password" id="registerPassword" name="registerPassword" class="form-input" autocomplete="new-password" minlength="8" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerConfirmPassword" class="form-label">Confirm Password *</label>
+                                <input type="password" id="registerConfirmPassword" name="registerConfirmPassword" class="form-input" autocomplete="new-password" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: var(--space-md);">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="registerAsSeller" name="registerAsSeller">
+                                <span class="checkmark"></span>
+                                Mağaza açmak ve satış yapmak istiyorum
+                            </label>
+                        </div>
+
+                        <div id="sellerStoreFields" style="display: none;">
+                            <div class="form-group">
+                                <label for="registerStoreName" class="form-label">Store Name *</label>
+                                <input type="text" id="registerStoreName" name="registerStoreName" class="form-input" placeholder="Örn. Dostan Nordic Crafts">
+                            </div>
+                            <div class="form-group">
+                                <label for="registerStoreDescription" class="form-label">Store Description</label>
+                                <textarea id="registerStoreDescription" name="registerStoreDescription" class="form-input" rows="2" placeholder="Kısa mağaza açıklaması"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerStoreCity" class="form-label">City</label>
+                                <input type="text" id="registerStoreCity" name="registerStoreCity" class="form-input" placeholder="İstanbul">
+                            </div>
+                            <div class="form-group">
+                                <label for="registerStorePhone" class="form-label">Contact Phone</label>
+                                <input type="tel" id="registerStorePhone" name="registerStorePhone" class="form-input" placeholder="+90 555 555 55 55">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="login-btn" id="checkoutRegisterSubmit">⭐ Üye Ol ve Devam Et</button>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- Shipping Information -->
@@ -1334,35 +1445,8 @@
 
                         <!-- Saved Addresses (for members) -->
                         <div id="saved-addresses" class="saved-addresses" style="display: none;">
-                            <div class="address-options">
-                                <div class="address-card">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addr1" value="home">
-                                        <label for="addr1">🏠 Home Address</label>
-                                    </div>
-                                    <div class="address-details">
-                                        Bağdat Caddesi No: 123<br>
-                                        Kadıköy, İstanbul 34710<br>
-                                        Türkiye
-                                    </div>
-                                </div>
-                                <div class="address-card">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addr2" value="work">
-                                        <label for="addr2">🏢 Work Address</label>
-                                    </div>
-                                    <div class="address-details">
-                                        Levent Mahallesi İş Merkezi<br>
-                                        Beşiktaş, İstanbul 34330<br>
-                                        Türkiye
-                                    </div>
-                                </div>
-                                <div class="address-card new-address">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addrNew" value="new" checked>
-                                        <label for="addrNew">➕ Use New Address</label>
-                                    </div>
-                                </div>
+                            <div class="address-options" id="savedAddressesList">
+                                <p class="saved-addresses-empty">Kayıtlı adres bulunamadı.</p>
                             </div>
                         </div>
 
