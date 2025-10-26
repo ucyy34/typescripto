@@ -10,7 +10,155 @@ const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
+const allowedBadges = new Set(['handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan']);
+
+const toUniqueStringArray = (value = []) => {
+  if (!Array.isArray(value)) return [];
+
+  const cleaned = value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item && item.length > 0);
+
+  return Array.from(new Set(cleaned));
+};
+
+const sanitizeBadges = (badges = []) => {
+  if (!Array.isArray(badges)) return [];
+
+  const filtered = badges.filter((badge) => typeof badge === 'string' && allowedBadges.has(badge));
+  return Array.from(new Set(filtered));
+};
+
+const sanitizeImages = (images = []) => {
+  if (!Array.isArray(images)) return [];
+
+  const filtered = images
+    .map((img) => (typeof img === 'string' ? img.trim() : ''))
+    .filter((img) => img);
+
+  return Array.from(new Set(filtered));
+};
+
+const truncateText = (text, max) => {
+  if (!text || typeof text !== 'string') return text;
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trim()}…`;
+};
+
+const parseBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
+
 class ProductService {
+  prepareProductData(data, { isUpdate = false, existingProduct = null } = {}) {
+    if (!data || typeof data !== 'object') {
+      return {};
+    }
+
+    const prepared = { ...data };
+
+    if (prepared.title) {
+      prepared.title = prepared.title.trim();
+    }
+
+    if (prepared.description) {
+      prepared.description = prepared.description.trim();
+    }
+
+    if (prepared.short_description) {
+      prepared.short_description = truncateText(prepared.short_description.trim(), 500);
+    }
+
+    if (prepared.tags) {
+      prepared.tags = toUniqueStringArray(prepared.tags);
+    }
+
+    const hasMetaKeywordsProp = Object.prototype.hasOwnProperty.call(prepared, 'meta_keywords');
+    if (hasMetaKeywordsProp && prepared.meta_keywords) {
+      prepared.meta_keywords = toUniqueStringArray(prepared.meta_keywords);
+
+      if (prepared.meta_keywords.length === 0) {
+        delete prepared.meta_keywords;
+      }
+    } else if (hasMetaKeywordsProp && (!prepared.meta_keywords || prepared.meta_keywords.length === 0)) {
+      delete prepared.meta_keywords;
+    }
+
+    if (prepared.badges) {
+      prepared.badges = sanitizeBadges(prepared.badges);
+    }
+
+    if (prepared.images) {
+      prepared.images = sanitizeImages(prepared.images);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(prepared, 'price') && prepared.price !== null) {
+      prepared.price = Number(prepared.price);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(prepared, 'compare_price') && prepared.compare_price !== null) {
+      prepared.compare_price = Number(prepared.compare_price);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(prepared, 'stock')) {
+      const parsedStock = Number.parseInt(prepared.stock, 10);
+      prepared.stock = Number.isNaN(parsedStock) ? 0 : Math.max(parsedStock, 0);
+
+      if (prepared.stock === 0) {
+        prepared.is_active = false;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(prepared, 'is_active')) {
+      prepared.is_active = Boolean(prepared.is_active);
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(prepared, 'short_description') || !prepared.short_description) {
+      const baseDescription =
+        existingProduct?.short_description || prepared.description || existingProduct?.description;
+
+      if (baseDescription && !prepared.short_description) {
+        prepared.short_description = truncateText(baseDescription, 180);
+      }
+    }
+
+    const hasSeoTitle = Object.prototype.hasOwnProperty.call(prepared, 'seo_title');
+    if (hasSeoTitle) {
+      if (prepared.seo_title && prepared.seo_title.trim()) {
+        prepared.seo_title = truncateText(prepared.seo_title.trim(), 200);
+      } else {
+        delete prepared.seo_title;
+      }
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(prepared, 'seo_title')) {
+      const baseTitle = prepared.title || existingProduct?.title;
+      if (baseTitle) {
+        prepared.seo_title = truncateText(baseTitle, 200);
+      }
+    }
+
+    const hasSeoDescription = Object.prototype.hasOwnProperty.call(prepared, 'seo_description');
+    if (hasSeoDescription) {
+      if (prepared.seo_description && prepared.seo_description.trim()) {
+        prepared.seo_description = truncateText(prepared.seo_description.trim(), 500);
+      } else {
+        delete prepared.seo_description;
+      }
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(prepared, 'seo_description')) {
+      const descSource = prepared.short_description || prepared.description || existingProduct?.short_description;
+      if (descSource) {
+        prepared.seo_description = truncateText(descSource, 500);
+      }
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(prepared, 'meta_keywords') && prepared.tags && prepared.tags.length > 0) {
+      prepared.meta_keywords = prepared.tags;
+    }
+
+    return prepared;
+  }
+
   /**
    * Create new product
    * @param {string} userId - User ID (store owner)
@@ -48,9 +196,17 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
+    const normalizedData = this.prepareProductData(productData);
+
+    delete normalizedData.variants;
+
+    if (normalizedData.stock === 0) {
+      normalizedData.is_active = false;
+    }
+
     // Create product
     const product = await Product.create({
-      ...productData,
+      ...normalizedData,
       slug,
       status: 'pending', // Needs admin approval
     });
@@ -97,6 +253,7 @@ class ProductService {
     if (!includeInactive) {
       where.status = 'approved';
       where.is_active = true;
+      where.stock = { [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -152,13 +309,19 @@ class ProductService {
       in_stock,
       is_featured,
       sort = '-created_at',
-      includeAllStatuses,  // Flag to include all statuses (for vendor's own products)
+      includeAllStatuses, // Flag to include all statuses (for vendor's own products)
+      include_inactive,
+      include_out_of_stock,
     } = filters;
 
     // Parse includeAllStatuses from string (query params are strings)
-    const shouldIncludeAll = includeAllStatuses === 'true' || includeAllStatuses === true;
+    const shouldIncludeAll = parseBoolean(includeAllStatuses);
+    const allowInactive = parseBoolean(include_inactive);
+    const allowOutOfStock = parseBoolean(include_out_of_stock);
 
-    const offset = (page - 1) * limit;
+    const pageNumber = Number.parseInt(page, 10) > 0 ? Number.parseInt(page, 10) : 1;
+    const limitNumber = Number.parseInt(limit, 10) > 0 ? Number.parseInt(limit, 10) : 20;
+    const offset = (pageNumber - 1) * limitNumber;
     const where = {};
 
     // Apply filters
@@ -185,11 +348,19 @@ class ProductService {
       where.stock = { [Op.gt]: 0 };
     }
 
-    // If no status filter and includeAllStatuses is not true, only show approved and active products
-    // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
+    // If no status filter and includeAllStatuses is not true, only show approved products
     if (!status && !shouldIncludeAll) {
       where.status = 'approved';
+    }
+
+    if (!shouldIncludeAll && !allowInactive) {
       where.is_active = true;
+    }
+
+    if (!shouldIncludeAll && !allowOutOfStock) {
+      const stockFilter = where.stock || {};
+      stockFilter[Op.gt] = 0;
+      where.stock = stockFilter;
     }
 
     // Parse sort
@@ -199,7 +370,7 @@ class ProductService {
     order.push([sortField, sortDirection]);
 
     // Try cache for common queries
-    const cacheKey = `products:${JSON.stringify({ where, offset, limit, order })}`;
+    const cacheKey = `products:${JSON.stringify({ where, offset, limit: limitNumber, order })}`;
     const cached = await cache.get(cacheKey);
     if (cached) {
       return cached;
@@ -208,7 +379,7 @@ class ProductService {
     // Query products
     const { rows: products, count: total } = await Product.findAndCountAll({
       where,
-      limit,
+      limit: limitNumber,
       offset,
       order,
       include: [
@@ -229,12 +400,12 @@ class ProductService {
     const result = {
       products,
       pagination: {
-        page,
-        limit,
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+        totalPages: Math.ceil(total / limitNumber),
+        hasNext: pageNumber < Math.ceil(total / limitNumber),
+        hasPrev: pageNumber > 1,
       },
     };
 
@@ -281,7 +452,15 @@ class ProductService {
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
 
-    await product.update(updateData);
+    const normalizedData = this.prepareProductData(updateData, { isUpdate: true, existingProduct: product });
+
+    Object.keys(normalizedData).forEach((key) => {
+      if (normalizedData[key] === undefined) {
+        delete normalizedData[key];
+      }
+    });
+
+    await product.update(normalizedData);
 
     // Clear cache
     await cache.del(`product:${productId}`);
@@ -403,6 +582,7 @@ class ProductService {
       where: {
         status: 'approved',
         is_active: true,
+        stock: { [Op.gt]: 0 },
       },
       include: [
         { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },

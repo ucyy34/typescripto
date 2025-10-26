@@ -39,6 +39,7 @@ class VendorDashboard {
         this.user = currentUser;
         this.userId = currentUser.id;
         this.categories = [];
+        this.seoAutoState = { title: true, description: true };
 
         console.log('[Vendor Dashboard] Initializing for user:', this.userId);
         this.init();
@@ -439,6 +440,19 @@ class VendorDashboard {
                 const isPending = product.status === 'pending';
                 const isRejected = product.status === 'rejected';
 
+                const badgeLabelMap = {
+                    handmade: '🖐️ Handmade',
+                    limited: '⭐ Limited',
+                    'eco-friendly': '🌱 Eco',
+                    spiritual: '🔮 Spiritual',
+                    traditional: '🏛️ Traditional',
+                    artisan: '🎨 Artisan'
+                };
+
+                const badgeMarkup = Array.isArray(product.badges) && product.badges.length > 0
+                    ? `<div class="vendor-product-badges">${product.badges.map(badge => `<span class="vendor-badge vendor-badge-${badge}">${badgeLabelMap[badge] || badge}</span>`).join('')}</div>`
+                    : '';
+
                 // Active/Inactive toggle styling
                 let activeToggleText, activeToggleBg, activeToggleBorder, activeToggleColor, activeToggleDisabled;
 
@@ -543,6 +557,7 @@ class VendorDashboard {
                                     onfocus="this.style.borderColor='var(--vendor-primary)'; this.style.boxShadow='0 0 0 3px rgba(45, 104, 83, 0.1)';"
                                     onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
                                 >
+                                ${badgeMarkup}
                             </div>
 
                             <!-- Price -->
@@ -1808,8 +1823,10 @@ class VendorDashboard {
 
         // Close modal
         const closeModalFunc = () => {
-            modal.style.display = 'none';
-            productForm.reset();
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            this.resetProductModal();
         };
 
         if (closeModal) {
@@ -1837,6 +1854,11 @@ class VendorDashboard {
 
         // SEO character counters
         this.setupSEOCounters();
+        this.setupAutoSeoSync();
+        this.setupImageUpload();
+        if (typeof this.updateSeoCounters === 'function') {
+            this.updateSeoCounters();
+        }
 
         const categorySelect = document.getElementById('productCategory');
         if (categorySelect) {
@@ -1861,6 +1883,35 @@ class VendorDashboard {
         const modal = document.getElementById('productModal');
         if (modal) {
             modal.style.display = 'block';
+        }
+    }
+
+    resetProductModal() {
+        const productForm = document.getElementById('productForm');
+        if (productForm) {
+            productForm.reset();
+        }
+
+        const preview = document.getElementById('productImagePreview');
+        if (preview) {
+            preview.innerHTML = '';
+        }
+
+        const statusEl = document.getElementById('productImageStatus');
+        if (statusEl) {
+            statusEl.textContent = '';
+            statusEl.style.color = '#64748b';
+        }
+
+        const dropzone = document.getElementById('productImageDropzone');
+        if (dropzone) {
+            dropzone.classList.remove('dragover', 'uploading');
+        }
+
+        this.seoAutoState = { title: true, description: true };
+
+        if (typeof this.updateSeoCounters === 'function') {
+            this.updateSeoCounters();
         }
     }
 
@@ -1894,6 +1945,255 @@ class VendorDashboard {
             option.textContent = `${category.icon || '📦'} ${category.name}`;
             categorySelect.appendChild(option);
         });
+    }
+
+    setupImageUpload() {
+        const dropzone = document.getElementById('productImageDropzone');
+        const fileInput = document.getElementById('productImageFile');
+        const preview = document.getElementById('productImagePreview');
+        const urlInput = document.getElementById('productImage');
+        const statusEl = document.getElementById('productImageStatus');
+
+        if (!dropzone || !fileInput) {
+            return;
+        }
+
+        const setStatus = (message, type = 'info') => {
+            if (!statusEl) return;
+            statusEl.textContent = message;
+
+            switch (type) {
+                case 'success':
+                    statusEl.style.color = '#16a34a';
+                    break;
+                case 'error':
+                    statusEl.style.color = '#dc2626';
+                    break;
+                default:
+                    statusEl.style.color = '#64748b';
+            }
+        };
+
+        const clearPreview = () => {
+            if (preview) {
+                preview.innerHTML = '';
+            }
+        };
+
+        const renderPreview = (imageUrl, metaText = '') => {
+            if (!preview || !imageUrl) {
+                clearPreview();
+                return;
+            }
+
+            clearPreview();
+
+            const card = document.createElement('div');
+            card.className = 'vendor-image-preview-card';
+
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = 'Product image preview';
+            img.loading = 'lazy';
+            card.appendChild(img);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'vendor-image-remove';
+            removeBtn.title = 'Remove image';
+            removeBtn.innerHTML = '✖';
+            removeBtn.addEventListener('click', () => {
+                clearPreview();
+                if (urlInput) {
+                    urlInput.value = '';
+                }
+                setStatus('Image removed. You can upload a new one.', 'info');
+            });
+            card.appendChild(removeBtn);
+
+            preview.appendChild(card);
+
+            if (metaText) {
+                const meta = document.createElement('div');
+                meta.className = 'vendor-image-status';
+                meta.style.marginTop = '0.25rem';
+                meta.textContent = metaText;
+                preview.appendChild(meta);
+            }
+        };
+
+        const handleUpload = async (file) => {
+            if (!file) {
+                return;
+            }
+
+            if (!file.type || !file.type.startsWith('image/')) {
+                setStatus('Please select a valid image file (JPG, PNG, WebP).', 'error');
+                return;
+            }
+
+            try {
+                dropzone.classList.add('uploading');
+                setStatus('Uploading image, please wait...');
+
+                const response = await this.apiClient.uploadProductImage(file);
+
+                dropzone.classList.remove('uploading');
+
+                if (response.success && response.data && response.data.url) {
+                    if (urlInput) {
+                        urlInput.value = response.data.url;
+                    }
+
+                    const optimized = response.data.optimized || {};
+                    const metaText = optimized.width && optimized.height
+                        ? `Optimized to ${optimized.width}x${optimized.height}px (${optimized.format || 'webp'})`
+                        : '';
+
+                    renderPreview(response.data.url, metaText);
+                    setStatus('Image uploaded successfully. ✅', 'success');
+                } else {
+                    throw new Error(response.message || 'Upload failed');
+                }
+            } catch (error) {
+                dropzone.classList.remove('uploading');
+                console.error('[Vendor Dashboard] Image upload error:', error);
+                setStatus(`Image upload failed: ${error.message}`, 'error');
+            }
+        };
+
+        dropzone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', async (event) => {
+            event.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = event.dataTransfer?.files?.[0];
+            await handleUpload(file);
+        });
+
+        dropzone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        dropzone.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files?.[0];
+            await handleUpload(file);
+            fileInput.value = '';
+        });
+
+        if (urlInput) {
+            urlInput.addEventListener('blur', () => {
+                const value = urlInput.value.trim();
+                if (value) {
+                    renderPreview(value);
+                    setStatus('External image URL will be used for this product.', 'info');
+                } else {
+                    clearPreview();
+                }
+            });
+        }
+    }
+
+    setupAutoSeoSync() {
+        const titleInput = document.getElementById('productTitle');
+        const shortDescInput = document.getElementById('productShortDesc');
+        const descriptionInput = document.getElementById('productDescription');
+        const seoTitleInput = document.getElementById('productSeoTitle');
+        const seoDescInput = document.getElementById('productSeoDescription');
+
+        if (!seoTitleInput || !seoDescInput) {
+            return;
+        }
+
+        const syncSeoTitle = () => {
+            if (!this.seoAutoState.title) {
+                return;
+            }
+
+            const value = titleInput ? titleInput.value.trim() : '';
+            const truncated = value.substring(0, 200);
+
+            if (seoTitleInput.value !== truncated) {
+                seoTitleInput.value = truncated;
+                if (typeof this.updateSeoCounters === 'function') {
+                    this.updateSeoCounters();
+                }
+            }
+        };
+
+        const syncSeoDescription = () => {
+            if (!this.seoAutoState.description) {
+                return;
+            }
+
+            const sources = [shortDescInput?.value?.trim(), descriptionInput?.value?.trim()].filter(Boolean);
+            const value = sources.length > 0 ? sources[0] : '';
+            const truncated = value.substring(0, 500);
+
+            if (seoDescInput.value !== truncated) {
+                seoDescInput.value = truncated;
+                if (typeof this.updateSeoCounters === 'function') {
+                    this.updateSeoCounters();
+                }
+            }
+        };
+
+        if (titleInput) {
+            titleInput.addEventListener('input', () => {
+                syncSeoTitle();
+            });
+        }
+
+        if (shortDescInput) {
+            shortDescInput.addEventListener('input', () => {
+                syncSeoDescription();
+            });
+        }
+
+        if (descriptionInput) {
+            descriptionInput.addEventListener('input', () => {
+                syncSeoDescription();
+            });
+        }
+
+        seoTitleInput.addEventListener('input', () => {
+            const isEmpty = seoTitleInput.value.trim().length === 0;
+            this.seoAutoState.title = isEmpty;
+            if (typeof this.updateSeoCounters === 'function') {
+                this.updateSeoCounters();
+            }
+            if (isEmpty) {
+                syncSeoTitle();
+            }
+        });
+
+        seoDescInput.addEventListener('input', () => {
+            const isEmpty = seoDescInput.value.trim().length === 0;
+            this.seoAutoState.description = isEmpty;
+            if (typeof this.updateSeoCounters === 'function') {
+                this.updateSeoCounters();
+            }
+            if (isEmpty) {
+                syncSeoDescription();
+            }
+        });
+
+        syncSeoTitle();
+        syncSeoDescription();
     }
 
     async loadCategoryVariantsForForm(categoryId) {
@@ -1944,36 +2244,54 @@ class VendorDashboard {
             group.dataset.variantId = v.id;
             group.dataset.variantName = v.name;
 
-            const labelEl = document.createElement('div');
-            labelEl.style.margin = '0.5rem 0';
-            labelEl.textContent = v.name + (v.is_required ? ' *' : '');
-            group.appendChild(labelEl);
+            const header = document.createElement('div');
+            header.className = 'variant-group-title';
+
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = v.name;
+            header.appendChild(titleSpan);
+
+            if (v.is_required) {
+                const requiredBadge = document.createElement('span');
+                requiredBadge.className = 'variant-required';
+                requiredBadge.textContent = 'Required';
+                header.appendChild(requiredBadge);
+            }
+
+            group.appendChild(header);
 
             const optionsWrap = document.createElement('div');
+            optionsWrap.className = 'variant-options';
+
             (v.options || []).forEach(opt => {
-                const lbl = document.createElement('label');
-                lbl.style.marginRight = '0.75rem';
+                const optionLabel = document.createElement('label');
+                optionLabel.className = 'variant-option';
+
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.name = `variant_${v.id}`;
                 input.value = opt.value;
-                lbl.appendChild(input);
-                const span = document.createElement('span');
-                span.textContent = opt.label || opt.value;
+                optionLabel.appendChild(input);
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = opt.label || opt.value;
+                optionLabel.appendChild(textSpan);
+
                 if (v.type === 'color' && opt.value) {
-                    span.style.display = 'inline-block';
-                    span.style.width = '14px';
-                    span.style.height = '14px';
-                    span.style.borderRadius = '50%';
-                    span.style.background = opt.value;
-                    span.style.marginLeft = '6px';
-                    span.title = opt.label || opt.value;
-                } else {
-                    span.style.marginLeft = '6px';
+                    const swatch = document.createElement('span');
+                    swatch.style.display = 'inline-block';
+                    swatch.style.width = '16px';
+                    swatch.style.height = '16px';
+                    swatch.style.borderRadius = '50%';
+                    swatch.style.border = '1px solid rgba(0,0,0,0.1)';
+                    swatch.style.background = opt.value;
+                    swatch.title = opt.label || opt.value;
+                    optionLabel.appendChild(swatch);
                 }
-                lbl.appendChild(span);
-                optionsWrap.appendChild(lbl);
+
+                optionsWrap.appendChild(optionLabel);
             });
+
             group.appendChild(optionsWrap);
             container.appendChild(group);
         });
@@ -2113,7 +2431,7 @@ class VendorDashboard {
 
                 // Close modal
                 document.getElementById('productModal').style.display = 'none';
-                document.getElementById('productForm').reset();
+                this.resetProductModal();
 
                 // Reload products
                 if (this.currentSection === 'products') {
@@ -2442,37 +2760,52 @@ VendorDashboard.prototype.setupSEOCounters = function() {
     const seoTitleCounter = document.getElementById('seoTitleCounter');
     const seoDescCounter = document.getElementById('seoDescCounter');
 
+    const updateTitleCounter = () => {
+        if (!seoTitleInput || !seoTitleCounter) return;
+
+        const length = seoTitleInput.value.length;
+        seoTitleCounter.textContent = `Characters: ${length}/60`;
+
+        if (length >= 50 && length <= 60) {
+            seoTitleCounter.style.color = '#10b981';
+        } else if (length > 60) {
+            seoTitleCounter.style.color = '#ef4444';
+        } else {
+            seoTitleCounter.style.color = '#666';
+        }
+    };
+
+    const updateDescCounter = () => {
+        if (!seoDescInput || !seoDescCounter) return;
+
+        const length = seoDescInput.value.length;
+        seoDescCounter.textContent = `Characters: ${length}/160`;
+
+        if (length >= 150 && length <= 160) {
+            seoDescCounter.style.color = '#10b981';
+        } else if (length > 160) {
+            seoDescCounter.style.color = '#ef4444';
+        } else {
+            seoDescCounter.style.color = '#666';
+        }
+    };
+
+    const updateCounters = () => {
+        updateTitleCounter();
+        updateDescCounter();
+    };
+
+    this.updateSeoCounters = updateCounters;
+
     if (seoTitleInput && seoTitleCounter) {
-        seoTitleInput.addEventListener('input', () => {
-            const length = seoTitleInput.value.length;
-            seoTitleCounter.textContent = `Characters: ${length}/60`;
-            
-            // Color coding
-            if (length >= 50 && length <= 60) {
-                seoTitleCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 60) {
-                seoTitleCounter.style.color = '#ef4444'; // Red - too long
-            } else {
-                seoTitleCounter.style.color = '#666'; // Gray - default
-            }
-        });
+        seoTitleInput.addEventListener('input', updateCounters);
     }
 
     if (seoDescInput && seoDescCounter) {
-        seoDescInput.addEventListener('input', () => {
-            const length = seoDescInput.value.length;
-            seoDescCounter.textContent = `Characters: ${length}/160`;
-            
-            // Color coding
-            if (length >= 150 && length <= 160) {
-                seoDescCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 160) {
-                seoDescCounter.style.color = '#ef4444'; // Red - too long
-            } else {
-                seoDescCounter.style.color = '#666'; // Gray - default
-            }
-        });
+        seoDescInput.addEventListener('input', updateCounters);
     }
+
+    updateCounters();
 
     // ==========================================
     // CAMPAIGNS MANAGEMENT

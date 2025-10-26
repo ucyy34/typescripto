@@ -841,11 +841,26 @@
 
                 <!-- Product Images -->
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image URL</label>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Images</label>
+                    <div class="vendor-image-upload">
+                        <div id="productImageDropzone" class="vendor-image-dropzone" role="button" tabindex="0" aria-describedby="productImageHelp">
+                            <input type="file" id="productImageFile" accept="image/*" aria-label="Select product image" />
+                            <div class="vendor-image-dropzone-inner">
+                                <div class="vendor-image-icon">🖼️</div>
+                                <div>
+                                    <div class="vendor-image-title">Drag & drop or click to upload</div>
+                                    <div class="vendor-image-subtitle">We automatically convert to optimized WebP format</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="productImageStatus" class="vendor-image-status" aria-live="polite"></div>
+                        <div id="productImagePreview" class="vendor-image-preview" aria-live="polite"></div>
+                    </div>
+                    <div class="vendor-image-divider">or paste an existing image URL</div>
                     <input type="url" id="productImage"
-                           placeholder="https://example.com/image.jpg (optional for now)"
+                           placeholder="https://example.com/image.jpg"
                            style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
-                    <small style="color: #666; font-size: 0.85rem;">Tip: Image upload feature coming soon. For now, use external image URLs.</small>
+                    <small id="productImageHelp" style="color: #666; font-size: 0.85rem;">Uploaded images are stored on our servers and optimized as WebP automatically.</small>
                 </div>
 
                 <!-- Product Badges -->

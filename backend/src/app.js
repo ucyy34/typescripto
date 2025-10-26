@@ -33,6 +33,7 @@ const couponRoutes = require('./routes/coupon.routes');
 const shippingRoutes = require('./routes/shipping.routes');
 const reviewRoutes = require('./routes/review.routes');
 const campaignRoutes = require('./routes/campaign.routes');
+const uploadRoutes = require('./routes/upload.routes');
 
 // Create Express app
 const app = express();
@@ -149,6 +150,7 @@ app.use(`/api/${API_VERSION}/coupons`, couponRoutes);
 app.use(`/api/${API_VERSION}/shipping`, shippingRoutes);
 app.use(`/api/${API_VERSION}/campaigns`, campaignRoutes);
 app.use(`/api/${API_VERSION}`, reviewRoutes);
+app.use(`/api/${API_VERSION}/uploads`, uploadRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {

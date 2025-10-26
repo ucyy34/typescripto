@@ -122,6 +122,12 @@ class ApiClient {
         signal: controller.signal,
       };
 
+      if (options.body instanceof FormData) {
+        const headers = { ...config.headers };
+        delete headers['Content-Type'];
+        config.headers = headers;
+      }
+
       console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
@@ -199,6 +205,19 @@ class ApiClient {
     return this.request(endpoint, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Upload product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
     });
   }
 

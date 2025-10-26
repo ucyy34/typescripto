@@ -78,6 +78,10 @@ const API_CONFIG = {
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
     },
 
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
+    },
+
     // Category endpoints
     CATEGORIES: {
       BASE: '/categories',
