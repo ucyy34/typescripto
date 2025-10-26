@@ -393,6 +393,91 @@ class ApiClient {
   }
 
   // ==========================================
+  // CAMPAIGN METHODS
+  // ==========================================
+
+  /**
+   * Get all campaigns (admin)
+   */
+  async getCampaigns(filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BASE, filters);
+  }
+
+  /**
+   * Get campaign by ID
+   */
+  async getCampaign(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Update campaign (admin)
+   */
+  async updateCampaign(campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId), data);
+  }
+
+  /**
+   * Approve or reject campaign (admin)
+   */
+  async updateCampaignApproval(campaignId, approvalStatus, rejectionReason = '') {
+    const payload = { approval_status: approvalStatus };
+    if (approvalStatus === 'rejected' && rejectionReason) {
+      payload.rejection_reason = rejectionReason;
+    }
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.APPROVAL(campaignId), payload);
+  }
+
+  /**
+   * Delete campaign (admin)
+   */
+  async deleteCampaign(campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Get campaign stats (admin)
+   */
+  async getCampaignStats(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STATS(campaignId));
+  }
+
+  /**
+   * Get campaigns for a store (seller)
+   */
+  async getStoreCampaigns(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), filters);
+  }
+
+  /**
+   * Create campaign for a store (seller)
+   */
+  async createStoreCampaign(storeId, data = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), data);
+  }
+
+  /**
+   * Update store campaign (seller)
+   */
+  async updateStoreCampaign(storeId, campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId), data);
+  }
+
+  /**
+   * Delete store campaign (seller)
+   */
+  async deleteStoreCampaign(storeId, campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId));
+  }
+
+  /**
+   * Get store campaign stats (seller)
+   */
+  async getStoreCampaignStats(storeId, campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_STATS(storeId, campaignId));
+  }
+
+  // ==========================================
   // CATEGORY METHODS
   // ==========================================
 
