@@ -20,7 +20,15 @@ class ApiClient {
    * Build headers with authorization
    */
   buildHeaders(customHeaders = {}) {
-    const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
+    const headers = { ...API_CONFIG.HEADERS };
+
+    Object.entries(customHeaders).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        delete headers[key];
+      } else {
+        headers[key] = value;
+      }
+    });
 
     const token = this.getToken();
     if (token) {
@@ -221,6 +229,22 @@ class ApiClient {
     });
   }
 
+  /**
+   * Upload product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': null,
+      },
+    });
+  }
+
   // ==========================================
   // AUTH METHODS
   // ==========================================
@@ -340,6 +364,13 @@ class ApiClient {
   }
 
   /**
+   * Get product by slug
+   */
+  async getProductBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
+  }
+
+  /**
    * Update product status (approve/reject)
    */
   async updateProductStatus(productId, status, rejectionReason = null) {
@@ -392,6 +423,13 @@ class ApiClient {
     return this.get(API_CONFIG.ENDPOINTS.ORDERS.STORE_ORDERS(storeId), filters);
   }
 
+  /**
+   * Get store products
+   */
+  async getStoreProducts(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.PRODUCTS(storeId), filters);
+  }
+
   // ==========================================
   // CATEGORY METHODS
   // ==========================================
@@ -415,6 +453,20 @@ class ApiClient {
    */
   async getCategory(categoryId) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_ID(categoryId));
+  }
+
+  /**
+   * Get category by slug
+   */
+  async getCategoryBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
+  }
+
+  /**
+   * Get category products
+   */
+  async getCategoryProducts(categoryId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.PRODUCTS(categoryId), filters);
   }
 
   /**

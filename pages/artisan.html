@@ -595,15 +595,15 @@
                 <div style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
-                        <div><strong>47</strong><br>Master Artisans</div>
+                        <div><strong id="heroStoreCount">47</strong><br>Master Artisans</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-                        <div><strong>1,200+</strong><br>Unique Pieces</div>
+                        <div><strong id="heroProductCount">1,200+</strong><br>Unique Pieces</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-                        <div><strong>4.9/5</strong><br>Avg Rating</div>
+                        <div><strong id="heroAverageRating">4.9/5</strong><br>Avg Rating</div>
                     </div>
                 </div>
             </div>
@@ -1121,248 +1121,19 @@
         </div>
     </main>
 
-    <!-- Scripts -->
-    <script src="../assets/js/dostik-ai.js"></script>
-    <script src="../assets/js/carsi-pazar-browser.js"></script>
-    <script src="../assets/js/main.js"></script>
+    <!-- Scripts - Optimized loading -->
+    <script defer src="../assets/js/security-utils.js"></script>
+    <script defer src="../assets/js/error-handler.js"></script>
+    <script defer src="../assets/js/lazy-load.js"></script>
+    <script defer src="../assets/js/performance-monitor.js"></script>
+    <script defer src="../assets/js/auth-manager.js"></script>
+    <script defer src="../assets/js/api-config.js"></script>
+    <script defer src="../assets/js/api-client.js"></script>
+    <script defer src="../assets/js/store-directory.js"></script>
+    <script defer src="../assets/js/dostik-ai.js"></script>
+    <script defer src="../assets/js/carsi-pazar-browser.js"></script>
+    <script defer src="../assets/js/main.js"></script>
 
-    <script>
-        class ArtisanPage {
-            constructor() {
-                this.currentFilter = 'all';
-                this.artisans = document.querySelectorAll('.artisan-card');
-                this.init();
-            }
-
-            init() {
-                this.setupFiltering();
-                this.setupArtisanInteractions();
-                this.setupWorkshopGallery();
-                this.setupScrollAnimations();
-                this.showDostikInsights();
-            }
-
-            setupFiltering() {
-                const filterBtns = document.querySelectorAll('.filter-btn');
-
-                filterBtns.forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const filter = btn.dataset.filter;
-
-                        // Update active filter button
-                        filterBtns.forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-
-                        // Filter artisans
-                        this.filterArtisans(filter);
-
-                        // Dostik commentary
-                        if (window.dostikAI) {
-                            const filterMessages = {
-                                all: "Wise choice! All our Nordic masters await your discovery! 🐉✨",
-                                wood: "Ah, you seek the wood whisperers! Their hands speak the language of ancient forests! 🪵🌲",
-                                glass: "Glass artists who capture aurora itself! Truly magical beings! 💎❄️",
-                                leather: "The Viking crafters! Their leather carries the strength of ancient warriors! ⚔️🛡️",
-                                ceramic: "Earth shapers who mold Nordic soil into vessels of beauty! 🏺🌍",
-                                textile: "Weavers of forest magic! Their threads connect you to nature's rhythm! 🧶🍃"
-                            };
-                            window.dostikAI.addChatMessage(filterMessages[filter] || "Excellent taste in artisan selection! 🐉");
-                        }
-                    });
-                });
-            }
-
-            filterArtisans(filter) {
-                this.artisans.forEach((artisan, index) => {
-                    const category = artisan.dataset.category;
-                    const shouldShow = filter === 'all' || category === filter;
-
-                    if (shouldShow) {
-                        // Animate in
-                        artisan.style.display = 'block';
-                        setTimeout(() => {
-                            artisan.style.opacity = '1';
-                            artisan.style.transform = 'translateY(0) scale(1)';
-                        }, index * 100);
-                    } else {
-                        // Animate out
-                        artisan.style.opacity = '0';
-                        artisan.style.transform = 'translateY(20px) scale(0.95)';
-                        setTimeout(() => {
-                            artisan.style.display = 'none';
-                        }, 300);
-                    }
-                });
-            }
-
-            setupArtisanInteractions() {
-                this.artisans.forEach(card => {
-                    // Hover effects
-                    card.addEventListener('mouseenter', () => {
-                        card.style.transform = 'translateY(-10px) rotateY(5deg) scale(1.02)';
-                    });
-
-                    card.addEventListener('mouseleave', () => {
-                        card.style.transform = 'translateY(0) rotateY(0deg) scale(1)';
-                    });
-
-                    // Button interactions
-                    const buttons = card.querySelectorAll('button');
-                    buttons.forEach(button => {
-                        button.addEventListener('click', () => {
-                            const artisanName = card.querySelector('.artisan-name').textContent;
-                            const buttonText = button.textContent;
-
-                            // Visual feedback
-                            const originalText = button.textContent;
-                            button.textContent = '✨ Loading...';
-                            button.disabled = true;
-
-                            setTimeout(() => {
-                                if (buttonText.includes('View Gallery') || buttonText.includes('View')) {
-                                    alert(`🎨 ${artisanName}'s gallery is opening! Prepare to be amazed by Nordic craftsmanship!`);
-                                } else if (buttonText.includes('Message')) {
-                                    alert(`💬 Opening chat with ${artisanName}! They'll respond within 24 hours.`);
-                                } else {
-                                    alert(`🔍 Exploring ${artisanName}'s ${buttonText.replace(/[^a-zA-Z ]/g, '')}...`);
-                                }
-
-                                button.textContent = originalText;
-                                button.disabled = false;
-
-                                // Dostik commentary
-                                if (window.dostikAI) {
-                                    const comments = [
-                                        `Excellent choice! ${artisanName} creates true Nordic magic! 🐉✨`,
-                                        `${artisanName} will be honored by your interest! Their craft runs deep! 🎨`,
-                                        `I sense ${artisanName}'s work calling to your collector's spirit! 💫`
-                                    ];
-                                    const comment = comments[Math.floor(Math.random() * comments.length)];
-                                    window.dostikAI.addChatMessage(comment);
-                                }
-                            }, 1500);
-                        });
-                    });
-                });
-            }
-
-            setupWorkshopGallery() {
-                const workshopImages = document.querySelectorAll('.workshop-image');
-
-                workshopImages.forEach(image => {
-                    image.addEventListener('click', () => {
-                        const title = image.querySelector('h4').textContent;
-                        const description = image.querySelector('p').textContent;
-
-                        // Create modal effect
-                        const modal = document.createElement('div');
-                        modal.style.cssText = `
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background: rgba(0, 0, 0, 0.8);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            z-index: 10000;
-                            cursor: pointer;
-                        `;
-
-                        const modalContent = document.createElement('div');
-                        modalContent.style.cssText = `
-                            background: white;
-                            border-radius: var(--radius-lg);
-                            padding: var(--space-xl);
-                            max-width: 500px;
-                            margin: var(--space-lg);
-                            text-align: center;
-                        `;
-
-                        modalContent.innerHTML = `
-                            <div style="font-size: 3rem; margin-bottom: var(--space-md);">🏠</div>
-                            <h3 style="margin-bottom: var(--space-md); color: var(--forest-deep);">${title}</h3>
-                            <p style="color: var(--forest-medium); line-height: 1.6; margin-bottom: var(--space-lg);">${description}</p>
-                            <p style="font-size: 0.9rem; color: var(--warm-brown);">Virtual workshop tours coming soon! 📹</p>
-                        `;
-
-                        modal.appendChild(modalContent);
-                        document.body.appendChild(modal);
-
-                        modal.addEventListener('click', () => {
-                            document.body.removeChild(modal);
-                        });
-                    });
-                });
-            }
-
-            setupScrollAnimations() {
-                const observerOptions = {
-                    threshold: 0.1,
-                    rootMargin: '0px 0px -50px 0px'
-                };
-
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.style.opacity = '1';
-                            entry.target.style.transform = 'translateY(0)';
-                        }
-                    });
-                }, observerOptions);
-
-                // Observe all major sections
-                document.querySelectorAll('.technique-card, .timeline-item, .testimonial').forEach(element => {
-                    element.style.opacity = '0';
-                    element.style.transform = 'translateY(30px)';
-                    element.style.transition = 'all 0.6s ease-out';
-                    observer.observe(element);
-                });
-            }
-
-            showDostikInsights() {
-                setTimeout(() => {
-                    if (window.dostikAI) {
-                        window.dostikAI.addChatMessage("Welcome to our artisan realm! These Nordic masters have been chosen by ancient spirits themselves. Each carries secrets of their craft passed down through generations! 🐉🎨");
-                    }
-                }, 3000);
-            }
-        }
-
-        // Initialize artisan page
-        document.addEventListener('DOMContentLoaded', () => {
-            new ArtisanPage();
-
-            // Add smooth scrolling for internal links
-            document.addEventListener('click', (e) => {
-                if (e.target.matches('a[href^="#"]')) {
-                    e.preventDefault();
-                    const target = document.querySelector(e.target.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth' });
-                    }
-                }
-            });
-
-            // Enhanced testimonial slider
-            const testimonialSlider = document.querySelector('.testimonial-slider');
-            if (testimonialSlider) {
-                // Auto-scroll testimonials
-                let scrollAmount = 0;
-                setInterval(() => {
-                    scrollAmount += 370; // Width of testimonial + gap
-                    if (scrollAmount >= testimonialSlider.scrollWidth) {
-                        scrollAmount = 0;
-                    }
-                    testimonialSlider.scrollTo({
-                        left: scrollAmount,
-                        behavior: 'smooth'
-                    });
-                }, 5000);
-            }
-        });
-    </script>
 
     <!-- Footer -->
     <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">

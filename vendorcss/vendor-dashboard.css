@@ -612,3 +612,218 @@ textarea:focus {
         --vendor-text: #ffffff;
     }
 }
+/* Image upload styles */
+.image-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.image-upload-dropzone {
+    border: 2px dashed var(--vendor-border);
+    border-radius: var(--radius-lg);
+    background: rgba(45, 104, 83, 0.04);
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.image-upload-dropzone:hover {
+    border-color: var(--vendor-primary);
+    background: rgba(45, 104, 83, 0.08);
+    transform: translateY(-2px);
+}
+
+.upload-icon {
+    font-size: 2rem;
+}
+
+.upload-text {
+    font-weight: 600;
+    color: var(--vendor-primary);
+}
+
+.upload-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.image-upload-preview {
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-lg);
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #f9fafb;
+    position: relative;
+}
+
+.image-upload-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preview-placeholder {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.image-upload-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.image-url-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.image-url-input:focus {
+    border-color: var(--vendor-primary);
+    box-shadow: 0 0 0 3px rgba(45, 104, 83, 0.12);
+    outline: none;
+}
+
+.image-clear-btn {
+    background: none;
+    border: 1px dashed var(--vendor-border);
+    color: #6b7280;
+    padding: 0.65rem 1rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.image-clear-btn:hover {
+    border-color: var(--vendor-danger);
+    color: var(--vendor-danger);
+}
+
+/* Variant selector styles */
+.variant-group {
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    background: white;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--space-md);
+}
+
+.variant-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.variant-name {
+    font-weight: 600;
+    color: var(--vendor-primary);
+}
+
+.variant-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.variant-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.variant-option {
+    position: relative;
+    border: 1px solid var(--vendor-border);
+    border-radius: 999px;
+    padding: 0.4rem 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    background: #f9fafb;
+    transition: all var(--transition-fast);
+}
+
+.variant-option:hover {
+    border-color: var(--vendor-primary);
+}
+
+.variant-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.variant-chip {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--vendor-text);
+    text-transform: capitalize;
+}
+
+.variant-color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.variant-option.selected {
+    border-color: var(--vendor-primary);
+    background: rgba(45, 104, 83, 0.12);
+    box-shadow: 0 0 0 3px rgba(45, 104, 83, 0.12);
+    color: var(--vendor-primary);
+}
+
+/* Product badges in vendor list */
+.product-inline-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+}
+
+.product-inline-badge {
+    padding: 0.25rem 0.6rem;
+    background: rgba(45, 104, 83, 0.1);
+    color: var(--vendor-primary);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+}
+.image-upload-dropzone.dragover {
+    border-color: var(--vendor-secondary);
+    background: rgba(74, 139, 108, 0.12);
+}
+.variant-empty-state {
+    border: 1px dashed var(--vendor-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.variant-empty-state strong {
+    display: block;
+    color: var(--vendor-primary);
+    margin-bottom: 0.25rem;
+}

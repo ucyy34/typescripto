@@ -8,6 +8,8 @@ const router = express.Router();
 
 const categoryController = require('../controllers/category.controller');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
+const { validateQuery } = require('../middlewares/validate');
+const { productQuerySchema } = require('../validators/product.validator');
 
 /**
  * @route   GET /api/v1/categories/top-level
@@ -29,6 +31,20 @@ router.get('/featured', categoryController.getFeaturedCategories);
  * @access  Public
  */
 router.get('/', categoryController.getAllCategories);
+
+/**
+ * @route   GET /api/v1/categories/slug/:slug
+ * @desc    Get category by slug
+ * @access  Public
+ */
+router.get('/slug/:slug', categoryController.getCategoryBySlug);
+
+/**
+ * @route   GET /api/v1/categories/:id/products
+ * @desc    Get products within a category
+ * @access  Public
+ */
+router.get('/:id/products', validateQuery(productQuerySchema), categoryController.getCategoryProducts);
 
 /**
  * @route   GET /api/v1/categories/:id/variants

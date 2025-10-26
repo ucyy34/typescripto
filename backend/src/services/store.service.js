@@ -95,13 +95,30 @@ class StoreService {
    * @returns {Promise<Object>} Paginated stores
    */
   async getStores(filters) {
-    const { page = 1, limit = 20, status, search, city, is_featured, sort = '-created_at' } = filters;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      search,
+      city,
+      is_featured,
+      sort = '-created_at',
+      includeAllStatuses,
+    } = filters;
 
     const offset = (page - 1) * limit;
     const where = {};
 
+    const shouldIncludeAllStatuses = includeAllStatuses === 'true' || includeAllStatuses === true;
+
     // Apply filters
-    if (status) {
+    if (!shouldIncludeAllStatuses) {
+      if (!status) {
+        where.status = 'approved';
+      } else if (status !== 'all') {
+        where.status = status;
+      }
+    } else if (status && status !== 'all') {
       where.status = status;
     }
 
@@ -114,7 +131,9 @@ class StoreService {
     }
 
     if (is_featured !== undefined) {
-      where.is_featured = is_featured;
+      const parsedFeatured =
+        typeof is_featured === 'string' ? is_featured.toLowerCase() === 'true' : Boolean(is_featured);
+      where.is_featured = parsedFeatured;
     }
 
     // Parse sort parameter
@@ -138,8 +157,26 @@ class StoreService {
       ],
     });
 
+    const storePayload = await Promise.all(
+      stores.map(async (store) => {
+        const productCount = await Product.count({
+          where: {
+            store_id: store.id,
+            status: 'approved',
+            is_active: true,
+            stock: { [Op.gt]: 0 },
+          },
+        });
+
+        const plain = store.toJSON();
+        plain.product_count = productCount;
+        plain.rating = plain.rating ? parseFloat(plain.rating) : 0;
+        return plain;
+      })
+    );
+
     return {
-      stores,
+      stores: storePayload,
       pagination: {
         page,
         limit,
