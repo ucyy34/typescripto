@@ -24,16 +24,16 @@ class CartManager {
      * Get cart items (from backend or localStorage)
      * @returns {Promise<Array>} Cart items
      */
-    async getCart(forceRefresh = false) {
+    async getCart(forceRefresh = false, allowRecovery = true) {
         try {
             // Always check current login status before fetching
             this.isLoggedIn = !!localStorage.getItem('accessToken');
             if (this.isLoggedIn && !this.apiClient) {
                 this.initializeApiClient();
             }
-            
+
             console.log('[CartManager] getCart - isLoggedIn:', this.isLoggedIn, 'hasApiClient:', !!this.apiClient);
-            
+
             if (this.isLoggedIn && this.apiClient) {
                 // Clear cache if force refresh
                 if (forceRefresh && window.apiCache) {
@@ -49,6 +49,29 @@ class CartManager {
 
                     // Normalize backend items to frontend shape
                     const normalized = (response.data.items || []).map(item => this.normalizeBackendItem(item));
+
+                    if (normalized.length === 0) {
+                        const localCart = this.getLocalCart();
+
+                        if (allowRecovery && localCart.length > 0) {
+                            console.warn('[CartManager] Backend cart empty but local cart has items - attempting recovery');
+                            const restoredCount = await this.recoverBackendCartFromLocal(localCart);
+
+                            if (restoredCount > 0) {
+                                console.log('[CartManager] Recovery restored', restoredCount, 'items - refetching cart');
+                                // After recovery attempt, fetch again without triggering recovery loop
+                                return await this.getCart(true, false);
+                            }
+
+                            console.warn('[CartManager] Recovery could not restore items - keeping local cart');
+                            return localCart;
+                        }
+
+                        if (!allowRecovery && localCart.length > 0) {
+                            console.warn('[CartManager] Backend cart still empty after recovery - falling back to local cart');
+                            return localCart;
+                        }
+                    }
 
                     // Sync to localStorage as backup
                     this.syncToLocalStorage(normalized);
@@ -72,7 +95,25 @@ class CartManager {
      * @returns {Array} Cart items
      */
     getLocalCart() {
-        const raw = JSON.parse(localStorage.getItem('cart')) || [];
+        let raw = [];
+        const storedCart = localStorage.getItem('cart');
+
+        if (storedCart) {
+            try {
+                const parsedCart = JSON.parse(storedCart);
+
+                if (Array.isArray(parsedCart)) {
+                    raw = parsedCart;
+                } else {
+                    console.warn('[CartManager] Stored cart is not an array - resetting cart storage');
+                    localStorage.removeItem('cart');
+                }
+            } catch (parseError) {
+                console.error('[CartManager] Failed to parse stored cart JSON - clearing cart', parseError);
+                localStorage.removeItem('cart');
+            }
+        }
+
         console.log('[CartManager] Raw localStorage:', raw.length, 'items');
 
         // Auto-migrate old format to new format
@@ -136,6 +177,47 @@ class CartManager {
 
         console.log('[CartManager] Valid items after migration:', valid.length);
         return valid;
+    }
+
+    /**
+     * Attempt to restore backend cart using the local cart snapshot
+     * @param {Array} localCart - Items stored in localStorage
+     */
+    async recoverBackendCartFromLocal(localCart) {
+        if (!this.isLoggedIn || !this.apiClient || !Array.isArray(localCart) || localCart.length === 0) {
+            return 0;
+        }
+
+        try {
+            console.warn('[CartManager] Recovering backend cart from local snapshot (items:', localCart.length, ')');
+
+            let restoredCount = 0;
+
+            for (const item of localCart) {
+                if (!item || !item.product_id) continue;
+
+                try {
+                    const response = await this.apiClient.post('/cart/items', {
+                        product_id: item.product_id,
+                        quantity: item.quantity || 1
+                    });
+                    if (response?.success) {
+                        restoredCount += 1;
+                    }
+                } catch (itemError) {
+                    console.error('[CartManager] Failed to restore item during recovery:', item.product_id, itemError);
+                }
+            }
+
+            if (window.apiCache) {
+                window.apiCache.clearPattern('/cart');
+            }
+
+            return restoredCount;
+        } catch (error) {
+            console.error('[CartManager] Error during backend cart recovery:', error);
+            return 0;
+        }
     }
 
     /**
