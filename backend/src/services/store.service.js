@@ -54,6 +54,7 @@ class StoreService {
 
     // Clear cache
     await cache.delPattern('stores:*');
+    await cache.delPattern(`store:${store.id}:*`);
 
     return store;
   }
@@ -218,6 +219,7 @@ class StoreService {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
 
+    const previousStatus = store.status;
     const updateData = { status };
 
     if (status === 'approved') {
@@ -232,7 +234,40 @@ class StoreService {
 
     await store.update(updateData);
 
+    await this.handleStatusSideEffects(store, previousStatus, status);
+
     return store;
+  }
+
+  async handleStatusSideEffects(store, previousStatus, nextStatus) {
+    try {
+      await cache.delPattern(`store:${store.id}:*`);
+      await cache.delPattern('stores:*');
+    } catch (error) {
+      // Cache clearing is best-effort; log and continue
+      console.warn('[StoreService] Failed to clear store cache after status change:', error.message);
+    }
+
+    if (nextStatus === 'approved' && previousStatus !== 'approved') {
+      const settings = store.settings || {};
+      const mergedSettings = {
+        return_window_days: 14,
+        return_shipping_policy: 'none',
+        tax_refund_policy: 'pro_rata',
+        ...settings,
+      };
+
+      const needsSettingsUpdate =
+        typeof settings.return_window_days !== 'number' ||
+        !settings.return_shipping_policy ||
+        !settings.tax_refund_policy;
+
+      if (needsSettingsUpdate) {
+        await store.update({ settings: mergedSettings });
+      }
+    }
+
+    await store.reload();
   }
 
   /**

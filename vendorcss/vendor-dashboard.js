@@ -63,6 +63,7 @@ class VendorDashboard {
         this.storeId = null;
         this.storeName = null;
         this.storeInfo = null;
+        this.storeStatus = null;
         this.user = currentUser;
         this.userId = currentUser.id;
         this.categories = [];
@@ -83,6 +84,18 @@ class VendorDashboard {
         this.setupTheme();
         this.setupLogout();
         this.displayUserInfo();
+
+        if (!this.storeId) {
+            vdLog('No store yet. Awaiting application submission.');
+            return;
+        }
+
+        if (this.storeStatus !== 'approved') {
+            vdLog('Store is not approved yet. Limiting dashboard features.', this.storeStatus);
+            this.applyPendingStateUI();
+            return;
+        }
+
         this.setupProductModal();
         this.setupCampaignModal();
 
@@ -90,9 +103,7 @@ class VendorDashboard {
         await this.loadCategories();
 
         // Load initial dashboard data
-        if (this.storeId) {
-            await this.loadDashboardData();
-        }
+        await this.loadDashboardData();
 
         // Setup return policy form if elements exist
         this.setupReturnPolicyUI();
@@ -107,6 +118,11 @@ class VendorDashboard {
     async loadStoreInfo() {
         try {
             vdLog('Loading store info for user:', this.userId);
+
+            this.storeId = null;
+            this.storeName = null;
+            this.storeInfo = null;
+            this.storeStatus = null;
 
             // Fetch the authenticated seller's store using the dedicated endpoint
             const response = await this.apiClient.getMyStore();
@@ -125,6 +141,7 @@ class VendorDashboard {
                 this.storeId = store.id;
                 this.storeName = store.name;
                 this.storeInfo = store;
+                this.storeStatus = store.status || 'pending';
 
                 vdLog('Store loaded:', this.storeName, this.storeId);
 
@@ -137,12 +154,14 @@ class VendorDashboard {
                 return true;
             } else {
                 console.warn('[Vendor Dashboard] No store found for user');
+                this.storeStatus = null;
                 this.showNoStoreMessage();
                 return false;
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading store:', error);
             this.showError('Mağaza bilgileri yüklenemedi: ' + error.message);
+            this.storeStatus = null;
             return false;
         }
     }
@@ -357,7 +376,7 @@ class VendorDashboard {
                         this.storeId = store.id;
                         this.storeName = store.name;
 
-                        setStatus('Mağazanız oluşturuldu! Panel yenileniyor...', 'info');
+                        setStatus('Mağaza başvurunuz alındı! Durum ekranına yönlendiriliyorsunuz...', 'info');
 
                         setTimeout(() => {
                             window.location.reload();
@@ -373,11 +392,136 @@ class VendorDashboard {
         }
     }
 
+    applyPendingStateUI() {
+        this.disableNavigationForPending();
+        this.showPendingApprovalMessage();
+    }
+
+    disableNavigationForPending() {
+        const menuItems = document.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+            item.classList.add('disabled');
+            item.style.pointerEvents = 'none';
+            item.style.opacity = '0.45';
+            item.setAttribute('aria-disabled', 'true');
+        });
+
+        const quickActions = document.querySelector('.vendor-quick-actions');
+        if (quickActions) {
+            quickActions.style.display = 'none';
+        }
+    }
+
+    getStoreStatusLabel(status) {
+        const labels = {
+            pending: 'Onay Bekliyor',
+            approved: 'Onaylandı',
+            rejected: 'Reddedildi',
+            suspended: 'Askıya Alındı'
+        };
+        return labels[status] || status;
+    }
+
+    getStoreStatusColor(status) {
+        const colors = {
+            pending: '#f59e0b',
+            approved: '#10b981',
+            rejected: '#ef4444',
+            suspended: '#6b7280'
+        };
+        return colors[status] || '#6b7280';
+    }
+
+    showPendingApprovalMessage() {
+        const mainContent = document.querySelector('.vendor-main');
+        if (!mainContent) return;
+
+        const status = this.storeStatus || 'pending';
+        const statusLabel = this.getStoreStatusLabel(status);
+        const statusColor = this.getStoreStatusColor(status);
+        const createdAt = this.storeInfo?.created_at || this.storeInfo?.createdAt;
+        let createdAtText = '';
+
+        if (createdAt) {
+            const createdDate = new Date(createdAt);
+            if (!Number.isNaN(createdDate.getTime())) {
+                createdAtText = createdDate.toLocaleString('tr-TR', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                });
+            }
+        }
+
+        const rejectionReason = this.storeInfo?.rejection_reason;
+
+        mainContent.innerHTML = `
+            <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.75rem; box-shadow: 0 14px 48px rgba(0,0,0,0.08); text-align: center;">
+                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🕒</div>
+                <h2 style="margin-bottom: 0.75rem; color: var(--vendor-primary);">Mağaza Başvurunuz Alındı</h2>
+                <p style="margin: 0 auto 2rem; max-width: 520px; font-size: 1rem; line-height: 1.6; opacity: 0.75;">
+                    ${this.storeName ? `<strong>${this.storeName}</strong> mağazanız için başvurunuz alındı.` : 'Mağaza başvurunuz alındı.'}
+                    Başvurunuz yönetici onayına iletildi. Onaylandıktan sonra ürün ekleme ve sipariş yönetimi gibi tüm panel özellikleri otomatik olarak açılacaktır.
+                </p>
+                <div style="display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1.35rem; border-radius: 999px; background: rgba(17,24,39,0.04); margin-bottom: 1.5rem;">
+                    <span style="display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; color: ${statusColor};">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: ${statusColor}; display: inline-block;"></span>
+                        ${statusLabel}
+                    </span>
+                    ${createdAtText ? `<span style="opacity: 0.65; font-size: 0.95rem;">Başvuru tarihi: ${createdAtText}</span>` : ''}
+                </div>
+                ${rejectionReason ? `<div style="border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: left;">
+                    <strong>Reddedilme sebebi:</strong>
+                    <p style="margin: 0.65rem 0 0; line-height: 1.5;">${rejectionReason}</p>
+                </div>` : ''}
+                <button id="refreshStoreStatusBtn" style="background: var(--vendor-primary); color: white; border: none; padding: 0.9rem 1.8rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;">
+                    Durumu Yenile
+                </button>
+                <p style="margin: 1.5rem 0 0; font-size: 0.9rem; opacity: 0.65;">Onay alındığında bu ekran otomatik olarak mağaza paneline dönüşecektir.</p>
+            </section>
+        `;
+
+        const refreshBtn = document.getElementById('refreshStoreStatusBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async (event) => {
+                event.preventDefault();
+                refreshBtn.disabled = true;
+                const originalText = refreshBtn.textContent;
+                refreshBtn.textContent = 'Durum yenileniyor...';
+                try {
+                    await this.refreshStoreStatus();
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = originalText;
+                }
+            });
+        }
+    }
+
+    async refreshStoreStatus() {
+        await this.loadStoreInfo();
+
+        if (!this.storeId) {
+            this.showNoStoreMessage();
+            return;
+        }
+
+        if (this.storeStatus === 'approved') {
+            window.location.reload();
+            return;
+        }
+
+        this.applyPendingStateUI();
+    }
+
     // ==========================================
     // DASHBOARD DATA
     // ==========================================
 
     async loadDashboardData() {
+        if (!this.storeId || this.storeStatus !== 'approved') {
+            vdLog('Skipping dashboard data load because store is not approved.');
+            return;
+        }
         try {
             vdLog('Loading dashboard data...');
 
@@ -395,6 +539,9 @@ class VendorDashboard {
     }
 
     async loadDashboardStats() {
+        if (!this.storeId || this.storeStatus !== 'approved') {
+            return;
+        }
         try {
             vdLog('Loading stats for store:', this.storeId);
 
@@ -434,6 +581,9 @@ class VendorDashboard {
     }
 
     async loadRecentOrders() {
+        if (!this.storeId || this.storeStatus !== 'approved') {
+            return;
+        }
         try {
             vdLog('Loading recent orders...');
 
@@ -490,6 +640,11 @@ class VendorDashboard {
 
     loadSectionData(sectionName) {
         vdLog(`Loading section data: ${sectionName}`);
+
+        if (this.storeStatus !== 'approved') {
+            vdLog('Section data request ignored because store is not approved yet.');
+            return;
+        }
 
         switch(sectionName) {
             case 'dashboard':

@@ -2397,7 +2397,7 @@
 
                     AuthManager.login(tokens, user);
 
-                    let storeCreated = false;
+                    let storeApplicationSubmitted = false;
                     let storeError = null;
 
                     if (role === 'seller') {
@@ -2409,7 +2409,7 @@
                         try {
                             const storeResponse = await apiClient.createStore(storePayload);
                             if (storeResponse.success) {
-                                storeCreated = true;
+                                storeApplicationSubmitted = true;
                             } else {
                                 storeError = storeResponse.message || 'Store could not be created automatically.';
                             }
@@ -2425,12 +2425,12 @@
                     registerCompleted = true;
 
                     if (role === 'seller') {
-                        if (storeCreated) {
-                            setStatusMessage(statusEl, 'Seller account and store created! You can continue with checkout.', 'success');
+                        if (storeApplicationSubmitted) {
+                            setStatusMessage(statusEl, 'Satıcı hesabınız oluşturuldu! Mağaza başvurunuz yönetici onayına gönderildi. Onaydan sonra panel özellikleri açılacaktır.', 'success');
                         } else if (storeError) {
-                            setStatusMessage(statusEl, `Seller account created. ${storeError}`, 'error');
+                            setStatusMessage(statusEl, `Satıcı hesabınız oluşturuldu ancak mağaza başvurusu tamamlanamadı: ${storeError}`, 'error');
                         } else {
-                            setStatusMessage(statusEl, 'Seller account created. You can continue with checkout.', 'success');
+                            setStatusMessage(statusEl, 'Satıcı hesabınız oluşturuldu. Mağaza başvurunuzu satıcı panelinden tamamlayabilirsiniz.', 'success');
                         }
                     } else {
                         setStatusMessage(statusEl, 'Account created! You can continue with checkout.', 'success');

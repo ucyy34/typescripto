@@ -397,7 +397,7 @@
 
                 AuthManager.login(tokens, user);
 
-                let storeCreated = false;
+                let storeApplicationSubmitted = false;
                 let storeError = null;
 
                 if (role === 'seller') {
@@ -418,7 +418,7 @@
                     try {
                         const storeResponse = await apiClient.createStore(storePayload);
                         if (storeResponse.success) {
-                            storeCreated = true;
+                            storeApplicationSubmitted = true;
                         } else {
                             storeError = storeResponse.message || 'Store could not be created automatically.';
                         }
@@ -428,16 +428,18 @@
 
                     if (storeError) {
                         console.warn('Automatic store creation failed:', storeError);
-                        errorMessage.textContent = `Account created but store creation failed: ${storeError}`;
+                        errorMessage.textContent = `Hesabınız oluşturuldu fakat mağaza başvurusu tamamlanamadı: ${storeError}`;
                         errorMessage.classList.add('show');
                     }
                 }
 
                 // Show success
                 if (role === 'seller') {
-                    successMessage.textContent = storeCreated
-                        ? 'Seller account and store created successfully! Redirecting to vendor panel...'
-                        : 'Seller account created. You can finalize your store setup in the vendor panel.';
+                    if (storeApplicationSubmitted) {
+                        successMessage.textContent = 'Satıcı hesabınız oluşturuldu! Mağaza başvurunuz yönetici onayına gönderildi. Onay sonrası mağaza paneliniz otomatik olarak aktifleşecektir.';
+                    } else {
+                        successMessage.textContent = 'Satıcı hesabınız oluşturuldu. Mağaza başvurunuzu satıcı panelinden tamamlayabilirsiniz.';
+                    }
                 } else {
                     successMessage.textContent = 'Account created successfully! Redirecting...';
                 }
