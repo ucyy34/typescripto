@@ -127,28 +127,83 @@ class ApiClient {
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      // Parse JSON response
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
 
-      // Check if request was successful
+      if (![204, 205].includes(response.status)) {
+        let rawBody = '';
+
+        try {
+          rawBody = await response.text();
+        } catch (textError) {
+          console.warn('[API] Failed to read response body:', textError);
+        }
+
+        if (rawBody) {
+          if (contentType.includes('application/json')) {
+            try {
+              data = JSON.parse(rawBody);
+            } catch (parseError) {
+              console.warn('[API] Failed to parse JSON response, exposing raw text:', parseError);
+              data = { message: rawBody };
+            }
+          } else {
+            data = { message: rawBody };
+          }
+        } else if (contentType.includes('application/json')) {
+          data = {}; // Empty JSON body (e.g., {})
+        }
+      }
+
       if (!response.ok) {
         console.error(`[API] Error ${response.status}:`, data);
 
-        // Return backend error message directly if available
-        if (data.message) {
-          return {
-            success: false,
-            message: data.message,
-            error: data.error || 'API_ERROR',
-            status: response.status
-          };
+        if (data && typeof data === 'object') {
+          if (data.message) {
+            return {
+              success: false,
+              message: data.message,
+              error: data.error || 'API_ERROR',
+              status: response.status,
+              data,
+            };
+          }
+
+          if (Array.isArray(data.errors) && data.errors.length > 0) {
+            return {
+              success: false,
+              message: 'Validation failed',
+              error: 'VALIDATION_ERROR',
+              status: response.status,
+              errors: data.errors,
+            };
+          }
         }
 
-        return this.handleError(new Error(data.message || 'Request failed'), response);
+        const fallbackMessage =
+          (typeof data === 'string' && data) ||
+          (data && typeof data === 'object' && data.error) ||
+          response.statusText ||
+          'Request failed';
+
+        return this.handleError(new Error(fallbackMessage), response);
       }
 
-      console.log(`[API] Success:`, data);
-      return data;
+      if (data === null) {
+        return { success: true, data: null, status: response.status };
+      }
+
+      console.log('[API] Success:', data);
+
+      if (typeof data === 'object') {
+        if (Object.prototype.hasOwnProperty.call(data, 'success')) {
+          return data;
+        }
+
+        return { success: true, data };
+      }
+
+      return { success: true, data };
     } catch (error) {
       clearTimeout(timeoutId);
       return this.handleError(error);
@@ -390,6 +445,91 @@ class ApiClient {
    */
   async getStoreOrders(storeId, filters = {}) {
     return this.get(API_CONFIG.ENDPOINTS.ORDERS.STORE_ORDERS(storeId), filters);
+  }
+
+  // ==========================================
+  // CAMPAIGN METHODS
+  // ==========================================
+
+  /**
+   * Get all campaigns (admin)
+   */
+  async getCampaigns(filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BASE, filters);
+  }
+
+  /**
+   * Get campaign by ID
+   */
+  async getCampaign(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Update campaign (admin)
+   */
+  async updateCampaign(campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId), data);
+  }
+
+  /**
+   * Approve or reject campaign (admin)
+   */
+  async updateCampaignApproval(campaignId, approvalStatus, rejectionReason = '') {
+    const payload = { approval_status: approvalStatus };
+    if (approvalStatus === 'rejected' && rejectionReason) {
+      payload.rejection_reason = rejectionReason;
+    }
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.APPROVAL(campaignId), payload);
+  }
+
+  /**
+   * Delete campaign (admin)
+   */
+  async deleteCampaign(campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Get campaign stats (admin)
+   */
+  async getCampaignStats(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STATS(campaignId));
+  }
+
+  /**
+   * Get campaigns for a store (seller)
+   */
+  async getStoreCampaigns(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), filters);
+  }
+
+  /**
+   * Create campaign for a store (seller)
+   */
+  async createStoreCampaign(storeId, data = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), data);
+  }
+
+  /**
+   * Update store campaign (seller)
+   */
+  async updateStoreCampaign(storeId, campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId), data);
+  }
+
+  /**
+   * Delete store campaign (seller)
+   */
+  async deleteStoreCampaign(storeId, campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId));
+  }
+
+  /**
+   * Get store campaign stats (seller)
+   */
+  async getStoreCampaignStats(storeId, campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_STATS(storeId, campaignId));
   }
 
   // ==========================================

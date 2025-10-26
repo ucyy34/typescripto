@@ -2480,6 +2480,10 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async loadCampaignsData() {
         try {
+            if (!this.storeId) {
+                console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
+                return;
+            }
             console.log('[Vendor Dashboard] Loading campaigns...');
 
             const container = document.getElementById('campaigns-list');
@@ -2497,7 +2501,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             `;
 
             // Fetch campaigns for this store
-            const response = await this.apiClient.get(`/stores/${this.storeId}/campaigns`);
+            const response = await this.apiClient.getStoreCampaigns(this.storeId);
             console.log('[Vendor Dashboard] Campaigns response:', response);
 
             const campaigns = response.success ? response.data : [];
@@ -2705,6 +2709,10 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async createCampaign() {
         try {
+            if (!this.storeId) {
+                this.showError('Store bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
+                return;
+            }
             const campaignData = {
                 name: document.getElementById('campaignName').value,
                 description: document.getElementById('campaignDescription').value,
@@ -2718,8 +2726,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 badge_color: document.getElementById('campaignBadgeColor').value,
                 min_order_amount: parseFloat(document.getElementById('campaignMinAmount').value) || 0,
                 usage_limit: parseInt(document.getElementById('campaignUsageLimit').value) || null,
-                show_countdown: document.getElementById('campaignShowCountdown').checked,
-                store_id: this.storeId
+                show_countdown: document.getElementById('campaignShowCountdown').checked
             };
 
             // Add BUY_X_GET_Y specific fields
@@ -2736,7 +2743,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
             console.log('[Vendor Dashboard] Creating campaign:', campaignData);
 
-            const response = await this.apiClient.post(`/stores/${this.storeId}/campaigns`, campaignData);
+            const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
 
             if (response.success) {
                 this.showSuccess('Campaign created successfully! It will be activated after admin approval.');
@@ -2754,7 +2761,11 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async toggleCampaignStatus(campaignId, newStatus) {
         try {
-            const response = await this.apiClient.patch(`/stores/${this.storeId}/campaigns/${campaignId}`, {
+            if (!this.storeId) {
+                this.showError('Store bilgisi bulunamadı.');
+                return;
+            }
+            const response = await this.apiClient.updateStoreCampaign(this.storeId, campaignId, {
                 is_active: newStatus
             });
 
@@ -2777,7 +2788,11 @@ VendorDashboard.prototype.setupSEOCounters = function() {
         }
 
         try {
-            const response = await this.apiClient.delete(`/stores/${this.storeId}/campaigns/${campaignId}`);
+            if (!this.storeId) {
+                this.showError('Store bilgisi bulunamadı.');
+                return;
+            }
+            const response = await this.apiClient.deleteStoreCampaign(this.storeId, campaignId);
 
             if (response.success) {
                 this.showSuccess('Campaign deleted successfully');
@@ -2794,7 +2809,11 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async viewCampaignStats(campaignId) {
         try {
-            const response = await this.apiClient.get(`/stores/${this.storeId}/campaigns/${campaignId}/stats`);
+            if (!this.storeId) {
+                this.showError('Store bilgisi bulunamadı.');
+                return;
+            }
+            const response = await this.apiClient.getStoreCampaignStats(this.storeId, campaignId);
 
             if (response.success) {
                 const stats = response.data;
