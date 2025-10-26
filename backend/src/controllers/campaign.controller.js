@@ -12,8 +12,17 @@ class CampaignController {
    * Create new campaign
    * @route POST /api/v1/campaigns (admin)
    * @route POST /api/v1/stores/:storeId/campaigns (vendor)
-   */
+  */
   createCampaign = asyncHandler(async (req, res) => {
+    if (req.user.role === 'seller') {
+      // Ensure seller campaigns are always tied to the store in the route params
+      const resolvedStoreId = req.params.storeId || req.store?.id;
+
+      if (resolvedStoreId) {
+        req.body.store_id = resolvedStoreId;
+      }
+    }
+
     const campaign = await campaignService.createCampaign(
       req.body,
       req.user.id,

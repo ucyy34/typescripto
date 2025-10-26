@@ -7,6 +7,7 @@ require('dotenv').config();
 const app = require('./app');
 const { testConnection, syncDatabase } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
+const logger = require('./utils/logger');
 
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -19,10 +20,10 @@ let server;
  */
 const startServer = async () => {
   try {
-    console.log('🚀 Starting Dostan Marketplace Backend...\n');
+    logger.info('Starting Dostan Marketplace backend');
 
     // Test database connection
-    console.log('📊 Testing database connection...');
+    logger.info('Testing database connection');
     const dbConnected = await testConnection();
 
     if (!dbConnected) {
@@ -35,27 +36,26 @@ const startServer = async () => {
       process.env.SHIPPING_PERSIST === 'true' &&
       process.env.SHIPPING_SYNC_ON_BOOT === 'true'
     ) {
-      console.log('📊 Synchronizing database models (dev boot)...');
+      logger.warn('Synchronizing database models on boot (development override)');
       await syncDatabase({ alter: true });
     }
 
     // Test Redis connection
-    console.log('🔴 Testing Redis connection...');
+    logger.info('Testing Redis connection');
     await redisClient.ping();
-    console.log('✅ Redis: Connection successful\n');
+    logger.info('Redis connection successful');
 
     // Start Express server
     server = app.listen(PORT, () => {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(`🎉 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${NODE_ENV}`);
-      console.log(`📡 API Base URL: http://localhost:${PORT}/api/v1`);
-      console.log(`💚 Health check: http://localhost:${PORT}/health`);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-      console.log('Press CTRL+C to stop the server\n');
+      logger.info('Server running', {
+        port: PORT,
+        environment: NODE_ENV,
+        apiBaseUrl: `http://localhost:${PORT}/api/v1`,
+        healthCheck: `http://localhost:${PORT}/health`,
+      });
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error.message);
+    logger.error('Failed to start server: %s', error.message);
     process.exit(1);
   }
 };
@@ -64,11 +64,11 @@ const startServer = async () => {
  * Graceful shutdown
  */
 const gracefulShutdown = async (signal) => {
-  console.log(`\n🛑 ${signal} received. Starting graceful shutdown...`);
+  logger.warn('%s received. Starting graceful shutdown…', signal);
 
   if (server) {
     server.close(async () => {
-      console.log('🔌 HTTP server closed');
+      logger.info('HTTP server closed');
 
       try {
         // Close database connection
@@ -77,19 +77,19 @@ const gracefulShutdown = async (signal) => {
 
         // Close Redis connection
         await redisClient.quit();
-        console.log('🔴 Redis connection closed');
+        logger.info('Redis connection closed');
 
-        console.log('✅ Graceful shutdown completed');
+        logger.info('Graceful shutdown completed');
         process.exit(0);
       } catch (error) {
-        console.error('❌ Error during shutdown:', error.message);
+        logger.error('Error during shutdown: %s', error.message);
         process.exit(1);
       }
     });
 
     // Force shutdown after 10 seconds
     setTimeout(() => {
-      console.error('⚠️  Forced shutdown after timeout');
+      logger.error('Forced shutdown after timeout');
       process.exit(1);
     }, 10000);
   } else {
@@ -103,13 +103,15 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  logger.error('Uncaught Exception: %s', error && error.message ? error.message : error);
+  logger.debug(error && error.stack ? error.stack : '');
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection at promise %s', promise);
+  logger.error('Reason: %s', reason && reason.message ? reason.message : reason);
   gracefulShutdown('UNHANDLED_REJECTION');
 });
 

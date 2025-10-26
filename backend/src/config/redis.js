@@ -6,6 +6,8 @@
 require('dotenv').config();
 const Redis = require('ioredis');
 
+const logger = require('../utils/logger');
+
 // Redis client for general caching
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
@@ -23,19 +25,19 @@ const redisClient = new Redis({
 
 // Event listeners
 redisClient.on('connect', () => {
-  console.log('✅ Redis: Connected successfully');
+  logger.info('Redis connection established');
 });
 
 redisClient.on('error', (err) => {
-  console.error('❌ Redis Error:', err.message);
+  logger.error('Redis error: %s', err.message);
 });
 
 redisClient.on('ready', () => {
-  console.log('✅ Redis: Ready to accept commands');
+  logger.debug('Redis ready to accept commands');
 });
 
 redisClient.on('close', () => {
-  console.log('⚠️  Redis: Connection closed');
+  logger.warn('Redis connection closed');
 });
 
 // Helper functions for common caching operations
@@ -50,7 +52,7 @@ const cache = {
       const data = await redisClient.get(key);
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error(`Cache GET error for key ${key}:`, error.message);
+      logger.warn('Cache GET error for key %s: %s', key, error.message);
       return null;
     }
   },
@@ -67,7 +69,7 @@ const cache = {
       await redisClient.setex(key, ttl, JSON.stringify(value));
       return true;
     } catch (error) {
-      console.error(`Cache SET error for key ${key}:`, error.message);
+      logger.warn('Cache SET error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -82,7 +84,7 @@ const cache = {
       await redisClient.del(key);
       return true;
     } catch (error) {
-      console.error(`Cache DEL error for key ${key}:`, error.message);
+      logger.warn('Cache DEL error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -94,14 +96,31 @@ const cache = {
    */
   async delPattern(pattern) {
     try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await redisClient.del(...keys);
-        return keys.length;
+      let deleted = 0;
+      const stream = redisClient.scanStream({ match: pattern, count: 100 });
+      const pipeline = redisClient.pipeline();
+
+      await new Promise((resolve, reject) => {
+        stream.on('data', (keys) => {
+          if (keys.length) {
+            keys.forEach((key) => {
+              pipeline.del(key);
+              deleted += 1;
+            });
+          }
+        });
+
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
+
+      if (deleted > 0) {
+        await pipeline.exec();
       }
-      return 0;
+
+      return deleted;
     } catch (error) {
-      console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
+      logger.warn('Cache DEL PATTERN error for %s: %s', pattern, error.message);
       return 0;
     }
   },
@@ -116,7 +135,7 @@ const cache = {
       const result = await redisClient.exists(key);
       return result === 1;
     } catch (error) {
-      console.error(`Cache EXISTS error for key ${key}:`, error.message);
+      logger.warn('Cache EXISTS error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -130,7 +149,7 @@ const cache = {
     try {
       return await redisClient.incr(key);
     } catch (error) {
-      console.error(`Cache INCR error for key ${key}:`, error.message);
+      logger.warn('Cache INCR error for key %s: %s', key, error.message);
       return 0;
     }
   },
@@ -146,7 +165,7 @@ const cache = {
       await redisClient.expire(key, ttl);
       return true;
     } catch (error) {
-      console.error(`Cache EXPIRE error for key ${key}:`, error.message);
+      logger.warn('Cache EXPIRE error for key %s: %s', key, error.message);
       return false;
     }
   },
