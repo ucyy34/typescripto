@@ -90,6 +90,45 @@ class StoreService {
   }
 
   /**
+   * Get store by slug
+   * @param {string} slug
+   * @param {boolean} includeInactive
+   * @returns {Promise<Store>}
+   */
+  async getStoreBySlug(slug, includeInactive = false) {
+    const cacheKey = `stores:slug:${slug}:${includeInactive ? 'all' : 'public'}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
+    const where = { slug };
+
+    if (!includeInactive) {
+      where.status = 'approved';
+    }
+
+    const store = await Store.findOne({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'owner',
+          attributes: ['id', 'first_name', 'last_name', 'email'],
+        },
+      ],
+    });
+
+    if (!store) {
+      throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!includeInactive) {
+      await cache.set(cacheKey, store, 3600);
+    }
+
+    return store;
+  }
+
+  /**
    * Get all stores with pagination and filters
    * @param {Object} filters - Query filters
    * @returns {Promise<Object>} Paginated stores
@@ -186,6 +225,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
@@ -218,6 +259,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
@@ -246,6 +289,8 @@ class StoreService {
     // }
 
     await store.destroy(); // Soft delete
+
+    await cache.delPattern('stores:*');
   }
 
   /**

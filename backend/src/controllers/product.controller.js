@@ -30,13 +30,24 @@ class ProductController {
   });
 
   /**
+   * Get product by slug
+   * GET /api/v1/products/slug/:slug
+   */
+  getProductBySlug = asyncHandler(async (req, res) => {
+    const includeInactive = req.user?.role === 'admin';
+    const product = await productService.getProductBySlug(req.params.slug, includeInactive);
+
+    return success(res, product, 'Product retrieved successfully');
+  });
+
+  /**
    * Get all products with filters
    * GET /api/v1/products
    */
   getProducts = asyncHandler(async (req, res) => {
     const result = await productService.getProducts(req.query);
 
-    return paginated(res, result.products, result.pagination);
+    return paginated(res, result.products, result.pagination, result.meta);
   });
 
   /**

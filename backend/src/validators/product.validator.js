@@ -5,6 +5,14 @@
 
 const Joi = require('joi');
 
+const imageUrlSchema = Joi.string()
+  .trim()
+  .pattern(/^https?:\/\/.+|^\/uploads\/.+/, 'image url')
+  .messages({
+    'string.pattern.name': 'Images must be valid URLs or start with /uploads/',
+    'string.pattern.base': 'Images must be valid URLs or start with /uploads/',
+  });
+
 /**
  * Create product validation schema
  */
@@ -33,7 +41,7 @@ const createProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).default(0),
   low_stock_threshold: Joi.number().integer().min(0).default(10),
-  images: Joi.array().items(Joi.string().uri()).max(10).default([]),
+  images: Joi.array().items(imageUrlSchema).max(10).default([]),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -83,7 +91,7 @@ const updateProductSchema = Joi.object({
   cost_price: Joi.number().min(0).precision(2).optional().allow(null),
   stock: Joi.number().integer().min(0).optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
-  images: Joi.array().items(Joi.string().uri()).max(10).optional(),
+  images: Joi.array().items(imageUrlSchema).max(10).optional(),
   weight: Joi.number().min(0).precision(2).optional().allow(null),
   dimensions: Joi.object({
     length: Joi.number().min(0).optional(),
@@ -134,6 +142,20 @@ const productIdSchema = Joi.object({
   }),
 });
 
+const productSlugSchema = Joi.object({
+  slug: Joi.string()
+    .pattern(/^[a-z0-9-]+$/)
+    .min(2)
+    .max(250)
+    .required()
+    .messages({
+      'string.pattern.base': 'Product slug may only contain lowercase letters, numbers, and hyphens',
+      'string.min': 'Product slug must be at least 2 characters',
+      'string.max': 'Product slug cannot exceed 250 characters',
+      'any.required': 'Product slug is required',
+    }),
+});
+
 /**
  * Product query params validation
  */
@@ -148,6 +170,7 @@ const productQuerySchema = Joi.object({
   max_price: Joi.number().min(0).optional(),
   in_stock: Joi.boolean().optional(),
   is_featured: Joi.boolean().optional(),
+  includeAllStatuses: Joi.boolean().optional(),
   sort: Joi.string()
     .valid(
       'title',
@@ -170,4 +193,5 @@ module.exports = {
   updateProductStatusSchema,
   productIdSchema,
   productQuerySchema,
+  productSlugSchema,
 };

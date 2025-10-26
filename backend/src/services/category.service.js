@@ -79,11 +79,17 @@ class CategoryService {
    * @returns {Promise<Category>}
    */
   async getCategoryBySlug(slug) {
+    const cacheKey = `categories:slug:${slug}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
     const category = await Category.findBySlug(slug);
 
     if (!category) {
       throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
     }
+
+    await cache.set(cacheKey, category, 86400);
 
     return category;
   }

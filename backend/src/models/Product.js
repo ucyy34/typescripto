@@ -351,6 +351,7 @@ Product.findFeatured = function (limit = 10) {
       is_featured: true,
       is_active: true,
       status: 'approved',
+      stock: { [sequelize.Sequelize.Op.gt]: 0 },
     },
     order: [['total_sales', 'DESC']],
     limit,
@@ -367,6 +368,7 @@ Product.findBestSellers = function (limit = 10) {
     where: {
       is_active: true,
       status: 'approved',
+      stock: { [sequelize.Sequelize.Op.gt]: 0 },
     },
     order: [['total_sales', 'DESC']],
     limit,
@@ -387,6 +389,7 @@ Product.search = function (query, options = {}) {
       },
       is_active: true,
       status: 'approved',
+      stock: { [sequelize.Sequelize.Op.gt]: 0 },
     },
     ...options,
   });
