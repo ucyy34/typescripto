@@ -21,6 +21,11 @@ class AdminDashboard {
             storage: 84,
             network: 45
         };
+        this.vendorFilters = {
+            page: 1,
+            limit: 20,
+            status: 'pending'
+        };
 
         // Check authentication before initializing
         if (!AuthManager.checkAdminAuth()) {
@@ -69,7 +74,7 @@ class AdminDashboard {
 
             // Load all stats in parallel
             console.log('[Admin Dashboard] Fetching stores, products, orders...');
-            const [stores, products, orders, pendingStoresCount, pendingProductsCount] = await Promise.all([
+            const [storesResponse, productsResponse, ordersResponse, pendingStoresCount, pendingProductsCount] = await Promise.all([
                 this.api.getStores({ limit: 1 }),
                 this.api.getProducts({ limit: 1 }),
                 this.api.getAllOrders({ limit: 1 }),
@@ -77,12 +82,34 @@ class AdminDashboard {
                 this.api.getPendingProductsCount()
             ]);
 
+            const ensureSuccess = (response, context) => {
+                if (!response || response.success === false) {
+                    throw new Error((response && response.message) || `${context} yüklenemedi`);
+                }
+                return response;
+            };
+
+            const stores = ensureSuccess(storesResponse, 'Mağaza verileri');
+            const products = ensureSuccess(productsResponse, 'Ürün verileri');
+            const orders = ensureSuccess(ordersResponse, 'Sipariş verileri');
+
             console.log('[Admin Dashboard] API responses:', { stores, products, orders, pendingStoresCount, pendingProductsCount });
 
+            const extractTotal = (response) => {
+                if (!response) return 0;
+                if (response.pagination && typeof response.pagination.total === 'number') {
+                    return response.pagination.total;
+                }
+                if (Array.isArray(response.data)) {
+                    return response.data.length;
+                }
+                return 0;
+            };
+
             // Update real-time data
-            this.realTimeData.stores = stores.pagination?.total || 0;
-            this.realTimeData.products = products.pagination?.total || 0;
-            this.realTimeData.orders = orders.pagination?.total || 0;
+            this.realTimeData.stores = extractTotal(stores);
+            this.realTimeData.products = extractTotal(products);
+            this.realTimeData.orders = extractTotal(orders);
 
             // Update UI
             this.updateDashboardUI({
@@ -136,26 +163,43 @@ class AdminDashboard {
     /**
      * Load pending stores
      */
-    async loadVendorsData() {
+    async loadVendorsData(overrides = {}) {
         try {
             console.log('[Admin Dashboard] Loading vendors data...');
             this.showLoading('stores-table');
 
-            // Get ALL stores, not just pending
-            const result = await this.api.getStores({ limit: 100 });
-            console.log('[Admin Dashboard] Vendors API result:', result);
+            this.vendorFilters = {
+                ...this.vendorFilters,
+                ...overrides,
+            };
 
-            if (result.success && result.data) {
-                console.log('[Admin Dashboard] Rendering vendors table, count:', result.data.length);
-                this.renderStoresTable(result.data);
-            } else {
-                console.warn('[Admin Dashboard] No vendors data received');
+            const { page, limit, status } = this.vendorFilters;
+            const params = { page, limit };
+
+            if (status && status !== 'all') {
+                params.status = status;
             }
 
-            this.hideLoading('stores-table');
+            const result = await this.api.getStores(params);
+            console.log('[Admin Dashboard] Vendors API result:', result);
+
+            if (result && result.success && Array.isArray(result.data)) {
+                const pagination = result.pagination || null;
+                if (pagination) {
+                    this.vendorFilters.page = pagination.page || page || 1;
+                    this.vendorFilters.limit = pagination.limit || limit || 20;
+                }
+
+                console.log('[Admin Dashboard] Rendering vendors table, count:', result.data.length, 'pagination:', pagination);
+                this.renderStoresTable(result.data, pagination);
+            } else {
+                console.warn('[Admin Dashboard] No vendors data received');
+                this.renderStoresTable([], result?.pagination || null);
+            }
         } catch (error) {
             console.error('[Admin Dashboard] Error loading vendors:', error);
             this.showError('Mağazalar yüklenirken hata oluştu');
+        } finally {
             this.hideLoading('stores-table');
         }
     }
@@ -163,19 +207,51 @@ class AdminDashboard {
     /**
      * Render stores table
      */
-    renderStoresTable(stores) {
+    renderStoresTable(stores, pagination = null) {
         const tableContainer = document.getElementById('stores-table');
         if (!tableContainer) {
             console.error('[Admin Dashboard] stores-table container not found');
             return;
         }
 
-        if (!stores || stores.length === 0) {
-            tableContainer.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Bekleyen mağaza bulunmamaktadır.</p>';
-            return;
-        }
+        const filters = this.vendorFilters || { page: 1, limit: 20, status: 'pending' };
+        const currentPage = pagination?.page || filters.page || 1;
+        const totalPages = pagination?.totalPages || 1;
+        const totalItems = pagination?.total ?? (Array.isArray(stores) ? stores.length : 0);
 
         let html = `
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <label style="font-size: 0.9rem; color: var(--admin-text-secondary);">
+                        Durum
+                        <select id=\"vendor-status-filter\" style=\"display: block; margin-top: 0.35rem; padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--admin-border); min-width: 160px;\">
+                            <option value="all">Tümü</option>
+                            <option value="pending">Beklemede</option>
+                            <option value="approved">Onaylı</option>
+                            <option value="rejected">Reddedildi</option>
+                            <option value="suspended">Askıda</option>
+                        </select>
+                    </label>
+                    <label style="font-size: 0.9rem; color: var(--admin-text-secondary);">
+                        Sayfa Boyutu
+                        <select id=\"vendor-page-size\" style=\"display: block; margin-top: 0.35rem; padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--admin-border); min-width: 140px;\">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+                <div style="font-size: 0.9rem; opacity: 0.7;">
+                    Toplam <strong>${totalItems}</strong> mağaza
+                </div>
+            </div>
+        `;
+
+        if (!stores || stores.length === 0) {
+            html += '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Filtrelerinize uygun mağaza bulunamadı.</p>';
+        } else {
+            html += `
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid var(--admin-border);">
@@ -189,8 +265,8 @@ class AdminDashboard {
                 <tbody>
         `;
 
-        stores.forEach(store => {
-            html += `
+            stores.forEach(store => {
+                html += `
                 <tr style="border-bottom: 1px solid var(--admin-border);">
                     <td style="padding: 1rem;">
                         <div style=\"font-weight: 600;\">${store.name}</div>
@@ -241,10 +317,67 @@ class AdminDashboard {
                     </td>
                 </tr>
             `;
-        });
+            });
 
-        html += '</tbody></table>';
+            html += '</tbody></table>';
+        }
+
+        if (totalPages > 1) {
+            html += `
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button id=\"vendor-prev-page\" ${currentPage <= 1 ? 'disabled' : ''}
+                        style="padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--admin-border); background: white; cursor: ${currentPage <= 1 ? 'not-allowed' : 'pointer'}; opacity: ${currentPage <= 1 ? 0.6 : 1};">
+                        Önceki
+                    </button>
+                    <span style="font-size: 0.9rem;">Sayfa ${currentPage} / ${totalPages}</span>
+                    <button id=\"vendor-next-page\" ${currentPage >= totalPages ? 'disabled' : ''}
+                        style="padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--admin-border); background: white; cursor: ${currentPage >= totalPages ? 'not-allowed' : 'pointer'}; opacity: ${currentPage >= totalPages ? 0.6 : 1};">
+                        Sonraki
+                    </button>
+                </div>
+            `;
+        }
+
         tableContainer.innerHTML = html;
+
+        const statusSelect = document.getElementById('vendor-status-filter');
+        if (statusSelect) {
+            statusSelect.value = filters.status || 'pending';
+            statusSelect.onchange = (event) => {
+                const newStatus = event.target.value;
+                this.loadVendorsData({ page: 1, status: newStatus });
+            };
+        }
+
+        const pageSizeSelect = document.getElementById('vendor-page-size');
+        if (pageSizeSelect) {
+            pageSizeSelect.value = String(filters.limit || 20);
+            pageSizeSelect.onchange = (event) => {
+                const newLimit = parseInt(event.target.value, 10) || 20;
+                this.loadVendorsData({ page: 1, limit: newLimit });
+            };
+        }
+
+        if (totalPages > 1) {
+            const prevButton = document.getElementById('vendor-prev-page');
+            const nextButton = document.getElementById('vendor-next-page');
+
+            if (prevButton) {
+                prevButton.onclick = () => {
+                    if (currentPage > 1) {
+                        this.loadVendorsData({ page: currentPage - 1 });
+                    }
+                };
+            }
+
+            if (nextButton) {
+                nextButton.onclick = () => {
+                    if (currentPage < totalPages) {
+                        this.loadVendorsData({ page: currentPage + 1 });
+                    }
+                };
+            }
+        }
     }
 
     async saveReturnPolicy(storeId) {
@@ -522,6 +655,244 @@ class AdminDashboard {
         tableContainer.innerHTML = html;
     }
 
+    // ===========================================
+    // CAMPAIGN METHODS
+    // ===========================================
+
+    async loadCampaignsData() {
+        const pendingContainerId = 'pending-campaigns-list';
+        const allContainerId = 'all-campaigns-list';
+
+        try {
+            console.log('[Admin Dashboard] Loading campaigns for review...');
+            this.showLoading(pendingContainerId);
+            this.showLoading(allContainerId);
+
+            const [pendingResponse, allResponse] = await Promise.all([
+                this.api.getCampaigns({ approval_status: 'pending', limit: 50, sort_by: 'created_at', sort_order: 'desc' }),
+                this.api.getCampaigns({ limit: 50, sort_by: 'created_at', sort_order: 'desc' })
+            ]);
+
+            this.renderPendingCampaigns(pendingResponse.success ? pendingResponse.data : []);
+            this.renderAllCampaigns(allResponse.success ? allResponse.data : []);
+
+            console.log('[Admin Dashboard] Campaign data loaded');
+        } catch (error) {
+            console.error('[Admin Dashboard] Error loading campaigns:', error);
+            const pendingContainer = document.getElementById(pendingContainerId);
+            const allContainer = document.getElementById(allContainerId);
+            const errorHtml = `
+                <div style="text-align: center; padding: 2rem; color: #dc2626;">
+                    <p>⚠️ Kampanyalar yüklenemedi. Lütfen daha sonra tekrar deneyin.</p>
+                    <button onclick="window.adminDashboard.loadCampaignsData()"
+                            style="background: var(--admin-primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+                        Tekrar Dene
+                    </button>
+                </div>`;
+            if (pendingContainer) pendingContainer.innerHTML = errorHtml;
+            if (allContainer) allContainer.innerHTML = errorHtml;
+        }
+    }
+
+    renderPendingCampaigns(campaigns = []) {
+        const container = document.getElementById('pending-campaigns-list');
+        if (!container) {
+            console.error('[Admin Dashboard] pending-campaigns-list container not found');
+            return;
+        }
+
+        if (!campaigns || campaigns.length === 0) {
+            container.innerHTML = '<p style="padding: 1.5rem; opacity: 0.7;">Bekleyen kampanya bulunmuyor.</p>';
+            return;
+        }
+
+        container.innerHTML = campaigns
+            .map(campaign => this.renderCampaignCard(campaign, { showApprovalActions: true }))
+            .join('');
+    }
+
+    renderAllCampaigns(campaigns = []) {
+        const container = document.getElementById('all-campaigns-list');
+        if (!container) {
+            console.error('[Admin Dashboard] all-campaigns-list container not found');
+            return;
+        }
+
+        if (!campaigns || campaigns.length === 0) {
+            container.innerHTML = '<p style="padding: 1.5rem; opacity: 0.7;">Henüz kampanya bulunmuyor.</p>';
+            return;
+        }
+
+        container.innerHTML = campaigns
+            .map(campaign => this.renderCampaignCard(campaign))
+            .join('');
+    }
+
+    renderCampaignCard(campaign, options = {}) {
+        const { showApprovalActions = false } = options;
+
+        const storeName = campaign.store?.name || 'Bilinmeyen Mağaza';
+        const approvalStatus = (campaign.approval_status || 'pending').toLowerCase();
+        const approvalColor = this.getApprovalStatusColor(approvalStatus);
+        const activeColor = campaign.is_active ? '#10b981' : '#6b7280';
+        const campaignTypeLabel = this.getCampaignTypeLabel(campaign.campaign_type);
+        const discountLabel = this.getCampaignDiscountLabel(campaign);
+        const startDate = this.formatCampaignDate(campaign.start_date);
+        const endDate = this.formatCampaignDate(campaign.end_date);
+        const createdAt = this.formatCampaignDate(campaign.created_at || campaign.createdAt);
+        const description = campaign.description ? campaign.description : 'Açıklama belirtilmemiş.';
+
+        const metricsHtml = `
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--admin-border);">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.view_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Görüntülenme</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.click_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Tıklama</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">${campaign.conversion_count || 0}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Dönüşüm</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--admin-primary);">₺${Number(campaign.total_revenue || 0).toFixed(2)}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">Ciro</div>
+                </div>
+            </div>`;
+
+        const actionButtons = showApprovalActions
+            ? `
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <button onclick="window.adminDashboard.approveCampaign('${campaign.id}')"
+                            style="background: #10b981; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        ✅ Onayla
+                    </button>
+                    <button onclick="window.adminDashboard.rejectCampaign('${campaign.id}')"
+                            style="background: #dc2626; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        ❌ Reddet
+                    </button>
+                </div>`
+            : `
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.85rem; opacity: 0.75;">
+                    <span>Oluşturma: ${createdAt}</span>
+                    ${campaign.creator?.name ? `<span>• Oluşturan: ${campaign.creator.name}</span>` : ''}
+                    ${campaign.notes ? `<span>• Not: ${campaign.notes}</span>` : ''}
+                </div>`;
+
+        return `
+            <div style="border: 1px solid var(--admin-border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; background: white; box-shadow: 0 8px 20px rgba(15, 118, 110, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                            <h3 style="margin: 0; color: var(--admin-primary);">${campaign.name}</h3>
+                            <span style="background: ${approvalColor}; color: white; font-size: 0.7rem; padding: 0.2rem 0.75rem; border-radius: 999px; text-transform: uppercase;">${approvalStatus}</span>
+                            <span style="background: ${activeColor}20; color: ${activeColor}; font-size: 0.7rem; padding: 0.2rem 0.75rem; border-radius: 999px;">${campaign.is_active ? 'Aktif' : 'Pasif'}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.75rem;">
+                            <span>🏪 ${storeName}</span>
+                            <span>•</span>
+                            <span>${campaignTypeLabel}</span>
+                            <span>•</span>
+                            <span>${discountLabel}</span>
+                            <span>•</span>
+                            <span>📅 ${startDate} - ${endDate}</span>
+                        </div>
+                        <p style="margin: 0; opacity: 0.75; font-size: 0.9rem;">${description}</p>
+                    </div>
+                    ${actionButtons}
+                </div>
+                ${metricsHtml}
+            </div>`;
+    }
+
+    getApprovalStatusColor(status) {
+        const colors = {
+            pending: '#f59e0b',
+            approved: '#10b981',
+            rejected: '#dc2626'
+        };
+        return colors[status] || '#6b7280';
+    }
+
+    getCampaignTypeLabel(type) {
+        const labels = {
+            'FLASH_SALE': '⚡ Hızlı Satış',
+            'BUY_X_GET_Y': '🎁 Al X Ver Y',
+            'CATEGORY_DISCOUNT': '📂 Kategori İndirimi',
+            'FREE_SHIPPING': '🚚 Ücretsiz Kargo',
+            'BUNDLE_DEAL': '📦 Paket Kampanyası',
+            'GIFT_WITH_PURCHASE': '🎀 Hediyeli Satış',
+            'MINIMUM_PURCHASE': '💰 Minimum Harcama'
+        };
+        return labels[type] || type || 'Kampanya';
+    }
+
+    getCampaignDiscountLabel(campaign) {
+        if (!campaign) return '-';
+        switch (campaign.discount_type) {
+            case 'percentage':
+                return `%${campaign.discount_value || 0} indirim`;
+            case 'fixed':
+                return `₺${Number(campaign.discount_value || 0).toFixed(2)} indirim`;
+            case 'free_shipping':
+                return 'Ücretsiz kargo';
+            case 'buy_x_get_y':
+                return `${campaign.buy_quantity || 1} al ${campaign.get_quantity || 1} öde`;
+            default:
+                return 'Özel teklif';
+        }
+    }
+
+    formatCampaignDate(date) {
+        if (!date) return '-';
+        try {
+            return new Date(date).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+        } catch (error) {
+            return '-';
+        }
+    }
+
+    async approveCampaign(campaignId) {
+        try {
+            const result = await this.api.updateCampaignApproval(campaignId, 'approved');
+            if (result.success) {
+                this.showSuccess('Kampanya onaylandı');
+                await this.loadCampaignsData();
+            } else {
+                this.showError(result.message || 'Kampanya onaylanamadı');
+            }
+        } catch (error) {
+            console.error('[Admin Dashboard] Error approving campaign:', error);
+            this.showError('Kampanya onaylanırken bir hata oluştu');
+        }
+    }
+
+    async rejectCampaign(campaignId) {
+        const reason = prompt('Reddetme sebebini girin:');
+        if (reason === null) return;
+
+        const trimmedReason = reason.trim();
+        if (trimmedReason.length === 0) {
+            alert('Reddetme sebebi boş bırakılamaz.');
+            return;
+        }
+
+        try {
+            const result = await this.api.updateCampaignApproval(campaignId, 'rejected', trimmedReason);
+            if (result.success) {
+                this.showSuccess('Kampanya reddedildi');
+                await this.loadCampaignsData();
+            } else {
+                this.showError(result.message || 'Kampanya reddedilemedi');
+            }
+        } catch (error) {
+            console.error('[Admin Dashboard] Error rejecting campaign:', error);
+            this.showError('Kampanya reddedilirken bir hata oluştu');
+        }
+    }
+
     /**
      * Load categories
      */
@@ -768,6 +1139,9 @@ class AdminDashboard {
                 break;
             case 'categories':
                 this.loadCategoriesData();
+                break;
+            case 'campaigns':
+                this.loadCampaignsData();
                 break;
             case 'commissions':
                 loadCommissionsData();
@@ -1516,7 +1890,7 @@ function renderCouponsTable(coupons) {
                     <td style="padding: 1rem; text-align: center;">
                         <button onclick="adminDashboard.toggleCouponStatus('${coupon.id}', ${!coupon.is_active})"
                                 style="background: ${coupon.is_active ? '#dc2626' : '#10b981'}; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-right: 0.5rem; font-size: 0.85rem;">
-                            $\{coupon\.is_active\ \?\ 'Disable'\ :\ 'Approve'}
+                            ${coupon.is_active ? 'Disable' : 'Approve'}
                         </button>
                         <button onclick="adminDashboard.deleteCoupon('${coupon.id}', '${coupon.code}')"
                                 style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
