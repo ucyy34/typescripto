@@ -64,18 +64,23 @@ const noContent = (res) => {
  * @param {Array} data - Array of items
  * @param {Object} pagination - Pagination metadata
  */
-const paginated = (res, data, pagination) => {
+const paginated = (res, data, pagination, message = 'Success') => {
+  const limit = pagination.limit || 20;
+  const total = pagination.total ?? data.length ?? 0;
+  const page = pagination.page || 1;
+  const totalPages = pagination.totalPages || Math.max(1, Math.ceil(total / limit));
+
   return res.status(200).json({
     success: true,
-    message: 'Success',
+    message,
     data,
     pagination: {
-      page: pagination.page || 1,
-      limit: pagination.limit || 20,
-      total: pagination.total || data.length,
-      totalPages: Math.ceil((pagination.total || data.length) / (pagination.limit || 20)),
-      hasNext: pagination.hasNext || false,
-      hasPrev: pagination.hasPrev || false,
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: pagination.hasNext ?? page < totalPages,
+      hasPrev: pagination.hasPrev ?? page > 1,
     },
     timestamp: new Date().toISOString(),
   });

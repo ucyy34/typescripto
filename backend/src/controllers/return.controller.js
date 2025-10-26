@@ -4,7 +4,7 @@
  */
 
 const returnService = require('../services/return.service');
-const { success } = require('../utils/response');
+const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class ReturnController {
@@ -26,12 +26,7 @@ class ReturnController {
       req.user.id,
       req.query
     );
-    return res.status(200).json({
-      success: true,
-      data: returns,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, returns, pagination, 'Return requests retrieved successfully');
   });
 
   /**
@@ -84,12 +79,12 @@ class ReturnController {
       req.user.id,
       req.query
     );
-    return res.status(200).json({
-      success: true,
-      data: returns,
+    return paginated(
+      res,
+      returns,
       pagination,
-      timestamp: new Date().toISOString(),
-    });
+      'Store return requests retrieved successfully'
+    );
   });
 }
 

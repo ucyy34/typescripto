@@ -4,7 +4,7 @@
  */
 
 const commissionService = require('../services/commission.service');
-const { success } = require('../utils/response');
+const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class CommissionController {
@@ -29,12 +29,7 @@ class CommissionController {
       storeId,
       req.query
     );
-    return res.status(200).json({
-      success: true,
-      data: transactions,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, transactions, pagination, 'Store commissions retrieved successfully');
   });
 
   /**
@@ -62,12 +57,7 @@ class CommissionController {
     const { transactions, pagination } = await commissionService.getAllCommissions(
       req.query
     );
-    return res.status(200).json({
-      success: true,
-      data: transactions,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, transactions, pagination, 'Commission records retrieved successfully');
   });
 
   /**

@@ -5,6 +5,8 @@
 
 const Joi = require('joi');
 
+const uuidSchema = Joi.string().uuid({ version: 'uuidv4' });
+
 const createReviewSchema = Joi.object({
   rating: Joi.number().integer().min(1).max(5).required().messages({
     'number.base': 'Rating must be a number',
@@ -24,7 +26,44 @@ const updateReviewSchema = Joi.object({
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
 });
 
+const reviewIdParamSchema = Joi.object({
+  id: uuidSchema.required().messages({
+    'string.guid': 'Review ID must be a valid UUID',
+    'any.required': 'Review ID is required',
+  }),
+});
+
+const productReviewParamSchema = Joi.object({
+  productId: uuidSchema.required().messages({
+    'string.guid': 'Product ID must be a valid UUID',
+    'any.required': 'Product ID is required',
+  }),
+});
+
+const storeReviewParamSchema = Joi.object({
+  storeId: uuidSchema.required().messages({
+    'string.guid': 'Store ID must be a valid UUID',
+    'any.required': 'Store ID is required',
+  }),
+});
+
+const markHelpfulSchema = Joi.object({
+  helpful: Joi.boolean().required().messages({
+    'boolean.base': 'helpful must be a boolean',
+    'any.required': 'helpful flag is required',
+  }),
+});
+
+const reviewModerationSchema = Joi.object({
+  reason: Joi.string().max(500).allow('').optional(),
+});
+
 module.exports = {
   createReviewSchema,
   updateReviewSchema,
+  reviewIdParamSchema,
+  productReviewParamSchema,
+  storeReviewParamSchema,
+  markHelpfulSchema,
+  reviewModerationSchema,
 };

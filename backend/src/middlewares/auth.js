@@ -3,9 +3,11 @@
  * JWT-based authentication with role-based access control (RBAC)
  */
 
+const { StatusCodes } = require('http-status-codes');
 const { verifyAccessToken, extractTokenFromHeader } = require('../utils/jwt');
 const { unauthorized, forbidden } = require('../utils/response');
-const { User } = require('../models');
+const { ApiError, asyncHandler } = require('./errorHandler');
+const { User, Store } = require('../models');
 
 /**
  * Verify JWT token and attach user to request
@@ -133,45 +135,36 @@ const requireOwnership = (getResourceUserId) => {
  * Ensures the authenticated user owns the store they're trying to access
  * Admins bypass this check
  */
-const validateStoreOwnership = async (req, res, next) => {
-  try {
-    const { Store } = require('../models');
-    const storeId = req.params.storeId;
-    const userId = req.user?.id;
-    const userRole = req.user?.role;
+const validateStoreOwnership = asyncHandler(async (req, res, next) => {
+  const storeId = req.params.storeId;
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
 
-    if (!userId) {
-      return unauthorized(res, 'Authentication required');
-    }
-
-    // Admin bypass
-    if (userRole === 'admin') {
-      return next();
-    }
-
-    // Validate store ownership
-    const store = await Store.findOne({
-      where: {
-        id: storeId,
-        user_id: userId
-      }
-    });
-
-    if (!store) {
-      return forbidden(res, 'You do not have permission to access this store');
-    }
-
-    // Attach store to request for future use
-    req.store = store;
-    next();
-  } catch (error) {
-    console.error('[Auth] Store ownership validation error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error validating store ownership'
-    });
+  if (!userId) {
+    throw new ApiError('Authentication required', StatusCodes.UNAUTHORIZED);
   }
-};
+
+  if (userRole === 'admin') {
+    return next();
+  }
+
+  const store = await Store.findOne({
+    where: {
+      id: storeId,
+      user_id: userId,
+    },
+  });
+
+  if (!store) {
+    throw new ApiError(
+      'You do not have permission to access this store',
+      StatusCodes.FORBIDDEN
+    );
+  }
+
+  req.store = store;
+  return next();
+});
 
 module.exports = {
   authenticate,

@@ -112,7 +112,10 @@ class ReviewService {
     const offset = (page - 1) * limit;
 
     const { count, rows: reviews } = await Review.findAndCountAll({
-      where: { store_id: storeId },
+      where: {
+        store_id: storeId,
+        status: 'approved',
+      },
       include: [
         {
           model: User,
@@ -267,10 +270,15 @@ class ReviewService {
 
     // In a real system, you'd track who marked what in a separate table
     // For now, just increment/decrement counters
-    if (helpful) {
+    const isHelpful = Boolean(helpful);
+
+    if (isHelpful) {
       review.helpful_count = (review.helpful_count || 0) + 1;
-    } else {
-      review.not_helpful_count = (review.not_helpful_count || 0) + 1;
+    } else if (Object.prototype.hasOwnProperty.call(review.get(), 'not_helpful_count')) {
+      const current = review.get('not_helpful_count') || 0;
+      review.set('not_helpful_count', current + 1);
+    } else if (typeof review.helpful_count === 'number') {
+      review.helpful_count = Math.max(0, review.helpful_count - 1);
     }
 
     await review.save();

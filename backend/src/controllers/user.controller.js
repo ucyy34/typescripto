@@ -1,198 +1,170 @@
+const { StatusCodes } = require('http-status-codes');
 const { User } = require('../models');
-const { Op } = require('sequelize');
+const { paginated, success } = require('../utils/response');
+const { ApiError, asyncHandler } = require('../middlewares/errorHandler');
 
-/**
- * Get all users (admin only)
- */
-const getAllUsers = async (req, res) => {
-    try {
-        const { role, status, limit = 100, offset = 0 } = req.query;
+const parseLimit = (value, fallback = 100) => {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
 
-        const where = {};
-
-        // Filter by role if provided
-        if (role) {
-            where.role = role;
-        }
-
-        // Filter by status if provided (is_active)
-        if (status) {
-            where.is_active = status === 'active';
-        }
-
-        const users = await User.findAll({
-            where,
-            attributes: ['id', 'email', 'first_name', 'last_name', 'role', 'is_active', 'createdAt', 'updatedAt'],
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            order: [['createdAt', 'DESC']]
-        });
-
-        const total = await User.count({ where });
-
-        res.json({
-            success: true,
-            data: users,
-            pagination: {
-                total,
-                limit: parseInt(limit),
-                offset: parseInt(offset)
-            }
-        });
-    } catch (error) {
-        console.error('[User Controller] Error fetching users:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch users',
-            error: error.message
-        });
-    }
+  return Math.min(200, parsed);
 };
 
-/**
- * Get user by ID (admin only)
- */
-const getUserById = async (req, res) => {
-    try {
-        const { id } = req.params;
+const parseOffset = (value) => {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return 0;
+  }
 
-        const user = await User.findByPk(id, {
-            attributes: ['id', 'email', 'first_name', 'last_name', 'role', 'is_active', 'createdAt', 'updatedAt']
-        });
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: user
-        });
-    } catch (error) {
-        console.error('[User Controller] Error fetching user:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch user',
-            error: error.message
-        });
-    }
+  return parsed;
 };
 
-/**
- * Update user status (activate/suspend)
- */
-const updateUserStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { is_active } = req.body;
+const getAllUsers = asyncHandler(async (req, res) => {
+  const { role, status, limit = 100, offset = 0 } = req.query;
 
-        if (typeof is_active !== 'boolean') {
-            return res.status(400).json({
-                success: false,
-                message: 'is_active must be a boolean'
-            });
-        }
+  const where = {};
 
-        const user = await User.findByPk(id);
+  if (role) {
+    where.role = role;
+  }
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
+  if (status) {
+    where.is_active = status === 'active';
+  }
 
-        // Prevent admin from deactivating themselves
-        if (user.id === req.user.id && !is_active) {
-            return res.status(400).json({
-                success: false,
-                message: 'You cannot deactivate your own account'
-            });
-        }
+  const limitNumber = parseLimit(limit);
+  const offsetNumber = parseOffset(offset);
+  const pageNumber = Math.floor(offsetNumber / limitNumber) + 1;
 
-        user.is_active = is_active;
-        await user.save();
+  const { rows: users, count: total } = await User.findAndCountAll({
+    where,
+    attributes: [
+      'id',
+      'email',
+      'first_name',
+      'last_name',
+      'role',
+      'is_active',
+      'createdAt',
+      'updatedAt',
+    ],
+    limit: limitNumber,
+    offset: offsetNumber,
+    order: [['createdAt', 'DESC']],
+  });
 
-        res.json({
-            success: true,
-            message: `User ${is_active ? 'activated' : 'suspended'} successfully`,
-            data: {
-                id: user.id,
-                email: user.email,
-                is_active: user.is_active
-            }
-        });
-    } catch (error) {
-        console.error('[User Controller] Error updating user status:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update user status',
-            error: error.message
-        });
-    }
-};
+  return paginated(
+    res,
+    users,
+    {
+      page: pageNumber,
+      limit: limitNumber,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limitNumber)),
+    },
+    'Users retrieved successfully'
+  );
+});
 
-/**
- * Update user role (admin only)
- */
-const updateUserRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { role } = req.body;
+const getUserById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
 
-        const validRoles = ['buyer', 'seller', 'admin'];
-        if (!validRoles.includes(role)) {
-            return res.status(400).json({
-                success: false,
-                message: `Invalid role. Must be one of: ${validRoles.join(', ')}`
-            });
-        }
+  const user = await User.findByPk(id, {
+    attributes: [
+      'id',
+      'email',
+      'first_name',
+      'last_name',
+      'role',
+      'is_active',
+      'createdAt',
+      'updatedAt',
+    ],
+  });
 
-        const user = await User.findByPk(id);
+  if (!user) {
+    throw new ApiError('User not found', StatusCodes.NOT_FOUND);
+  }
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
+  return success(res, user, 'User retrieved successfully');
+});
 
-        // Prevent admin from changing their own role
-        if (user.id === req.user.id) {
-            return res.status(400).json({
-                success: false,
-                message: 'You cannot change your own role'
-            });
-        }
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body;
 
-        user.role = role;
-        await user.save();
+  if (typeof is_active !== 'boolean') {
+    throw new ApiError('is_active must be a boolean', StatusCodes.BAD_REQUEST);
+  }
 
-        res.json({
-            success: true,
-            message: 'User role updated successfully',
-            data: {
-                id: user.id,
-                email: user.email,
-                role: user.role
-            }
-        });
-    } catch (error) {
-        console.error('[User Controller] Error updating user role:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update user role',
-            error: error.message
-        });
-    }
-};
+  const user = await User.findByPk(id);
+
+  if (!user) {
+    throw new ApiError('User not found', StatusCodes.NOT_FOUND);
+  }
+
+  if (user.id === req.user.id && !is_active) {
+    throw new ApiError(
+      'You cannot deactivate your own account',
+      StatusCodes.BAD_REQUEST
+    );
+  }
+
+  user.is_active = is_active;
+  await user.save();
+
+  return success(
+    res,
+    {
+      id: user.id,
+      email: user.email,
+      is_active: user.is_active,
+    },
+    `User ${is_active ? 'activated' : 'suspended'} successfully`
+  );
+});
+
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const validRoles = ['buyer', 'seller', 'admin'];
+  if (!validRoles.includes(role)) {
+    throw new ApiError(
+      `Invalid role. Must be one of: ${validRoles.join(', ')}`,
+      StatusCodes.BAD_REQUEST
+    );
+  }
+
+  const user = await User.findByPk(id);
+
+  if (!user) {
+    throw new ApiError('User not found', StatusCodes.NOT_FOUND);
+  }
+
+  if (user.id === req.user.id) {
+    throw new ApiError('You cannot change your own role', StatusCodes.BAD_REQUEST);
+  }
+
+  user.role = role;
+  await user.save();
+
+  return success(
+    res,
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    'User role updated successfully'
+  );
+});
 
 module.exports = {
-    getAllUsers,
-    getUserById,
-    updateUserStatus,
-    updateUserRole
+  getAllUsers,
+  getUserById,
+  updateUserStatus,
+  updateUserRole,
 };
