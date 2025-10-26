@@ -4,7 +4,7 @@
  */
 
 const orderService = require('../services/order.service');
-const { success } = require('../utils/response');
+const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class OrderController {
@@ -26,12 +26,7 @@ class OrderController {
    */
   getUserOrders = asyncHandler(async (req, res) => {
     const { orders, pagination } = await orderService.getUserOrders(req.user.id, req.query);
-    return res.status(200).json({
-      success: true,
-      data: orders,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, orders, pagination, 'Orders retrieved successfully');
   });
 
   /**
@@ -63,12 +58,7 @@ class OrderController {
    */
   getAllOrders = asyncHandler(async (req, res) => {
     const { orders, pagination } = await orderService.getAllOrders(req.query);
-    return res.status(200).json({
-      success: true,
-      data: orders,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, orders, pagination, 'All orders retrieved successfully');
   });
 
   /**
@@ -81,12 +71,7 @@ class OrderController {
       req.user.id,
       req.query
     );
-    return res.status(200).json({
-      success: true,
-      data: orders,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, orders, pagination, 'Store orders retrieved successfully');
   });
 }
 

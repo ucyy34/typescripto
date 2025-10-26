@@ -35,7 +35,9 @@
   max-width: 1000px;
   height: 85vh;
   max-height: 85vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   position: relative;
   animation: modalSlideIn 0.3s ease-out;
   cursor: auto;
