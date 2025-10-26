@@ -61,18 +61,12 @@ class StoreService {
   /**
    * Get store by ID
    * @param {string} storeId
-   * @param {boolean} includeInactive - Include inactive stores
+   * @param {{id?: string, role?: string}|null} requester - Requesting user metadata
    * @returns {Promise<Store>}
    */
-  async getStoreById(storeId, includeInactive = false) {
-    const where = { id: storeId };
-
-    if (!includeInactive) {
-      where.status = 'approved';
-    }
-
+  async getStoreById(storeId, requester = null) {
     const store = await Store.findOne({
-      where,
+      where: { id: storeId },
       include: [
         {
           model: User,
@@ -86,6 +80,13 @@ class StoreService {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
 
+    const isAdmin = requester?.role === 'admin';
+    const isOwner = requester?.id && store.user_id === requester.id;
+
+    if (store.status !== 'approved' && !isAdmin && !isOwner) {
+      throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+    }
+
     return store;
   }
 
@@ -95,12 +96,21 @@ class StoreService {
    * @returns {Promise<Object>} Paginated stores
    */
   async getStores(filters) {
-    const { page = 1, limit = 20, status, search, city, is_featured, sort = '-created_at' } = filters;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      search,
+      city,
+      is_featured,
+      sort = '-created_at',
+    } = filters;
 
-    const offset = (page - 1) * limit;
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNumber - 1) * limitNumber;
     const where = {};
 
-    // Apply filters
     if (status) {
       where.status = status;
     }
@@ -114,19 +124,21 @@ class StoreService {
     }
 
     if (is_featured !== undefined) {
-      where.is_featured = is_featured;
+      const featuredValue =
+        typeof is_featured === 'string'
+          ? is_featured.toLowerCase() === 'true'
+          : Boolean(is_featured);
+      where.is_featured = featuredValue;
     }
 
-    // Parse sort parameter
-    let order = [];
+    const order = [];
     const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
     const sortDirection = sort.startsWith('-') ? 'DESC' : 'ASC';
     order.push([sortField, sortDirection]);
 
-    // Query stores
     const { rows: stores, count: total } = await Store.findAndCountAll({
       where,
-      limit,
+      limit: limitNumber,
       offset,
       order,
       include: [
@@ -138,15 +150,17 @@ class StoreService {
       ],
     });
 
+    const totalPages = Math.max(1, Math.ceil(total / limitNumber));
+
     return {
       stores,
       pagination: {
-        page,
-        limit,
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+        totalPages,
+        hasNext: pageNumber < totalPages,
+        hasPrev: pageNumber > 1,
       },
     };
   }
@@ -218,6 +232,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
@@ -267,8 +283,10 @@ class StoreService {
     const lowStockProducts = await Product.count({
       where: {
         store_id: storeId,
-        stock: { [Op.lte]: sequelize.col('low_stock_threshold') },
-        stock: { [Op.gt]: 0 },
+        [Op.and]: [
+          { stock: { [Op.gt]: 0 } },
+          { stock: { [Op.lte]: Product.sequelize.col('low_stock_threshold') } },
+        ],
       },
     });
 
