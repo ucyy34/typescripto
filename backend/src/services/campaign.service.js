@@ -5,6 +5,7 @@
 
 const { Campaign, Store, Product, Category, User, Order } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
+const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 
 class CampaignService {
@@ -26,7 +27,7 @@ class CampaignService {
       // If user is seller, must provide store_id and it must be their store
       if (userRole === 'seller') {
         if (!data.store_id) {
-          throw new ApiError(400, 'Sellers must specify a store for campaigns');
+          throw new ApiError('Sellers must specify a store for campaigns', StatusCodes.BAD_REQUEST);
         }
 
         // Verify store ownership
@@ -39,7 +40,7 @@ class CampaignService {
         });
 
         if (!store) {
-          throw new ApiError(404, 'Store not found or not approved');
+          throw new ApiError('Store not found or not approved', StatusCodes.NOT_FOUND);
         }
 
         // Seller campaigns need admin approval
@@ -47,7 +48,7 @@ class CampaignService {
 
         // Sellers can only create campaigns for their store
         if (data.applicable_to === 'entire_platform') {
-          throw new ApiError(403, 'Only admins can create platform-wide campaigns');
+          throw new ApiError('Only admins can create platform-wide campaigns', StatusCodes.FORBIDDEN);
         }
       } else if (userRole === 'admin') {
         // Admin campaigns are auto-approved
@@ -62,14 +63,14 @@ class CampaignService {
         });
 
         if (products.length !== data.product_ids.length) {
-          throw new ApiError(400, 'One or more product IDs are invalid');
+          throw new ApiError('One or more product IDs are invalid', StatusCodes.BAD_REQUEST);
         }
 
         // If seller, verify all products belong to their store
         if (userRole === 'seller') {
           const allBelongToStore = products.every(p => p.store_id === data.store_id);
           if (!allBelongToStore) {
-            throw new ApiError(403, 'You can only create campaigns for your own products');
+            throw new ApiError('You can only create campaigns for your own products', StatusCodes.FORBIDDEN);
           }
         }
       }
@@ -81,7 +82,7 @@ class CampaignService {
         });
 
         if (categories.length !== data.category_ids.length) {
-          throw new ApiError(400, 'One or more category IDs are invalid');
+          throw new ApiError('One or more category IDs are invalid', StatusCodes.BAD_REQUEST);
         }
       }
 
@@ -91,7 +92,7 @@ class CampaignService {
       return campaign;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to create campaign', error.message);
+      throw new ApiError('Failed to create campaign', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -128,7 +129,7 @@ class CampaignService {
         });
 
         if (!store) {
-          throw new ApiError(404, 'Store not found');
+          throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
         }
 
         where.store_id = store.id;
@@ -179,7 +180,7 @@ class CampaignService {
       };
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to fetch campaigns', error.message);
+      throw new ApiError('Failed to fetch campaigns', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -208,7 +209,7 @@ class CampaignService {
       });
 
       if (!campaign) {
-        throw new ApiError(404, 'Campaign not found');
+        throw new ApiError('Campaign not found', StatusCodes.NOT_FOUND);
       }
 
       // Check permissions
@@ -218,14 +219,14 @@ class CampaignService {
         });
 
         if (!store || campaign.store_id !== store.id) {
-          throw new ApiError(403, 'You do not have permission to view this campaign');
+          throw new ApiError('You do not have permission to view this campaign', StatusCodes.FORBIDDEN);
         }
       }
 
       return campaign;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to fetch campaign', error.message);
+      throw new ApiError('Failed to fetch campaign', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -242,7 +243,7 @@ class CampaignService {
       const campaign = await Campaign.findByPk(campaignId);
 
       if (!campaign) {
-        throw new ApiError(404, 'Campaign not found');
+        throw new ApiError('Campaign not found', StatusCodes.NOT_FOUND);
       }
 
       // Check permissions
@@ -252,7 +253,7 @@ class CampaignService {
         });
 
         if (!store || campaign.store_id !== store.id) {
-          throw new ApiError(403, 'You do not have permission to update this campaign');
+          throw new ApiError('You do not have permission to update this campaign', StatusCodes.FORBIDDEN);
         }
 
         // If campaign was rejected and being updated, reset to pending
@@ -270,13 +271,13 @@ class CampaignService {
         });
 
         if (products.length !== data.product_ids.length) {
-          throw new ApiError(400, 'One or more product IDs are invalid');
+          throw new ApiError('One or more product IDs are invalid', StatusCodes.BAD_REQUEST);
         }
 
         if (userRole === 'seller') {
           const allBelongToStore = products.every(p => p.store_id === campaign.store_id);
           if (!allBelongToStore) {
-            throw new ApiError(403, 'You can only add your own products to campaigns');
+            throw new ApiError('You can only add your own products to campaigns', StatusCodes.FORBIDDEN);
           }
         }
       }
@@ -286,7 +287,7 @@ class CampaignService {
       return campaign;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to update campaign', error.message);
+      throw new ApiError('Failed to update campaign', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -302,7 +303,7 @@ class CampaignService {
       const campaign = await Campaign.findByPk(campaignId);
 
       if (!campaign) {
-        throw new ApiError(404, 'Campaign not found');
+        throw new ApiError('Campaign not found', StatusCodes.NOT_FOUND);
       }
 
       // Check permissions
@@ -312,14 +313,14 @@ class CampaignService {
         });
 
         if (!store || campaign.store_id !== store.id) {
-          throw new ApiError(403, 'You do not have permission to delete this campaign');
+          throw new ApiError('You do not have permission to delete this campaign', StatusCodes.FORBIDDEN);
         }
       }
 
       await campaign.destroy();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to delete campaign', error.message);
+      throw new ApiError('Failed to delete campaign', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -334,7 +335,7 @@ class CampaignService {
       const campaign = await Campaign.findByPk(campaignId);
 
       if (!campaign) {
-        throw new ApiError(404, 'Campaign not found');
+        throw new ApiError('Campaign not found', StatusCodes.NOT_FOUND);
       }
 
       await campaign.update({
@@ -345,7 +346,7 @@ class CampaignService {
       return campaign;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to update campaign approval status', error.message);
+      throw new ApiError('Failed to update campaign approval status', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -358,7 +359,7 @@ class CampaignService {
     try {
       return await Campaign.getActiveCampaigns(filters);
     } catch (error) {
-      throw new ApiError(500, 'Failed to fetch active campaigns', error.message);
+      throw new ApiError('Failed to fetch active campaigns', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -374,7 +375,7 @@ class CampaignService {
       });
 
       if (!product) {
-        throw new ApiError(404, 'Product not found');
+        throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
       }
 
       const campaigns = await Campaign.getCampaignsForProduct(
@@ -387,7 +388,7 @@ class CampaignService {
       return campaigns.length > 0 ? [campaigns[0]] : [];
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to fetch product campaigns', error.message);
+      throw new ApiError('Failed to fetch product campaigns', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
@@ -430,7 +431,7 @@ class CampaignService {
       return stats;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'Failed to fetch campaign statistics', error.message);
+      throw new ApiError('Failed to fetch campaign statistics', StatusCodes.INTERNAL_SERVER_ERROR, error.message);
     }
   }
 
