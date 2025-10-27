@@ -296,13 +296,6 @@ class ApiClient {
   }
 
   /**
-   * Get store by slug
-   */
-  async getStoreBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.BY_SLUG(slug));
-  }
-
-  /**
    * Update store status (approve/reject/suspend)
    */
   async updateStoreStatus(storeId, status, rejectionReason = null) {
@@ -364,37 +357,6 @@ class ApiClient {
   }
 
   /**
-   * Search products with suggestions
-   */
-  async searchProducts(query, options = {}) {
-    const trimmedQuery = (query || '').trim();
-
-    if (!trimmedQuery) {
-      return {
-        success: true,
-        message: 'Empty query',
-        data: {
-          products: [],
-          suggestions: { categories: [], stores: [], tags: [], queries: [] },
-        },
-        timestamp: new Date().toISOString(),
-      };
-    }
-
-    const params = { q: trimmedQuery };
-
-    if (options.limit) {
-      params.limit = options.limit;
-    }
-
-    if (typeof options.includeSuggestions === 'boolean') {
-      params.includeSuggestions = options.includeSuggestions;
-    }
-
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
-  }
-
-  /**
    * Get product by ID
    */
   async getProduct(productId) {
@@ -406,6 +368,46 @@ class ApiClient {
    */
   async getProductBySlug(slug) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
+  }
+
+  /**
+   * Search products with suggestions
+   */
+  async searchProducts(query, options = {}) {
+    const trimmedQuery = typeof query === 'string' ? query.trim() : '';
+
+    if (!trimmedQuery || trimmedQuery.length < 2) {
+      return Promise.resolve({
+        success: true,
+        data: {
+          query: trimmedQuery,
+          normalizedQuery: trimmedQuery.toLowerCase(),
+          total: 0,
+          results: [],
+          suggestions: [],
+          fallback: [],
+          took: 0,
+        },
+        message: 'Search query too short',
+      });
+    }
+
+    const params = {
+      query: trimmedQuery,
+      limit: options.limit,
+      includeSuggestions: options.includeSuggestions,
+      includeFallbacks: options.includeFallbacks,
+      store_id: options.storeId,
+      category_id: options.categoryId,
+    };
+
+    Object.keys(params).forEach((key) => {
+      if (params[key] === undefined || params[key] === null || params[key] === '') {
+        delete params[key];
+      }
+    });
+
+    return this.get(API_CONFIG.ENDPOINTS.SEARCH.PRODUCTS, params, { useCache: false });
   }
 
   /**

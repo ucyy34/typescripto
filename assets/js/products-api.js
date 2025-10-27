@@ -25,6 +25,11 @@ class ProductsPageAPI {
             ? decodeURIComponent(this.urlParams.get('storeName'))
             : null;
 
+        const initialSearch = this.urlParams.get('search');
+        if (initialSearch) {
+            this.filters.search = initialSearch.trim();
+        }
+
         console.log('[Products Page API] Initializing...');
         this.init();
     }
@@ -187,11 +192,14 @@ class ProductsPageAPI {
         // Search (use globalSearch from header)
         const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
         if (searchInput) {
+            if (this.filters.search) {
+                searchInput.value = this.filters.search;
+            }
             let searchTimeout;
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filters.search = e.target.value.toLowerCase();
+                    this.filters.search = e.target.value.trim();
                     this.loadProducts();
                 }, 500); // Debounce
             });
@@ -261,10 +269,6 @@ class ProductsPageAPI {
             const productElement = this.createProductCard(product);
             container.appendChild(productElement);
         });
-
-        if (window.dostanApp && typeof window.dostanApp.refreshWishlistButtons === 'function') {
-            window.dostanApp.refreshWishlistButtons();
-        }
 
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {

@@ -80,6 +80,10 @@ const API_CONFIG = {
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
     },
 
+    SEARCH: {
+      PRODUCTS: '/products/search',
+    },
+
     // Category endpoints
     CATEGORIES: {
       BASE: '/categories',

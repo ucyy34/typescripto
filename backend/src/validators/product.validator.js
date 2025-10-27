@@ -142,16 +142,20 @@ const productIdSchema = Joi.object({
   }),
 });
 
+/**
+ * Product slug param validation
+ */
 const productSlugSchema = Joi.object({
   slug: Joi.string()
-    .pattern(/^[a-z0-9-]+$/)
+    .trim()
+    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .min(2)
-    .max(250)
+    .max(350)
     .required()
     .messages({
-      'string.pattern.base': 'Product slug may only contain lowercase letters, numbers, and hyphens',
+      'string.pattern.base': 'Invalid product slug format',
       'string.min': 'Product slug must be at least 2 characters',
-      'string.max': 'Product slug cannot exceed 250 characters',
+      'string.max': 'Product slug cannot exceed 350 characters',
       'any.required': 'Product slug is required',
     }),
 });
@@ -187,11 +191,21 @@ const productQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
+const productSearchQuerySchema = Joi.object({
+  query: Joi.string().min(2).max(200).required().trim(),
+  limit: Joi.number().integer().min(1).max(50).default(8),
+  includeSuggestions: Joi.boolean().optional().default(true),
+  includeFallbacks: Joi.boolean().optional().default(true),
+  store_id: Joi.string().uuid().optional(),
+  category_id: Joi.string().uuid().optional(),
+});
+
 module.exports = {
   createProductSchema,
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
-  productQuerySchema,
   productSlugSchema,
+  productQuerySchema,
+  productSearchQuerySchema,
 };

@@ -11,40 +11,58 @@ const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
 const MAX_SEO_DESCRIPTION_LENGTH = 160;
+const DEFAULT_SEARCH_LIMIT = 8;
+const MAX_SEARCH_LIMIT = 50;
+const DEFAULT_SUGGESTION_LIMIT = 6;
+const DEFAULT_FALLBACK_LIMIT = 6;
 
-const PRODUCT_INCLUDE = [
-  {
-    model: Store,
-    as: 'store',
-    attributes: ['id', 'name', 'slug', 'logo', 'rating'],
-  },
-  {
-    model: Category,
-    as: 'category',
-    attributes: ['id', 'name', 'slug'],
-  },
-  {
-    model: ProductVariant,
-    as: 'productVariants',
-  },
-];
+const escapeLike = (value) => {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+};
 
-const clearProductCache = async (productId, ...slugs) => {
-  const tasks = [];
+const normalizeQuery = (value) => value.trim().replace(/\s+/g, ' ');
 
-  if (productId) {
-    tasks.push(cache.del(`product:${productId}`));
+const pickThumbnail = (images) => {
+  if (!Array.isArray(images) || images.length === 0) {
+    return null;
   }
 
-  slugs
-    .filter((slug) => Boolean(slug))
-    .forEach((slug) => {
-      tasks.push(cache.del(`product:slug:${slug}`));
-    });
+  return images.find((src) => typeof src === 'string' && src.trim().length > 0) || null;
+};
 
-  tasks.push(cache.delPattern('products:*'));
+const mapProductForSearch = (product) => {
+  const plain = product.toJSON();
+  const thumbnail = pickThumbnail(plain.images);
 
-  await Promise.all(tasks);
+  return {
+    id: plain.id,
+    slug: plain.slug,
+    title: plain.title,
+    short_description: plain.short_description,
+    price: plain.price,
+    compare_price: plain.compare_price,
+    rating: plain.rating ? Number(plain.rating) : 0,
+    total_reviews: plain.total_reviews,
+    badges: Array.isArray(plain.badges) ? plain.badges : [],
+    stock: plain.stock,
+    store: plain.store
+      ? {
+          id: plain.store.id,
+          name: plain.store.name,
+          slug: plain.store.slug,
+          logo: plain.store.logo,
+          rating: plain.store.rating,
+        }
+      : null,
+    category: plain.category
+      ? {
+          id: plain.category.id,
+          name: plain.category.name,
+          slug: plain.category.slug,
+        }
+      : null,
+    thumbnail,
+  };
 };
 
 const sanitizeSeoText = (text, limit) => {
@@ -145,7 +163,8 @@ class ProductService {
     }
 
     // Clear cache
-    await clearProductCache(product.id, product.slug);
+    await cache.delPattern('products:*');
+    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -174,7 +193,22 @@ class ProductService {
 
     const product = await Product.findOne({
       where,
-      include: PRODUCT_INCLUDE,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+        },
+        {
+          model: ProductVariant,
+          as: 'productVariants',
+        },
+      ],
     });
 
     if (!product) {
@@ -215,7 +249,22 @@ class ProductService {
 
     const product = await Product.findOne({
       where,
-      include: PRODUCT_INCLUDE,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+        },
+        {
+          model: ProductVariant,
+          as: 'productVariants',
+        },
+      ],
     });
 
     if (!product) {
@@ -314,8 +363,6 @@ class ProductService {
       limit,
       offset,
       order,
-      distinct: true,
-      col: 'Product.id',
       include: [
         {
           model: Store,
@@ -331,20 +378,6 @@ class ProductService {
       ],
     });
 
-    const storeCount = await Product.count({
-      where,
-      distinct: true,
-      col: 'store_id',
-      include: [
-        {
-          model: Store,
-          as: 'store',
-          attributes: [],
-          where: { status: 'approved' },
-        },
-      ],
-    });
-
     const result = {
       products,
       pagination: {
@@ -354,9 +387,6 @@ class ProductService {
         totalPages: Math.ceil(total / limit),
         hasNext: page < Math.ceil(total / limit),
         hasPrev: page > 1,
-      },
-      meta: {
-        storeCount,
       },
     };
 
@@ -446,12 +476,17 @@ class ProductService {
       }
     }
 
-    const previousSlug = product.slug;
+    const currentSlug = product.slug;
 
     await product.update(updateData);
 
     // Clear cache
-    await clearProductCache(productId, previousSlug, product.slug);
+    await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
+    await cache.delPattern('products:*');
+    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -483,12 +518,17 @@ class ProductService {
       updateData.approved_by = null;
     }
 
-    const previousSlug = product.slug;
+    const currentSlug = product.slug;
 
     await product.update(updateData);
 
     // Clear cache
-    await clearProductCache(productId, previousSlug, product.slug);
+    await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
+    await cache.delPattern('products:*');
+    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -513,12 +553,188 @@ class ProductService {
       throw new ApiError('You do not have permission to delete this product', StatusCodes.FORBIDDEN);
     }
 
-    const productSlug = product.slug;
+    const currentSlug = product.slug;
 
     await product.destroy(); // Soft delete
 
     // Clear cache
-    await clearProductCache(productId, productSlug);
+    await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
+    await cache.delPattern('products:*');
+    await cache.delPattern('product-search:*');
+  }
+
+  /**
+   * Search products for storefront header search
+   * @param {string} rawQuery
+   * @param {Object} options
+   * @returns {Promise<Object>}
+   */
+  async searchProducts(rawQuery, options = {}) {
+    const startedAt = Date.now();
+    const query = typeof rawQuery === 'string' ? normalizeQuery(rawQuery) : '';
+
+    if (!query || query.length < 2) {
+      return {
+        query,
+        normalizedQuery: query.toLowerCase(),
+        total: 0,
+        results: [],
+        suggestions: [],
+        fallback: [],
+        took: Date.now() - startedAt,
+      };
+    }
+
+    const limit = Math.min(
+      Math.max(parseInt(options.limit, 10) || DEFAULT_SEARCH_LIMIT, 1),
+      MAX_SEARCH_LIMIT
+    );
+    const includeSuggestions = !['false', false].includes(options.includeSuggestions);
+    const includeFallbacks = !['false', false].includes(options.includeFallbacks);
+    const storeId = options.store_id || options.storeId || null;
+    const categoryId = options.category_id || options.categoryId || null;
+
+    const normalizedQuery = query.toLowerCase();
+    const cacheKey = `product-search:${storeId || 'all'}:${categoryId || 'all'}:${limit}:${includeSuggestions ? 'with-s' : 'no-s'}:${includeFallbacks ? 'with-f' : 'no-f'}:${normalizedQuery}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+    const likePattern = `%${escapeLike(normalizedQuery)}%`;
+
+    const where = {
+      is_active: true,
+      status: 'approved',
+      stock: { [Op.gt]: 0 },
+    };
+
+    if (storeId) {
+      where.store_id = storeId;
+    }
+
+    if (categoryId) {
+      where.category_id = categoryId;
+    }
+
+    const orConditions = [
+      { title: { [Op.iLike]: likePattern } },
+      { seo_title: { [Op.iLike]: likePattern } },
+      { short_description: { [Op.iLike]: likePattern } },
+      { description: { [Op.iLike]: likePattern } },
+      { sku: { [Op.iLike]: likePattern } },
+      { '$store.name$': { [Op.iLike]: likePattern } },
+    ];
+
+    if (tokens.length > 0) {
+      orConditions.push({ tags: { [Op.overlap]: tokens } });
+      orConditions.push({ meta_keywords: { [Op.overlap]: tokens } });
+    }
+
+    where[Op.or] = orConditions;
+
+    const queryOptions = {
+      where,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+          where: { status: 'approved' },
+          required: false,
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+          required: false,
+        },
+      ],
+      order: [
+        ['is_featured', 'DESC'],
+        ['total_sales', 'DESC'],
+        ['rating', 'DESC'],
+        ['created_at', 'DESC'],
+      ],
+      limit,
+      distinct: true,
+    };
+
+    const { rows: products, count: total } = await Product.findAndCountAll(queryOptions);
+    const results = products.map(mapProductForSearch);
+
+    let suggestions = [];
+    if (includeSuggestions) {
+      const suggestionSet = new Set();
+      for (const product of products) {
+        if (product.title) {
+          suggestionSet.add(product.title);
+        }
+        if (product.seo_title) {
+          suggestionSet.add(product.seo_title);
+        }
+        if (product.store?.name) {
+          suggestionSet.add(product.store.name);
+        }
+        const productTags = Array.isArray(product.tags) ? product.tags : [];
+        for (const tag of productTags) {
+          if (typeof tag === 'string' && tag.trim()) {
+            suggestionSet.add(tag.trim());
+          }
+        }
+      }
+      suggestions = Array.from(suggestionSet).slice(0, DEFAULT_SUGGESTION_LIMIT);
+    }
+
+    let fallback = [];
+    if (includeFallbacks && results.length === 0) {
+      const fallbackProducts = await Product.findAll({
+        where: {
+          is_active: true,
+          status: 'approved',
+          stock: { [Op.gt]: 0 },
+        },
+        include: [
+          {
+            model: Store,
+            as: 'store',
+            attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+            where: { status: 'approved' },
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'slug'],
+          },
+        ],
+        order: [
+          ['total_sales', 'DESC'],
+          ['rating', 'DESC'],
+          ['created_at', 'DESC'],
+        ],
+        limit: Math.max(limit, DEFAULT_FALLBACK_LIMIT),
+      });
+
+      fallback = fallbackProducts.map(mapProductForSearch);
+    }
+
+    const payload = {
+      query,
+      normalizedQuery,
+      total: typeof total === 'number' ? total : Array.isArray(total) ? total.length : 0,
+      results,
+      suggestions,
+      fallback,
+      took: Date.now() - startedAt,
+    };
+
+    await cache.set(cacheKey, payload, 120);
+
+    return payload;
   }
 
   /**

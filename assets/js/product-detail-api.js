@@ -7,12 +7,12 @@ class ProductDetailAPI {
     constructor() {
         this.apiClient = new ApiClient();
         this.product = null;
-        this.productIdentifier = this.getProductIdentifier();
-        this.productId = this.productIdentifier?.type === 'id' ? this.productIdentifier.value : null;
+        this.productId = this.getProductIdFromURL();
+        this.productSlug = this.getProductSlugFromURL();
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
-        console.log('[Product Detail API] Initializing for product identifier:', this.productIdentifier);
+        console.log('[Product Detail API] Initializing for product:', this.productId || this.productSlug);
         this.init();
     }
 
@@ -75,35 +75,18 @@ class ProductDetailAPI {
         });
     }
 
-    getProductIdentifier() {
+    getProductIdFromURL() {
         const params = new URLSearchParams(window.location.search);
-        const id = params.get('id');
-        if (id) {
-            return { type: 'id', value: id };
-        }
+        return params.get('id');
+    }
 
-        const slugParams = ['slug', 'product', 'productSlug'];
-        for (const key of slugParams) {
-            const value = params.get(key);
-            if (value) {
-                return { type: 'slug', value: value.trim().toLowerCase() };
-            }
-        }
-
-        // Support hash fragments like #slug=product-name
-        if (window.location.hash) {
-            const hash = window.location.hash.replace('#', '');
-            const [hashKey, hashValue] = hash.split('=');
-            if (hashKey && hashValue && ['slug', 'product', 'productSlug'].includes(hashKey)) {
-                return { type: 'slug', value: hashValue.trim().toLowerCase() };
-            }
-        }
-
-        return null;
+    getProductSlugFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('slug');
     }
 
     async init() {
-        if (!this.productIdentifier) {
+        if (!this.productId && !this.productSlug) {
             this.showError('Product not found');
             return;
         }
@@ -120,21 +103,21 @@ class ProductDetailAPI {
 
     async loadProduct() {
         try {
-            console.log('[Product Detail API] Loading product for identifier:', this.productIdentifier);
+            if (this.productId) {
+                console.log('[Product Detail API] Loading product by ID:', this.productId);
+            } else {
+                console.log('[Product Detail API] Loading product by slug:', this.productSlug);
+            }
             this.showLoading();
 
-            let response;
-            if (this.productIdentifier.type === 'slug') {
-                response = await this.apiClient.getProductBySlug(this.productIdentifier.value);
-            } else {
-                response = await this.apiClient.getProduct(this.productIdentifier.value);
-            }
+            const response = this.productId
+                ? await this.apiClient.getProduct(this.productId)
+                : await this.apiClient.getProductBySlug(this.productSlug);
 
             if (response.success && response.data) {
                 this.product = response.data;
-                this.productId = this.product.id;
-                this.productIdentifier = { type: 'id', value: this.productId };
                 console.log('[Product Detail API] Product loaded:', this.product);
+                this.productId = this.product.id;
                 this.renderProduct();
                 this.renderVariantsSection();
                 this.attachVariantListeners();

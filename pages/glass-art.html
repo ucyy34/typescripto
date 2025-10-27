@@ -237,7 +237,11 @@
         }
     </style>
 </head>
-<body data-category-slug="glass-art">
+<body data-category-slug="glass-art"
+      data-category-name="Nordic Glass Art"
+      data-products-container="glass-art-products"
+      data-load-more-button="loadMoreGlassArt"
+      data-category-page-size="8">
     <!-- Navigation Header -->
     <header class="header glass-card">
         <nav class="navbar container">
@@ -287,22 +291,36 @@
     <!-- Category Hero -->
     <section class="category-hero">
         <div class="container">
-            <h1 id="categoryHeroTitle">💎 Nordic Glass Art</h1>
-            <p id="categoryHeroSubtitle">Witness the magic of Aurora Borealis captured in crystal. Each piece reflects the ethereal beauty of Nordic lights through masterful glassblowing techniques.</p>
+            <h1>💎 Nordic Glass Art</h1>
+            <p>Witness the magic of Aurora Borealis captured in crystal. Each piece reflects the ethereal beauty of Nordic lights through masterful glassblowing techniques.</p>
 
-            <div class="category-stats" id="categoryHeroStats">
+            <div class="category-stats">
                 <div class="stat-item">
-                    <span class="stat-number">—</span>
-                    <span class="stat-label">Live Products</span>
+                    <span class="stat-number" id="categoryStatTotal">—</span>
+                    <span class="stat-label">Crystal Pieces</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number">—</span>
-                    <span class="stat-label">Artisan Stores</span>
+                    <span class="stat-number" id="categoryStatArtisans">—</span>
+                    <span class="stat-label">Glass Artists</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number">—</span>
-                    <span class="stat-label">Avg. Rating</span>
+                    <span class="stat-number" id="categoryStatRating">—</span>
+                    <span class="stat-label">Average Rating</span>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Category Filters -->
+    <section class="container">
+        <div class="category-filters">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Glass Art</button>
+                <button class="filter-btn" data-filter="bowls">Crystal Bowls</button>
+                <button class="filter-btn" data-filter="vases">Aurora Vases</button>
+                <button class="filter-btn" data-filter="ornaments">Ornaments</button>
+                <button class="filter-btn" data-filter="lighting">Light Sculptures</button>
+                <button class="filter-btn" data-filter="jewelry">Glass Jewelry</button>
             </div>
         </div>
     </section>
@@ -313,6 +331,10 @@
             <div class="section-title">
                 <h2>Crystalline Nordic Treasures</h2>
                 <p>Each piece captures light like the dancing Aurora Borealis</p>
+            </div>
+
+            <div class="results-info" id="resultsCount" style="margin-bottom: var(--space-md); color: var(--warm-brown);">
+                Loading Nordic treasures...
             </div>
 
             <!-- Mobile Filter Toggle -->
@@ -328,66 +350,82 @@
                         <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
                     </div>
 
-                    <!-- Availability -->
+                    <!-- Glass Type Filter -->
                     <div class="filter-group">
-                        <h4>✅ Availability</h4>
+                        <h4>💎 Glass Type</h4>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="availability" value="in-stock">
-                            <span>In Stock Only</span>
+                            <input type="checkbox" name="glass-type" value="crystal">
+                            <span>Crystal Clear</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="availability" value="discounted">
-                            <span>Currently Discounted</span>
+                            <input type="checkbox" name="glass-type" value="aurora">
+                            <span>Aurora Glass</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="glass-type" value="frosted">
+                            <span>Frosted Glass</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="glass-type" value="colored">
+                            <span>Colored Glass</span>
                         </label>
                     </div>
 
-                    <!-- Highlights -->
+                    <!-- Product Type Filter -->
                     <div class="filter-group">
-                        <h4>🌟 Highlights</h4>
+                        <h4>🏺 Product Type</h4>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="badge" value="handmade">
-                            <span>Handmade</span>
+                            <input type="checkbox" name="product-type" value="bowls">
+                            <span>Crystal Bowls</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="badge" value="limited">
-                            <span>Limited Edition</span>
+                            <input type="checkbox" name="product-type" value="vases">
+                            <span>Aurora Vases</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="badge" value="eco-friendly">
-                            <span>Eco Friendly</span>
+                            <input type="checkbox" name="product-type" value="ornaments">
+                            <span>Ornaments</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" data-category-filter="badge" value="artisan">
-                            <span>Artisan Crafted</span>
-                        </label>
-                    </div>
-
-                    <!-- Rating -->
-                    <div class="filter-group">
-                        <h4>⭐ Rating</h4>
-                        <label class="filter-option">
-                            <input type="radio" name="category-rating" data-category-filter="rating" value="all" checked>
-                            <span>All ratings</span>
+                            <input type="checkbox" name="product-type" value="lighting">
+                            <span>Light Sculptures</span>
                         </label>
                         <label class="filter-option">
-                            <input type="radio" name="category-rating" data-category-filter="rating" value="4">
-                            <span>4★ & above</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="radio" name="category-rating" data-category-filter="rating" value="3">
-                            <span>3★ & above</span>
+                            <input type="checkbox" name="product-type" value="jewelry">
+                            <span>Glass Jewelry</span>
                         </label>
                     </div>
 
                     <!-- Price Range -->
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="400">
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="200" data-default-value="200">
                         <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
-                            <span id="priceValue">$400</span>
+                            <span id="priceValue">$200</span>
                             <span>$400+</span>
                         </div>
+                    </div>
+
+                    <!-- Artisan Filter -->
+                    <div class="filter-group">
+                        <h4>🎨 Glass Artists</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="astrid">
+                            <span>Astrid Björk</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="magnus">
+                            <span>Magnus Glass</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="elena">
+                            <span>Elena Crystal</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="odin">
+                            <span>Odin Lightforge</span>
+                        </label>
                     </div>
 
                     <!-- Clear Filters -->
@@ -396,25 +434,12 @@
 
                 <!-- Products Grid -->
                 <div class="products-main">
-                    <div class="sort-controls">
-                        <div class="results-info" id="categoryResultsInfo">Loading products…</div>
-                        <div class="sort-select-wrapper">
-                            <label for="categorySort" class="sr-only">Sort products</label>
-                            <select id="categorySort" class="sort-select">
-                                <option value="-created_at" selected>Newest arrivals</option>
-                                <option value="-rating">Top rated</option>
-                                <option value="-total_sales">Best sellers</option>
-                                <option value="price">Price: Low to high</option>
-                                <option value="-price">Price: High to low</option>
-                            </select>
-                        </div>
-                    </div>
                     <div class="asymmetric-grid" id="glass-art-products">
                         <!-- Products will be dynamically generated -->
                     </div>
 
                     <div class="text-center mt-xl">
-                        <button class="btn btn-primary" id="loadMoreGlassArt">
+                    <button class="btn btn-primary" id="loadMoreGlassArt" style="display: none;">
                             ✨ Load More Glass Art
                         </button>
                     </div>
@@ -474,36 +499,12 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="../assets/js/security-utils.js"></script>
-    <script src="../assets/js/error-handler.js"></script>
-    <script src="../assets/js/lazy-load.js"></script>
-    <script src="../assets/js/performance-monitor.js"></script>
-
     <script src="../assets/js/auth-manager.js"></script>
     <script src="../assets/js/api-config.js"></script>
     <script src="../assets/js/api-client.js"></script>
-
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/category-page-api.js"></script>
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
-    <script src="../assets/js/main.js"></script>
-    <script src="../assets/js/product-modal.js"></script>
-    <script src="../assets/js/category-page-api.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            new CategoryPageAPI({
-                slug: 'glass-art',
-                productsContainerId: 'glass-art-products',
-                loadMoreButtonId: 'loadMoreGlassArt',
-                resultsInfoId: 'categoryResultsInfo',
-                sortSelectId: 'categorySort',
-                priceRangeId: 'priceRange',
-                priceValueId: 'priceValue',
-                clearFiltersId: 'clearFilters',
-                heroTitleId: 'categoryHeroTitle',
-                heroSubtitleId: 'categoryHeroSubtitle',
-                heroStatsId: 'categoryHeroStats'
-            });
-        });
-    </script>
 </body>
 </html>
