@@ -21,11 +21,13 @@ class AdminDashboard {
             storage: 84,
             network: 45
         };
-        this.vendorFilters = {
+
+        this.storeFilters = {
             page: 1,
-            limit: 20,
-            status: 'pending'
+            limit: 10,
+            status: 'pending',
         };
+        this.storePagination = null;
 
         // Check authentication before initializing
         if (!AuthManager.checkAdminAuth()) {
@@ -74,7 +76,7 @@ class AdminDashboard {
 
             // Load all stats in parallel
             console.log('[Admin Dashboard] Fetching stores, products, orders...');
-            const [storesResponse, productsResponse, ordersResponse, pendingStoresCount, pendingProductsCount] = await Promise.all([
+            const [storesResult, productsResult, ordersResult, pendingStoresCount, pendingProductsCount] = await Promise.all([
                 this.api.getStores({ limit: 1 }),
                 this.api.getProducts({ limit: 1 }),
                 this.api.getAllOrders({ limit: 1 }),
@@ -82,34 +84,21 @@ class AdminDashboard {
                 this.api.getPendingProductsCount()
             ]);
 
-            const ensureSuccess = (response, context) => {
-                if (!response || response.success === false) {
-                    throw new Error((response && response.message) || `${context} yüklenemedi`);
-                }
-                return response;
-            };
+            console.log('[Admin Dashboard] API responses:', { storesResult, productsResult, ordersResult, pendingStoresCount, pendingProductsCount });
 
-            const stores = ensureSuccess(storesResponse, 'Mağaza verileri');
-            const products = ensureSuccess(productsResponse, 'Ürün verileri');
-            const orders = ensureSuccess(ordersResponse, 'Sipariş verileri');
-
-            console.log('[Admin Dashboard] API responses:', { stores, products, orders, pendingStoresCount, pendingProductsCount });
-
-            const extractTotal = (response) => {
-                if (!response) return 0;
-                if (response.pagination && typeof response.pagination.total === 'number') {
-                    return response.pagination.total;
+            const extractTotal = (result, label) => {
+                if (result?.success) {
+                    return Number(result.pagination?.total ?? (Array.isArray(result.data) ? result.data.length : 0)) || 0;
                 }
-                if (Array.isArray(response.data)) {
-                    return response.data.length;
-                }
+
+                console.warn(`[Admin Dashboard] ${label} response was not successful`, result);
                 return 0;
             };
 
             // Update real-time data
-            this.realTimeData.stores = extractTotal(stores);
-            this.realTimeData.products = extractTotal(products);
-            this.realTimeData.orders = extractTotal(orders);
+            this.realTimeData.stores = extractTotal(storesResult, 'Stores');
+            this.realTimeData.products = extractTotal(productsResult, 'Products');
+            this.realTimeData.orders = extractTotal(ordersResult, 'Orders');
 
             // Update UI
             this.updateDashboardUI({
@@ -163,43 +152,65 @@ class AdminDashboard {
     /**
      * Load pending stores
      */
-    async loadVendorsData(overrides = {}) {
+    async loadVendorsData() {
         try {
             console.log('[Admin Dashboard] Loading vendors data...');
             this.showLoading('stores-table');
 
-            this.vendorFilters = {
-                ...this.vendorFilters,
-                ...overrides,
+            const params = {
+                page: this.storeFilters.page,
+                limit: this.storeFilters.limit,
             };
 
-            const { page, limit, status } = this.vendorFilters;
-            const params = { page, limit };
-
-            if (status && status !== 'all') {
-                params.status = status;
+            if (this.storeFilters.status && this.storeFilters.status !== 'all') {
+                params.status = this.storeFilters.status;
             }
 
             const result = await this.api.getStores(params);
             console.log('[Admin Dashboard] Vendors API result:', result);
 
-            if (result && result.success && Array.isArray(result.data)) {
-                const pagination = result.pagination || null;
-                if (pagination) {
-                    this.vendorFilters.page = pagination.page || page || 1;
-                    this.vendorFilters.limit = pagination.limit || limit || 20;
+            if (!result?.success || !Array.isArray(result.data)) {
+                console.warn('[Admin Dashboard] Vendors data request failed', result);
+
+                const tableContainer = document.getElementById('stores-table');
+                if (tableContainer) {
+                    const errorMessage = result?.message ? `: ${result.message}` : '';
+                    tableContainer.innerHTML = `<p style="text-align: center; padding: 2rem; opacity: 0.7;">Mağaza verileri yüklenemedi${errorMessage}</p>`;
                 }
 
-                console.log('[Admin Dashboard] Rendering vendors table, count:', result.data.length, 'pagination:', pagination);
-                this.renderStoresTable(result.data, pagination);
-            } else {
-                console.warn('[Admin Dashboard] No vendors data received');
-                this.renderStoresTable([], result?.pagination || null);
+                this.storePagination = {
+                    page: this.storeFilters.page,
+                    limit: this.storeFilters.limit,
+                    total: 0,
+                    totalPages: 1,
+                    hasNext: false,
+                    hasPrev: this.storeFilters.page > 1,
+                };
+
+                this.hideLoading('stores-table');
+                return;
             }
+
+            const pagination = {
+                page: Number(result.pagination?.page) || this.storeFilters.page,
+                limit: Number(result.pagination?.limit) || this.storeFilters.limit,
+                total: Number(result.pagination?.total ?? result.data.length) || 0,
+                totalPages: Number(result.pagination?.totalPages) || Math.max(1, Math.ceil((Number(result.pagination?.total ?? result.data.length) || 0) / (Number(result.pagination?.limit) || this.storeFilters.limit))),
+                hasNext: Boolean(result.pagination?.hasNext),
+                hasPrev: Boolean(result.pagination?.hasPrev),
+            };
+
+            this.storeFilters.page = pagination.page;
+            this.storeFilters.limit = pagination.limit;
+            this.storePagination = pagination;
+
+            console.log('[Admin Dashboard] Rendering vendors table, count:', result.data.length, 'pagination:', pagination);
+            this.renderStoresTable(result.data, pagination);
+
+            this.hideLoading('stores-table');
         } catch (error) {
             console.error('[Admin Dashboard] Error loading vendors:', error);
             this.showError('Mağazalar yüklenirken hata oluştu');
-        } finally {
             this.hideLoading('stores-table');
         }
     }
@@ -207,51 +218,46 @@ class AdminDashboard {
     /**
      * Render stores table
      */
-    renderStoresTable(stores, pagination = null) {
+    renderStoresTable(stores, pagination = {}) {
         const tableContainer = document.getElementById('stores-table');
         if (!tableContainer) {
             console.error('[Admin Dashboard] stores-table container not found');
             return;
         }
 
-        const filters = this.vendorFilters || { page: 1, limit: 20, status: 'pending' };
-        const currentPage = pagination?.page || filters.page || 1;
-        const totalPages = pagination?.totalPages || 1;
-        const totalItems = pagination?.total ?? (Array.isArray(stores) ? stores.length : 0);
+        const currentPage = Number(pagination.page) || this.storeFilters.page || 1;
+        const totalPages = Math.max(1, Number(pagination.totalPages) || 1);
+        const hasPrev = Boolean(pagination.hasPrev);
+        const hasNext = Boolean(pagination.hasNext);
+        const selectedStatus = this.storeFilters.status || 'all';
 
-        let html = `
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <label style="font-size: 0.9rem; color: var(--admin-text-secondary);">
-                        Durum
-                        <select id=\"vendor-status-filter\" style=\"display: block; margin-top: 0.35rem; padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--admin-border); min-width: 160px;\">
-                            <option value="all">Tümü</option>
-                            <option value="pending">Beklemede</option>
-                            <option value="approved">Onaylı</option>
-                            <option value="rejected">Reddedildi</option>
-                            <option value="suspended">Askıda</option>
-                        </select>
-                    </label>
-                    <label style="font-size: 0.9rem; color: var(--admin-text-secondary);">
-                        Sayfa Boyutu
-                        <select id=\"vendor-page-size\" style=\"display: block; margin-top: 0.35rem; padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--admin-border); min-width: 140px;\">
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </label>
+        const statusOptions = [
+            { value: 'all', label: 'Tümü' },
+            { value: 'pending', label: 'Bekleyen' },
+            { value: 'approved', label: 'Onaylanan' },
+            { value: 'rejected', label: 'Reddedilen' },
+            { value: 'suspended', label: 'Askıya Alınan' },
+        ];
+
+        const controlsHtml = `
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label for="store-status-filter" style="font-weight: 600; font-size: 0.85rem; color: var(--admin-text-secondary, #64748b);">Durum:</label>
+                    <select id="store-status-filter" style="padding: 0.4rem 0.75rem; border: 1px solid var(--admin-border); border-radius: 6px; background: #fff; min-width: 160px;">
+                        ${statusOptions.map(option => `<option value="${option.value}" ${option.value === selectedStatus ? 'selected' : ''}>${option.label}</option>`).join('')}
+                    </select>
                 </div>
-                <div style="font-size: 0.9rem; opacity: 0.7;">
-                    Toplam <strong>${totalItems}</strong> mağaza
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="font-size: 0.85rem; opacity: 0.75;">Sayfa ${currentPage} / ${totalPages}</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="stores-page-prev" ${hasPrev ? '' : 'disabled'} style="padding: 0.4rem 0.9rem; border: 1px solid var(--admin-border); background: ${hasPrev ? '#fff' : 'rgba(148, 163, 184, 0.2)'}; color: ${hasPrev ? 'var(--admin-primary)' : '#94a3b8'}; border-radius: 6px; cursor: ${hasPrev ? 'pointer' : 'not-allowed'}; font-weight: 600;">Önceki</button>
+                        <button id="stores-page-next" ${hasNext ? '' : 'disabled'} style="padding: 0.4rem 0.9rem; border: 1px solid var(--admin-border); background: ${hasNext ? '#fff' : 'rgba(148, 163, 184, 0.2)'}; color: ${hasNext ? 'var(--admin-primary)' : '#94a3b8'}; border-radius: 6px; cursor: ${hasNext ? 'pointer' : 'not-allowed'}; font-weight: 600;">Sonraki</button>
+                    </div>
                 </div>
             </div>
         `;
 
-        if (!stores || stores.length === 0) {
-            html += '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Filtrelerinize uygun mağaza bulunamadı.</p>';
-        } else {
-            html += `
+        let html = `
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid var(--admin-border);">
@@ -265,8 +271,8 @@ class AdminDashboard {
                 <tbody>
         `;
 
-            stores.forEach(store => {
-                html += `
+        stores.forEach(store => {
+            html += `
                 <tr style="border-bottom: 1px solid var(--admin-border);">
                     <td style="padding: 1rem;">
                         <div style=\"font-weight: 600;\">${store.name}</div>
@@ -317,66 +323,72 @@ class AdminDashboard {
                     </td>
                 </tr>
             `;
-            });
+        });
 
-            html += '</tbody></table>';
-        }
+        html += '</tbody></table>';
+        const contentHtml = stores && stores.length > 0
+            ? html
+            : '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Seçili filtre için mağaza bulunamadı.</p>';
 
-        if (totalPages > 1) {
-            html += `
-                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem;">
-                    <button id=\"vendor-prev-page\" ${currentPage <= 1 ? 'disabled' : ''}
-                        style="padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--admin-border); background: white; cursor: ${currentPage <= 1 ? 'not-allowed' : 'pointer'}; opacity: ${currentPage <= 1 ? 0.6 : 1};">
-                        Önceki
-                    </button>
-                    <span style="font-size: 0.9rem;">Sayfa ${currentPage} / ${totalPages}</span>
-                    <button id=\"vendor-next-page\" ${currentPage >= totalPages ? 'disabled' : ''}
-                        style="padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--admin-border); background: white; cursor: ${currentPage >= totalPages ? 'not-allowed' : 'pointer'}; opacity: ${currentPage >= totalPages ? 0.6 : 1};">
-                        Sonraki
-                    </button>
-                </div>
-            `;
-        }
+        tableContainer.innerHTML = controlsHtml + contentHtml;
+        this.attachStoreTableControls();
+    }
 
-        tableContainer.innerHTML = html;
-
-        const statusSelect = document.getElementById('vendor-status-filter');
+    attachStoreTableControls() {
+        const statusSelect = document.getElementById('store-status-filter');
         if (statusSelect) {
-            statusSelect.value = filters.status || 'pending';
-            statusSelect.onchange = (event) => {
+            statusSelect.value = this.storeFilters.status || 'all';
+            statusSelect.onchange = async (event) => {
                 const newStatus = event.target.value;
-                this.loadVendorsData({ page: 1, status: newStatus });
+                this.storeFilters.status = newStatus === 'all' ? null : newStatus;
+                this.storeFilters.page = 1;
+
+                try {
+                    await this.loadVendorsData();
+                } catch (error) {
+                    console.error('[Admin Dashboard] Error reloading vendors after status change:', error);
+                }
             };
         }
 
-        const pageSizeSelect = document.getElementById('vendor-page-size');
-        if (pageSizeSelect) {
-            pageSizeSelect.value = String(filters.limit || 20);
-            pageSizeSelect.onchange = (event) => {
-                const newLimit = parseInt(event.target.value, 10) || 20;
-                this.loadVendorsData({ page: 1, limit: newLimit });
+        const prevButton = document.getElementById('stores-page-prev');
+        if (prevButton) {
+            prevButton.onclick = async () => {
+                if (!this.storePagination?.hasPrev) {
+                    return;
+                }
+
+                const targetPage = Math.max(1, (this.storePagination.page || 1) - 1);
+                if (targetPage === this.storeFilters.page) {
+                    return;
+                }
+
+                this.storeFilters.page = targetPage;
+
+                try {
+                    await this.loadVendorsData();
+                } catch (error) {
+                    console.error('[Admin Dashboard] Error loading previous vendors page:', error);
+                }
             };
         }
 
-        if (totalPages > 1) {
-            const prevButton = document.getElementById('vendor-prev-page');
-            const nextButton = document.getElementById('vendor-next-page');
+        const nextButton = document.getElementById('stores-page-next');
+        if (nextButton) {
+            nextButton.onclick = async () => {
+                if (!this.storePagination?.hasNext) {
+                    return;
+                }
 
-            if (prevButton) {
-                prevButton.onclick = () => {
-                    if (currentPage > 1) {
-                        this.loadVendorsData({ page: currentPage - 1 });
-                    }
-                };
-            }
+                const targetPage = (this.storePagination.page || 1) + 1;
+                this.storeFilters.page = targetPage;
 
-            if (nextButton) {
-                nextButton.onclick = () => {
-                    if (currentPage < totalPages) {
-                        this.loadVendorsData({ page: currentPage + 1 });
-                    }
-                };
-            }
+                try {
+                    await this.loadVendorsData();
+                } catch (error) {
+                    console.error('[Admin Dashboard] Error loading next vendors page:', error);
+                }
+            };
         }
     }
 

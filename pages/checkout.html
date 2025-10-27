@@ -332,6 +332,71 @@
             grid-column: 1 / -1;
         }
 
+        .form-alert {
+            display: none;
+            margin: var(--space-md) 0;
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border: 1px solid transparent;
+        }
+
+        .form-alert.show {
+            display: block;
+        }
+
+        .form-alert.success {
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        .form-alert.error {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+
+        .form-alert.info {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        #member-login .login-form,
+        #registration .register-form {
+            margin-top: var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        #registration .register-form .form-grid {
+            gap: var(--space-md);
+        }
+
+        .store-fields {
+            margin-top: var(--space-md);
+            padding: var(--space-lg);
+            border: 1px dashed rgba(45, 104, 83, 0.2);
+            border-radius: var(--radius-md);
+            background: rgba(45, 104, 83, 0.05);
+        }
+
+        .store-fields h3 {
+            margin-top: 0;
+            color: var(--forest-deep);
+            font-size: 1.05rem;
+            margin-bottom: var(--space-sm);
+        }
+
+        .store-help {
+            margin: 0 0 var(--space-md) 0;
+            color: rgba(45, 104, 83, 0.75);
+            font-size: 0.9rem;
+        }
+
         .form-label {
             display: block;
             margin-bottom: var(--space-sm);
@@ -1270,20 +1335,21 @@
                     <h2 class="section-title">
                         👤 Member Login
                     </h2>
-                    <div class="login-form">
+                    <div id="memberLoginMessage" class="form-alert"></div>
+                    <form id="memberLoginForm" class="login-form">
                         <div class="form-group">
                             <label for="loginEmail" class="form-label">Email Address *</label>
-                            <input type="email" id="loginEmail" name="loginEmail" class="form-input" required>
+                            <input type="email" id="loginEmail" name="loginEmail" class="form-input" autocomplete="email" required>
                         </div>
                         <div class="form-group">
                             <label for="loginPassword" class="form-label">Password *</label>
-                            <input type="password" id="loginPassword" name="loginPassword" class="form-input" required>
+                            <input type="password" id="loginPassword" name="loginPassword" class="form-input" autocomplete="current-password" required>
                         </div>
-                        <div class="form-actions">
-                            <button type="button" class="login-btn">🔐 Login to Account</button>
+                        <div class="form-actions" style="display: flex; align-items: center; gap: var(--space-md);">
+                            <button type="submit" class="login-btn">🔐 Login to Account</button>
                             <a href="#" class="forgot-link">Forgot Password?</a>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
                 <!-- Registration Section -->
@@ -1297,6 +1363,73 @@
                         <div class="benefit-item">📊 Order history and tracking</div>
                         <div class="benefit-item">💌 Special offers and rewards</div>
                     </div>
+                    <div id="checkoutRegisterMessage" class="form-alert"></div>
+                    <form id="checkoutRegisterForm" class="register-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="registerFirstName" class="form-label">First Name *</label>
+                                <input type="text" id="registerFirstName" name="registerFirstName" class="form-input" autocomplete="given-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerLastName" class="form-label">Last Name *</label>
+                                <input type="text" id="registerLastName" name="registerLastName" class="form-input" autocomplete="family-name" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="registerEmail" class="form-label">Email Address *</label>
+                                <input type="email" id="registerEmail" name="registerEmail" class="form-input" autocomplete="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerPassword" class="form-label">Password *</label>
+                                <input type="password" id="registerPassword" name="registerPassword" class="form-input" autocomplete="new-password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="registerConfirmPassword" class="form-label">Confirm Password *</label>
+                                <input type="password" id="registerConfirmPassword" name="registerConfirmPassword" class="form-input" autocomplete="new-password" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerRole" class="form-label">Account Type *</label>
+                            <select id="registerRole" name="registerRole" class="form-input" required>
+                                <option value="buyer">Buy Products (Customer)</option>
+                                <option value="seller">Sell Products (Vendor)</option>
+                            </select>
+                        </div>
+                        <div id="sellerStoreFields" class="store-fields" style="display: none;">
+                            <h3>Store Information</h3>
+                            <p class="store-help">We'll create your artisan store immediately after registration.</p>
+                            <div class="form-grid">
+                                <div class="form-group full-width">
+                                    <label for="registerStoreName" class="form-label">Store Name *</label>
+                                    <input type="text" id="registerStoreName" name="registerStoreName" class="form-input" data-store-field data-required="true">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="registerStoreDescription" class="form-label">Store Description</label>
+                                    <textarea id="registerStoreDescription" name="registerStoreDescription" class="form-input" rows="3" data-store-field></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="registerStorePhone" class="form-label">Store Phone</label>
+                                    <input type="tel" id="registerStorePhone" name="registerStorePhone" class="form-input" data-store-field>
+                                </div>
+                                <div class="form-group">
+                                    <label for="registerStoreEmail" class="form-label">Store Email</label>
+                                    <input type="email" id="registerStoreEmail" name="registerStoreEmail" class="form-input" data-store-field>
+                                </div>
+                                <div class="form-group">
+                                    <label for="registerStoreAddress" class="form-label">Store Address</label>
+                                    <input type="text" id="registerStoreAddress" name="registerStoreAddress" class="form-input" data-store-field>
+                                </div>
+                                <div class="form-group">
+                                    <label for="registerStoreCity" class="form-label">City</label>
+                                    <input type="text" id="registerStoreCity" name="registerStoreCity" class="form-input" data-store-field>
+                                </div>
+                                <div class="form-group">
+                                    <label for="registerStoreTaxNumber" class="form-label">Tax Number</label>
+                                    <input type="text" id="registerStoreTaxNumber" name="registerStoreTaxNumber" class="form-input" data-store-field>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="login-btn register-btn">Create Account</button>
+                    </form>
                 </div>
 
                 <!-- Shipping Information -->

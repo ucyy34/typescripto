@@ -7,6 +7,19 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
+    this.debug = false;
+
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.API_DEBUG === true) {
+          this.debug = true;
+        } else if (window.localStorage) {
+          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
+        }
+      }
+    } catch (_) {
+      this.debug = false;
+    }
   }
 
   /**
@@ -122,32 +135,48 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
+      this._log(`${config.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      // Parse JSON response
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
 
-      // Check if request was successful
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (_) {
+          data = { success: response.ok, message: responseText };
+        }
+      } else {
+        data = { success: response.ok };
+      }
+
+      if (typeof data.success !== 'boolean') {
+        data.success = response.ok;
+      }
+
+      if (!data.message && response.statusText) {
+        data.message = response.statusText;
+      }
+
       if (!response.ok) {
-        console.error(`[API] Error ${response.status}:`, data);
+        this._log(`Error ${response.status} ${endpoint}`, data);
 
-        // Return backend error message directly if available
         if (data.message) {
           return {
             success: false,
             message: data.message,
             error: data.error || 'API_ERROR',
-            status: response.status
+            status: response.status,
           };
         }
 
-        return this.handleError(new Error(data.message || 'Request failed'), response);
+        return this.handleError(new Error('Request failed'), response);
       }
 
-      console.log(`[API] Success:`, data);
+      this._log(`Success ${endpoint}`, data);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -221,6 +250,12 @@ class ApiClient {
     });
   }
 
+  _log(...args) {
+    if (this.debug) {
+      console.log('[API]', ...args);
+    }
+  }
+
   // ==========================================
   // AUTH METHODS
   // ==========================================
@@ -269,6 +304,20 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
+  }
+
+  /**
+   * Get current user's store
+   */
+  async getMyStore() {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
+  }
+
+  /**
+   * Create a new store for the authenticated seller
+   */
+  async createStore(storeData = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
   }
 
   /**

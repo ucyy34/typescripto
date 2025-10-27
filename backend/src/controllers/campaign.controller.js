@@ -4,7 +4,7 @@
  */
 
 const campaignService = require('../services/campaign.service');
-const { success } = require('../utils/response');
+const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class CampaignController {
@@ -48,12 +48,7 @@ class CampaignController {
       req.user.id
     );
 
-    return res.status(200).json({
-      success: true,
-      data: campaigns,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, campaigns, pagination, 'Campaigns retrieved successfully');
   });
 
   /**
