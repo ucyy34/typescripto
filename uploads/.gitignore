@@ -1,5 +1,3 @@
+# Ignore generated product images
 *
 !.gitignore
-!.gitkeep
-!*/
-!*/.gitkeep

@@ -7,13 +7,6 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
-    this.debug = Boolean(API_CONFIG.DEBUG);
-  }
-
-  log(...args) {
-    if (this.debug && typeof console !== 'undefined' && console.debug) {
-      console.debug('[API]', ...args);
-    }
   }
 
   /**
@@ -27,15 +20,7 @@ class ApiClient {
    * Build headers with authorization
    */
   buildHeaders(customHeaders = {}) {
-    const headers = { ...API_CONFIG.HEADERS };
-
-    Object.entries(customHeaders).forEach(([key, value]) => {
-      if (value === null || value === undefined) {
-        delete headers[key];
-      } else {
-        headers[key] = value;
-      }
-    });
+    const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
 
     const token = this.getToken();
     if (token) {
@@ -127,108 +112,51 @@ class ApiClient {
    */
   async request(endpoint, options = {}) {
     const controller = new AbortController();
-    const externalSignal = options.signal;
-    let didTimeout = false;
-    let abortedExternally = false;
-
-    const timeoutId = setTimeout(() => {
-      didTimeout = true;
-      controller.abort();
-    }, this.timeout);
-
-    const isAbortSignal =
-      externalSignal &&
-      typeof externalSignal === 'object' &&
-      typeof externalSignal.addEventListener === 'function' &&
-      typeof externalSignal.aborted === 'boolean' &&
-      (typeof AbortSignal === 'undefined' || externalSignal instanceof AbortSignal);
-
-    if (isAbortSignal) {
-      if (externalSignal.aborted) {
-        abortedExternally = true;
-        controller.abort();
-      } else {
-        externalSignal.addEventListener(
-          'abort',
-          () => {
-            abortedExternally = true;
-            controller.abort();
-          },
-          { once: true }
-        );
-      }
-    }
-
-    const { headers: customHeaders = {}, signal: _ignoredSignal, ...restOptions } = options;
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config = {
-        ...restOptions,
-        headers: this.buildHeaders(customHeaders),
+        ...options,
+        headers: this.buildHeaders(options.headers),
         signal: controller.signal,
       };
 
-      this.log(options.method || 'GET', endpoint);
+      if (options.body instanceof FormData) {
+        const headers = { ...config.headers };
+        delete headers['Content-Type'];
+        config.headers = headers;
+      }
+
+      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      const statusHasBody = ![204, 205, 304].includes(response.status);
-      let data = { success: true };
+      // Parse JSON response
+      const data = await response.json();
 
-      if (statusHasBody) {
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          try {
-            data = await response.json();
-          } catch (parseError) {
-            if (this.debug) {
-              this.log('JSON parse error', parseError);
-            }
-            return this.handleError(parseError, response);
-          }
-        } else {
-          const textPayload = await response.text();
-          if (textPayload) {
-            try {
-              data = JSON.parse(textPayload);
-            } catch (_) {
-              data = { success: true, data: textPayload };
-            }
-          }
-        }
-      }
-
+      // Check if request was successful
       if (!response.ok) {
-        if (data && typeof data === 'object' && !Array.isArray(data) && data.message) {
+        console.error(`[API] Error ${response.status}:`, data);
+
+        // Return backend error message directly if available
+        if (data.message) {
           return {
             success: false,
             message: data.message,
             error: data.error || 'API_ERROR',
-            status: response.status,
+            status: response.status
           };
         }
 
-        return this.handleError(new Error('Request failed'), response);
+        return this.handleError(new Error(data.message || 'Request failed'), response);
       }
 
-      if (this.debug) {
-        this.log('Success', endpoint, data);
-      }
-
+      console.log(`[API] Success:`, data);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        if (abortedExternally) {
-          return { success: false, message: 'İstek iptal edildi.', error: 'ABORTED' };
-        }
-        if (didTimeout) {
-          return { success: false, message: 'İstek zaman aşımına uğradı.', error: 'TIMEOUT' };
-        }
-      }
-
       return this.handleError(error);
     }
   }
@@ -237,7 +165,7 @@ class ApiClient {
    * GET request with caching
    */
   async get(endpoint, params = {}, options = {}) {
-    const { useCache = true, ...restOptions } = options;
+    const { useCache = true, cacheDuration } = options;
 
     // Check cache first
     if (useCache && window.apiCache) {
@@ -250,7 +178,7 @@ class ApiClient {
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
 
-    const response = await this.request(url, { method: 'GET', ...restOptions });
+    const response = await this.request(url, { method: 'GET' });
 
     // Cache successful GET requests
     if (useCache && window.apiCache && response.success) {
@@ -281,6 +209,19 @@ class ApiClient {
   }
 
   /**
+   * Upload product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  /**
    * PATCH request
    */
   async patch(endpoint, data = {}) {
@@ -296,22 +237,6 @@ class ApiClient {
   async delete(endpoint) {
     return this.request(endpoint, {
       method: 'DELETE',
-    });
-  }
-
-  /**
-   * Upload product image
-   */
-  async uploadProductImage(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Content-Type': null,
-      },
     });
   }
 
@@ -422,64 +347,8 @@ class ApiClient {
   /**
    * Get all products with filters
    */
-  async getProducts(filters = {}, options = {}) {
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BASE, filters, options);
-  }
-
-  /**
-   * Search products (autocomplete)
-   */
-  async searchProducts(query, options = {}) {
-    const trimmed = (query || '').trim();
-    if (!trimmed) {
-      return {
-        success: true,
-        data: {
-          query: '',
-          totalMatches: 0,
-          products: [],
-          suggestions: [],
-        },
-      };
-    }
-
-    const params = { q: trimmed };
-    if (options.limit) {
-      params.limit = options.limit;
-    }
-    if (options.includeSuggestions !== undefined) {
-      params.includeSuggestions = options.includeSuggestions;
-    }
-
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
-  }
-
-  /**
-   * Search products (autocomplete)
-   */
-  async searchProducts(query, options = {}) {
-    const trimmed = (query || '').trim();
-    if (!trimmed) {
-      return {
-        success: true,
-        data: {
-          query: '',
-          totalMatches: 0,
-          products: [],
-          suggestions: [],
-        },
-      };
-    }
-
-    const params = { q: trimmed };
-    if (options.limit) {
-      params.limit = options.limit;
-    }
-    if (options.includeSuggestions !== undefined) {
-      params.includeSuggestions = options.includeSuggestions;
-    }
-
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
+  async getProducts(filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BASE, filters);
   }
 
   /**
@@ -487,13 +356,6 @@ class ApiClient {
    */
   async getProduct(productId) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(productId));
-  }
-
-  /**
-   * Get product by slug
-   */
-  async getProductBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -572,13 +434,6 @@ class ApiClient {
    */
   async getCategory(categoryId) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_ID(categoryId));
-  }
-
-  /**
-   * Get category by slug
-   */
-  async getCategoryBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

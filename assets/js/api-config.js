@@ -79,6 +79,10 @@ const API_CONFIG = {
       SEARCH: '/products/search',
     },
 
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
+    },
+
     // Category endpoints
     CATEGORIES: {
       BASE: '/categories',
