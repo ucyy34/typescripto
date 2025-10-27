@@ -5,37 +5,45 @@
 
 require('dotenv').config();
 const Redis = require('ioredis');
+const logger = require('../utils/logger');
 
-// Redis client for general caching
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB, 10) || 0,
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  lazyConnect: false,
-});
+const redisUrl = process.env.REDIS_URL;
+
+const redisClient = redisUrl
+  ? new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      lazyConnect: false,
+    })
+  : new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      db: parseInt(process.env.REDIS_DB, 10) || 0,
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      lazyConnect: false,
+    });
 
 // Event listeners
 redisClient.on('connect', () => {
-  console.log('✅ Redis: Connected successfully');
+  logger.info('✅ Connected to Redis');
 });
 
 redisClient.on('error', (err) => {
-  console.error('❌ Redis Error:', err.message);
+  logger.error('❌ Redis Error: %s', err.message);
 });
 
 redisClient.on('ready', () => {
-  console.log('✅ Redis: Ready to accept commands');
+  logger.info('✅ Redis: Ready to accept commands');
 });
 
 redisClient.on('close', () => {
-  console.log('⚠️  Redis: Connection closed');
+  logger.warn('⚠️  Redis: Connection closed');
 });
 
 // Helper functions for common caching operations

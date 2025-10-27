@@ -43,6 +43,19 @@ Production-ready RESTful API for a multi-vendor marketplace platform supporting 
 - **Redis** >= 6.0
 - **npm** >= 9.0.0
 
+## 🚄 Railway Deploy
+
+1. Fork or connect this repository to Railway using the "Deploy on Railway" flow.
+2. Set the build command to `cd backend && npm install`.
+3. Set the start command to `cd backend && npm run dev` (or `cd backend && npm start` for production mode).
+4. Configure the environment variables under **Variables**:
+   - `DATABASE_URL=${{ postgres-volume.DATABASE_URL }}`
+   - `REDIS_URL=${{ redis-volume.REDIS_URL }}`
+   - `PORT=8080`
+   - `NODE_ENV=development`
+   - (Optional) `BASE_URL` if you expose the service from a custom domain.
+5. Hit **Deploy** and Railway will provision PostgreSQL, Redis, install dependencies, and boot the API.
+
 ## 🛠 Installation
 
 ### 1. Clone the repository
@@ -95,11 +108,14 @@ Copy `.env.example` to `.env` and update the values:
 cp .env.example .env
 ```
 
-Edit `.env` and set your database credentials:
+Edit `.env` and set your connection strings or explicit credentials. At minimum provide:
+
 ```env
-DB_NAME=dostan_marketplace_dev
-DB_USER=postgres
-DB_PASSWORD=your_password
+PORT=8080
+NODE_ENV=development
+DATABASE_URL=postgres://user:password@localhost:5432/dostan_marketplace_dev
+REDIS_URL=redis://localhost:6379/0
+BASE_URL=http://localhost:8080
 ```
 
 ### 6. Run database migrations (optional)
@@ -122,7 +138,15 @@ npm run dev
 npm start
 ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://localhost:8080`
+
+### 8. Seed demo data
+
+Run the lightweight seed script to create a default admin user and store:
+
+```bash
+npm run seed
+```
 
 ## 📁 Project Structure
 

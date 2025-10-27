@@ -1,19 +1,17 @@
-# Backend için Node tabanlı Dockerfile
+# Backend deployment Dockerfile for Railway
 FROM node:18
 
-# Çalışma dizinini oluştur
 WORKDIR /app
 
-# package.json backend dizininde olduğu için oradan kopyala
+# Install dependencies
 COPY backend/package*.json ./
+RUN npm install --production=false
 
-RUN npm install
+# Copy backend source code
+COPY backend/ ./
 
-# Projedeki tüm dosyaları kopyala
-COPY . .
+ENV NODE_ENV=production
 
-# Railway'in dinleyeceği port
-EXPOSE 5050
+EXPOSE 8080
 
-# Uygulamayı başlat
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]
