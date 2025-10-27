@@ -16,12 +16,10 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 // path already required above
 
-const { sequelize } = require('./config/sequelize');
-const { redisClient } = require('./config/redis');
-const logger = require('./utils/logger');
-
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
+const { sequelize } = require('./config/sequelize');
+const { redisClient } = require('./config/redis');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -133,29 +131,35 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
+  const status = {
+    ok: true,
+    services: {
+      database: 'unknown',
+      redis: 'unknown',
+    },
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  };
+
   try {
-    const [, redisResult] = await Promise.all([
-      sequelize.query('SELECT 1'),
-      redisClient.ping(),
-    ]);
-
-    const redisOk = typeof redisResult === 'string' ? redisResult.toUpperCase() === 'PONG' : false;
-
-    res.status(200).json({
-      ok: true,
-      database: { ok: true },
-      redis: { ok: redisOk },
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
-    });
+    await sequelize.authenticate({ logging: false });
+    status.services.database = 'up';
   } catch (error) {
-    logger.error('Health check failed: %s', error.message);
-    res.status(503).json({
-      ok: false,
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
+    status.ok = false;
+    status.services.database = 'down';
+    status.databaseError = error.message;
   }
+
+  try {
+    await redisClient.ping();
+    status.services.redis = 'up';
+  } catch (error) {
+    status.ok = false;
+    status.services.redis = 'down';
+    status.redisError = error.message;
+  }
+
+  res.status(status.ok ? 200 : 503).json(status);
 });
 
 // API Routes

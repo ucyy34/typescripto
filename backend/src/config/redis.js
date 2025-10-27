@@ -5,45 +5,49 @@
 
 require('dotenv').config();
 const Redis = require('ioredis');
-const logger = require('../utils/logger');
 
-const redisUrl = process.env.REDIS_URL;
+const baseOptions = {
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  lazyConnect: false,
+};
 
-const redisClient = redisUrl
-  ? new Redis(redisUrl, {
-      maxRetriesPerRequest: 3,
-      enableReadyCheck: true,
-      lazyConnect: false,
-    })
-  : new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB, 10) || 0,
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-      maxRetriesPerRequest: 3,
-      enableReadyCheck: true,
-      lazyConnect: false,
-    });
+const createRedisClient = () => {
+  if (process.env.REDIS_URL) {
+    return new Redis(process.env.REDIS_URL, baseOptions);
+  }
+
+  return new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB, 10) || 0,
+    ...baseOptions,
+  });
+};
+
+// Redis client for general caching
+const redisClient = createRedisClient();
 
 // Event listeners
 redisClient.on('connect', () => {
-  logger.info('✅ Connected to Redis');
+  console.log('✅ Redis: Connected successfully');
 });
 
 redisClient.on('error', (err) => {
-  logger.error('❌ Redis Error: %s', err.message);
+  console.error('❌ Redis Error:', err.message);
 });
 
 redisClient.on('ready', () => {
-  logger.info('✅ Redis: Ready to accept commands');
+  console.log('✅ Redis: Ready to accept commands');
 });
 
 redisClient.on('close', () => {
-  logger.warn('⚠️  Redis: Connection closed');
+  console.log('⚠️  Redis: Connection closed');
 });
 
 // Helper functions for common caching operations

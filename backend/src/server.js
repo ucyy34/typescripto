@@ -11,6 +11,7 @@ const logger = require('./utils/logger');
 
 const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // Server instance
 let server;
@@ -27,11 +28,11 @@ const startServer = async () => {
     const dbConnected = await testConnection();
 
     if (!dbConnected) {
-      throw new Error('Failed to connect to database');
+      throw new Error('Failed to connect to PostgreSQL');
     }
 
     if (NODE_ENV === 'development') {
-      logger.info('Running automatic model sync for development environment');
+      logger.info('Synchronizing database schema for development');
       const synced = await syncDatabase({ alter: true });
 
       if (!synced) {
@@ -46,11 +47,11 @@ const startServer = async () => {
 
     // Start Express server
     server = app.listen(PORT, () => {
-      const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-      logger.info('🚀 Server running on port %s', PORT);
-      logger.info('Environment: %s', NODE_ENV);
-      logger.info('API Base URL: %s', `${baseUrl}/api/v1`);
-      logger.info('Health Check: %s', `${baseUrl}/health`);
+      logger.info(`🚀 Server running on port ${PORT}`, {
+        environment: NODE_ENV,
+        apiBaseUrl: `${BASE_URL}/api/v1`,
+        healthCheck: `${BASE_URL}/health`,
+      });
     });
   } catch (error) {
     logger.error('Failed to start server: %s', error.message);

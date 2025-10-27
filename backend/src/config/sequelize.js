@@ -47,7 +47,7 @@ const testConnection = async () => {
     logger.info('✅ Connected to PostgreSQL');
     return true;
   } catch (error) {
-    logger.error('Database connection failed: %s', error.message);
+    logger.error('Failed to connect to PostgreSQL: %s', error.message);
     return false;
   }
 };
