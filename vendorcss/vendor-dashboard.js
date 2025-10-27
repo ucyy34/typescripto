@@ -62,6 +62,7 @@ class VendorDashboard {
         this.apiClient = new ApiClient();
         this.storeId = null;
         this.storeName = null;
+        this.storeStatus = null;
         this.storeInfo = null;
         this.user = currentUser;
         this.userId = currentUser.id;
@@ -75,14 +76,20 @@ class VendorDashboard {
         vdLog('Starting initialization...');
 
         // Load store information first
-        await this.loadStoreInfo();
+        const storeReady = await this.loadStoreInfo();
 
-        // Setup UI components
+        // Setup UI components that should work regardless of store approval
         this.setupNavigation();
         this.setupNotifications();
         this.setupTheme();
         this.setupLogout();
         this.displayUserInfo();
+
+        if (!storeReady) {
+            vdLog('Store not approved yet; skipping dashboard bootstrapping');
+            return;
+        }
+
         this.setupProductModal();
         this.setupCampaignModal();
 
@@ -122,11 +129,19 @@ class VendorDashboard {
             }
 
             if (store) {
-                this.storeId = store.id;
-                this.storeName = store.name;
                 this.storeInfo = store;
+                this.storeStatus = store.status || 'pending';
+                this.storeName = store.name;
 
-                vdLog('Store loaded:', this.storeName, this.storeId);
+                vdLog('Store loaded:', this.storeName, store.id, 'status:', this.storeStatus);
+
+                if (this.storeStatus !== 'approved') {
+                    this.storeId = null;
+                    this.showPendingApprovalMessage(store);
+                    return false;
+                }
+
+                this.storeId = store.id;
 
                 // Update UI with store name
                 this.updateStoreNameInUI();
@@ -137,6 +152,8 @@ class VendorDashboard {
                 return true;
             } else {
                 console.warn('[Vendor Dashboard] No store found for user');
+                this.storeInfo = null;
+                this.storeStatus = null;
                 this.showNoStoreMessage();
                 return false;
             }
@@ -241,160 +258,194 @@ class VendorDashboard {
         const mainContent = document.querySelector('.vendor-main');
         if (mainContent) {
             mainContent.innerHTML = `
-                <div class="vendor-card" style="max-width: 640px; margin: 4rem auto;">
-                    <div style="text-align: center; margin-bottom: 1.5rem;">
-                        <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">🏪</div>
-                        <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">Henüz Mağazanız Yok</h2>
-                        <p style="opacity: 0.7; margin: 0;">Nordic Marketplace üzerinde satış yapmaya başlamak için aşağıdaki formu doldurarak mağazanızı oluşturabilirsiniz.</p>
+                <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.5rem; box-shadow: 0 12px 40px rgba(0,0,0,0.08);">
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🏪</div>
+                        <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">Mağaza Başvurusu Oluşturun</h2>
+                        <p style="margin: 0; opacity: 0.7;">Nordik pazarında satışa başlamak için mağaza başvurunuzu gönderin. Admin onayından sonra tüm satış araçlarına erişebileceksiniz.</p>
                     </div>
 
-                    <form id="createStoreForm" style="display: grid; gap: 1rem;">
-                        <div style="display: grid; gap: 0.75rem;">
-                            <div style="text-align: left;">
-                                <label for="storeName" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Mağaza Adı *</label>
-                                <input id="storeName" name="storeName" type="text" required placeholder="Örn. Dostan Nordic Crafts" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem;">
+                    <form id="createStoreForm" style="display: grid; gap: 1.25rem;">
+                        <div>
+                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Adı *</label>
+                            <input type="text" name="storeName" required placeholder="Örn: Erik'in Ahşap Atölyesi"
+                                   style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem;">
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Açıklaması</label>
+                            <textarea name="storeDescription" rows="4" placeholder="Kısa bir mağaza açıklaması..."
+                                      style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Şehir</label>
+                                <input type="text" name="storeCity" placeholder="İstanbul"
+                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
                             </div>
-                            <div style="text-align: left;">
-                                <label for="storeDescription" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Mağaza Açıklaması</label>
-                                <textarea id="storeDescription" name="storeDescription" rows="3" placeholder="El yapımı İskandinav ürünleri, sürdürülebilir üretim..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem; resize: vertical;"></textarea>
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
-                                <div style="text-align: left;">
-                                    <label for="storePhone" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Telefon</label>
-                                    <input id="storePhone" name="storePhone" type="tel" placeholder="+90 555 555 55 55" value="${this.user?.phone || ''}" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem;">
-                                </div>
-                                <div style="text-align: left;">
-                                    <label for="storeCity" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Şehir</label>
-                                    <input id="storeCity" name="storeCity" type="text" placeholder="İstanbul" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem;">
-                                </div>
-                            </div>
-                            <div style="text-align: left;">
-                                <label for="storeAddress" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Adres</label>
-                                <input id="storeAddress" name="storeAddress" type="text" placeholder="Mahalle, cadde, no..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem;">
-                            </div>
-                            <div style="text-align: left;">
-                                <label for="storeTaxNumber" style="display: block; font-weight: 600; margin-bottom: 0.25rem; color: var(--vendor-text);">Vergi Numarası</label>
-                                <input id="storeTaxNumber" name="storeTaxNumber" type="text" placeholder="Opsiyonel" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--vendor-border); border-radius: 8px; font-size: 1rem;">
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Telefon</label>
+                                <input type="tel" name="storePhone" placeholder="+90 555 123 45 67"
+                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
                             </div>
                         </div>
 
-                        <button type="submit" style="background: var(--vendor-primary); color: white; border: none; padding: 0.95rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                            🚀 Mağazayı Oluştur
-                        </button>
-                    </form>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza E-postası</label>
+                                <input type="email" name="storeEmail" placeholder="magaza@ornek.com"
+                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Vergi / Kimlik No</label>
+                                <input type="text" name="taxNumber" placeholder="Opsiyonel"
+                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
+                            </div>
+                        </div>
 
-                    <div id="createStoreMessage" style="display: none; margin-top: 1rem;"></div>
-                </div>
+                        <div id="createStoreStatus" style="display: none; font-weight: 600; border-radius: 10px; padding: 0.85rem 1rem;"></div>
+
+                        <button id="createStoreBtn" type="submit"
+                                style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;">
+                            Başvuruyu Gönder
+                        </button>
+                        <p style="margin: 0; font-size: 0.9rem; opacity: 0.7; text-align: center;">Başvurunuz incelemeye alındığında admin onayı tamamlanana kadar panel özellikleri kilitli kalacaktır.</p>
+                    </form>
+                </section>
             `;
 
-            this.setupCreateStoreForm();
-        }
-    }
+            const form = document.getElementById('createStoreForm');
+            const statusEl = document.getElementById('createStoreStatus');
+            const submitBtn = document.getElementById('createStoreBtn');
 
-    setupCreateStoreForm() {
-        const form = document.getElementById('createStoreForm');
-        if (!form) return;
-
-        const messageEl = document.getElementById('createStoreMessage');
-        const submitBtn = form.querySelector('button[type="submit"]');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-
-            if (!submitBtn) return;
-
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⌛ Oluşturuluyor...';
-            this.clearStoreMessage(messageEl);
-
-            const formData = new FormData(form);
-            const storeData = {
-                name: (formData.get('storeName') || '').trim(),
-                description: (formData.get('storeDescription') || '').trim(),
-                phone: (formData.get('storePhone') || '').trim(),
-                city: (formData.get('storeCity') || '').trim(),
-                address: (formData.get('storeAddress') || '').trim(),
-                tax_number: (formData.get('storeTaxNumber') || '').trim(),
+            const setStatus = (message, type = 'info') => {
+                if (!statusEl) return;
+                statusEl.textContent = message;
+                statusEl.style.display = message ? 'block' : 'none';
+                if (type === 'error') {
+                    statusEl.style.background = '#fef2f2';
+                    statusEl.style.color = '#b91c1c';
+                    statusEl.style.border = '1px solid #fecaca';
+                } else if (type === 'success') {
+                    statusEl.style.background = '#ecfdf5';
+                    statusEl.style.color = '#047857';
+                    statusEl.style.border = '1px solid #bbf7d0';
+                } else {
+                    statusEl.style.background = '#eff6ff';
+                    statusEl.style.color = '#1d4ed8';
+                    statusEl.style.border = '1px solid #bfdbfe';
+                }
             };
 
-            if (this.user?.email) {
-                storeData.email = this.user.email;
+            if (form && submitBtn) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const formData = new FormData(form);
+                    const name = (formData.get('storeName') || '').toString().trim();
+                    const description = (formData.get('storeDescription') || '').toString().trim();
+                    const city = (formData.get('storeCity') || '').toString().trim();
+                    const phone = (formData.get('storePhone') || '').toString().trim();
+                    const email = (formData.get('storeEmail') || '').toString().trim();
+                    const taxNumber = (formData.get('taxNumber') || '').toString().trim();
+
+                    if (!name || name.length < 3) {
+                        setStatus('Lütfen en az 3 karakterden oluşan bir mağaza adı girin.', 'error');
+                        return;
+                    }
+
+                    const payload = { name };
+                    if (description) payload.description = description;
+                    if (city) payload.city = city;
+                    if (phone) payload.phone = phone;
+                    if (email) payload.email = email;
+                    if (taxNumber) payload.tax_number = taxNumber;
+
+                    try {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Başvurunuz gönderiliyor...';
+                        setStatus('Başvurunuz gönderiliyor, lütfen bekleyin...', 'info');
+
+                        const response = await this.apiClient.createStore(payload);
+
+                        if (!response.success) {
+                            throw new Error(response.message || 'Mağaza oluşturulamadı.');
+                        }
+
+                        const store = response.data || {};
+                        this.storeInfo = store;
+                        this.storeStatus = store.status || 'pending';
+                        this.storeName = store.name;
+
+                        setStatus('Mağaza başvurunuz alındı! Admin onayı tamamlandığında panel otomatik açılacaktır.', 'success');
+                        submitBtn.textContent = 'Başvuru Alındı';
+
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } catch (error) {
+                        console.error('[Vendor Dashboard] Store creation failed:', error);
+                        setStatus(error.message || 'Mağaza oluşturulamadı. Lütfen tekrar deneyin.', 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Başvuruyu Gönder';
+                    }
+                });
             }
-
-            if (!storeData.name) {
-                this.showStoreMessage(messageEl, '❌ Mağaza adı zorunludur.', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                return;
-            }
-
-            Object.keys(storeData).forEach((key) => {
-                if (!storeData[key]) {
-                    delete storeData[key];
-                }
-            });
-
-            try {
-                const response = await this.apiClient.createStore(storeData);
-                if (!response?.success) {
-                    throw new Error(response?.message || 'Mağaza oluşturulamadı');
-                }
-
-                const createdStore = response.data || {};
-                this.showStoreMessage(
-                    messageEl,
-                    `✅ Mağazanız oluşturuldu: ${createdStore.name || storeData.name}. Yönetim paneli şimdi yenilenecek.`,
-                    'success'
-                );
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1200);
-            } catch (error) {
-                console.error('[Vendor Dashboard] Store creation failed:', error);
-                this.showStoreMessage(
-                    messageEl,
-                    `❌ Mağaza oluşturulamadı: ${error.message || 'Bilinmeyen bir hata oluştu'}`,
-                    'error'
-                );
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }
-        });
+        }
     }
 
-    showStoreMessage(element, text, type = 'info') {
-        if (!element) return;
-
-        element.style.display = 'block';
-        element.style.padding = '1rem';
-        element.style.borderRadius = '10px';
-        element.style.fontWeight = '600';
-        element.style.border = '1px solid transparent';
-
-        if (type === 'success') {
-            element.style.background = 'rgba(34,197,94,0.12)';
-            element.style.color = '#15803d';
-            element.style.borderColor = 'rgba(34,197,94,0.35)';
-        } else if (type === 'error') {
-            element.style.background = 'rgba(220,38,38,0.12)';
-            element.style.color = '#b91c1c';
-            element.style.borderColor = 'rgba(220,38,38,0.35)';
-        } else {
-            element.style.background = 'rgba(59,130,246,0.12)';
-            element.style.color = '#1d4ed8';
-            element.style.borderColor = 'rgba(59,130,246,0.35)';
+    showPendingApprovalMessage(store) {
+        const mainContent = document.querySelector('.vendor-main');
+        if (!mainContent) {
+            return;
         }
 
-        element.textContent = text;
-    }
+        const status = (store.status || 'pending').toLowerCase();
+        const isRejected = status === 'rejected';
+        const statusText = isRejected ? 'Reddedildi' : 'Onay Bekliyor';
+        const statusColor = isRejected ? '#dc2626' : '#f59e0b';
+        const statusBg = isRejected ? '#fee2e2' : '#fef3c7';
+        const submittedAt = store.createdAt
+            ? new Date(store.createdAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' })
+            : null;
 
-    clearStoreMessage(element) {
-        if (!element) return;
-        element.style.display = 'none';
-        element.textContent = '';
-        element.style.border = 'none';
+        mainContent.innerHTML = `
+            <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.5rem; box-shadow: 0 12px 40px rgba(0,0,0,0.08);">
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div style="font-size: 3.5rem; margin-bottom: 1rem;">${isRejected ? '⚠️' : '⏳'}</div>
+                    <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">Mağaza Başvurunuz İncelemede</h2>
+                    <p style="margin: 0; opacity: 0.75;">${store.name || 'Mağazanız'} için gönderdiğiniz başvuru ${isRejected ? 'güncelleme bekliyor' : 'admin onayını bekliyor'}. Onaylanana kadar ürün ve kampanya yönetimi devre dışıdır.</p>
+                </div>
+
+                <div style="background:${statusBg}; border:1px solid ${statusColor}; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;">
+                    <div style="font-size:0.95rem; color:#374151; display:flex; align-items:center; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+                        <span style="font-weight:600; color:${statusColor};">Durum: ${statusText}</span>
+                        ${submittedAt ? `<span>Gönderim: ${submittedAt}</span>` : ''}
+                        ${store.rejection_reason && isRejected ? `<span>Not: ${store.rejection_reason}</span>` : ''}
+                    </div>
+                </div>
+
+                <p style="margin: 0 0 1.5rem 0; text-align: center; font-size: 0.95rem; opacity: 0.85;">
+                    ${isRejected
+                        ? 'Bilgilerinizi güncellemeniz gerekiyorsa lütfen destek ekibi ile iletişime geçin. Admin onayından sonra panel işlevleri otomatik olarak açılacaktır.'
+                        : 'Başvurunuz onaylandığında tarafınıza e-posta ile bilgilendirme yapılacak ve bu panel otomatik olarak aktifleşecektir.'}
+                </p>
+
+                <div style="text-align: center;">
+                    <button id="refreshStoreStatusBtn" style="background: var(--vendor-primary); color: white; border: none; padding: 0.85rem 1.75rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">
+                        Durumu Yenile
+                    </button>
+                </div>
+            </section>
+        `;
+
+        const refreshBtn = document.getElementById('refreshStoreStatusBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                window.location.reload();
+            });
+        }
     }
 
     // ==========================================

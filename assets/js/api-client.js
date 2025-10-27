@@ -30,13 +30,6 @@ class ApiClient {
   }
 
   /**
-   * Backward-compatible alias for components that expect getAuthToken()
-   */
-  getAuthToken() {
-    return this.getToken();
-  }
-
-  /**
    * Build headers with authorization
    */
   buildHeaders(customHeaders = {}) {
@@ -325,13 +318,6 @@ class ApiClient {
    */
   async createStore(storeData = {}) {
     return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
-  }
-
-  /**
-   * Update store details
-   */
-  async updateStore(storeId, data = {}) {
-    return this.put(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId), data);
   }
 
   /**
