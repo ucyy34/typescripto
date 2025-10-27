@@ -4,8 +4,9 @@ FROM node:18
 # Çalışma dizinini oluştur
 WORKDIR /app
 
-# Paket dosyalarını kopyala ve bağımlılıkları yükle
-COPY package*.json ./
+# package.json backend dizininde olduğu için oradan kopyala
+COPY backend/package*.json ./
+
 RUN npm install
 
 # Projedeki tüm dosyaları kopyala
