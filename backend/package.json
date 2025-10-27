@@ -10,7 +10,7 @@
     "test:watch": "jest --watch",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
-    "seed": "sequelize-cli db:seed:all",
+    "seed": "node src/scripts/clean-and-seed.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.{js,json}\"",

@@ -127,6 +127,24 @@ npx http-server
 # Access at http://localhost:8080
 ```
 
+## 🚄 Railway Deploy
+
+1. Create a new project on [Railway](https://railway.app/) and connect this repository.
+2. In the **Deployments** tab set the build and start commands:
+   - **Build Command:** `cd backend && npm install`
+   - **Start Command:** `cd backend && npm run dev`
+3. Under **Variables**, add the required environment keys:
+
+   ```bash
+   DATABASE_URL=${{ postgres-volume.DATABASE_URL }}
+   REDIS_URL=${{ redis-volume.REDIS_URL }}
+   PORT=8080
+   NODE_ENV=development
+   ```
+
+4. Trigger a deploy – Railway will install dependencies, run the backend, and expose the `/health` endpoint for quick checks.
+5. Seed demo data any time with `npm run seed` executed in the `backend` directory.
+
 ## 🎯 Key Features
 
 ### E-commerce Functionality

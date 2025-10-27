@@ -18,6 +18,8 @@ const session = require('express-session');
 
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
+const { sequelize } = require('./config/sequelize');
+const { redisClient } = require('./config/redis');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -128,13 +130,36 @@ app.use(express.static(frontendPath));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
+app.get('/health', async (req, res) => {
+  const status = {
+    ok: true,
+    services: {
+      database: 'unknown',
+      redis: 'unknown',
+    },
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-  });
+  };
+
+  try {
+    await sequelize.authenticate({ logging: false });
+    status.services.database = 'up';
+  } catch (error) {
+    status.ok = false;
+    status.services.database = 'down';
+    status.databaseError = error.message;
+  }
+
+  try {
+    await redisClient.ping();
+    status.services.redis = 'up';
+  } catch (error) {
+    status.ok = false;
+    status.services.redis = 'down';
+    status.redisError = error.message;
+  }
+
+  res.status(status.ok ? 200 : 503).json(status);
 });
 
 // API Routes

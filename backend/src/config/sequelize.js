@@ -32,10 +32,10 @@ const sequelize = new Sequelize(
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    logger.info('Database connection established successfully');
+    logger.info('✅ Connected to PostgreSQL');
     return true;
   } catch (error) {
-    logger.error('Database connection failed: %s', error.message);
+    logger.error('Failed to connect to PostgreSQL: %s', error.message);
     return false;
   }
 };
@@ -46,7 +46,7 @@ const testConnection = async () => {
 const syncDatabase = async (options = {}) => {
   try {
     await sequelize.sync(options);
-    logger.info('Database models synchronized');
+    logger.info('✅ Database synced');
     return true;
   } catch (error) {
     logger.error('Database sync failed: %s', error.message);
