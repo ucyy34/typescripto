@@ -39,7 +39,9 @@ class VendorDashboard {
         this.user = currentUser;
         this.userId = currentUser.id;
         this.categories = [];
-        this.seoAutoState = { title: true, description: true };
+        this.selectedProductImageFile = null;
+        this.currentImagePreviewUrl = null;
+        this.currentImagePreviewUrlIsObject = false;
 
         console.log('[Vendor Dashboard] Initializing for user:', this.userId);
         this.init();
@@ -172,6 +174,114 @@ class VendorDashboard {
         });
     }
 
+    setProductImagePreview(src, isObjectUrl = false) {
+        const preview = document.getElementById('productImagePreview');
+        if (!preview) return;
+
+        if (this.currentImagePreviewUrl && this.currentImagePreviewUrlIsObject) {
+            try { URL.revokeObjectURL(this.currentImagePreviewUrl); } catch (_) {}
+        }
+
+        if (!src) {
+            preview.innerHTML = '<span class="preview-placeholder">No image selected</span>';
+            this.currentImagePreviewUrl = null;
+            this.currentImagePreviewUrlIsObject = false;
+            return;
+        }
+
+        preview.innerHTML = `<img src="${src}" alt="Product preview" loading="lazy">`;
+        this.currentImagePreviewUrl = src;
+        this.currentImagePreviewUrlIsObject = isObjectUrl;
+    }
+
+    resetProductImageSelection() {
+        const fileInput = document.getElementById('productImageFile');
+        const imageUrlInput = document.getElementById('productImageUrl');
+        const dropzone = document.getElementById('productImageDropzone');
+
+        if (fileInput) { fileInput.value = ''; }
+        if (imageUrlInput) { imageUrlInput.value = ''; }
+        if (dropzone) { dropzone.classList.remove('dragover'); }
+
+        this.selectedProductImageFile = null;
+        this.setProductImagePreview(null);
+    }
+
+    setupProductImageUpload() {
+        const fileInput = document.getElementById('productImageFile');
+        const dropzone = document.getElementById('productImageDropzone');
+        const imageUrlInput = document.getElementById('productImageUrl');
+        const clearBtn = document.getElementById('clearProductImage');
+
+        const handleFile = (file) => {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                this.showError('Lütfen görsel bir dosya seçin.');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                this.showError('Görsel boyutu 5MB\'ı geçmemelidir.');
+                return;
+            }
+
+            this.selectedProductImageFile = file;
+            this.setProductImagePreview(URL.createObjectURL(file), true);
+            if (imageUrlInput) {
+                imageUrlInput.value = '';
+            }
+        };
+
+        if (fileInput) {
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files && event.target.files[0];
+                handleFile(file);
+            });
+        }
+
+        if (dropzone) {
+            dropzone.addEventListener('click', () => fileInput && fileInput.click());
+
+            dropzone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover');
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                dropzone.classList.remove('dragover');
+                const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+                handleFile(file);
+            });
+        }
+
+        if (imageUrlInput) {
+            imageUrlInput.addEventListener('input', (event) => {
+                const value = event.target.value.trim();
+                if (value && (value.startsWith('http') || value.startsWith('/uploads/'))) {
+                    this.selectedProductImageFile = null;
+                    if (fileInput) { fileInput.value = ''; }
+                    this.setProductImagePreview(value, false);
+                } else if (!value && !this.selectedProductImageFile) {
+                    this.setProductImagePreview(null);
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.resetProductImageSelection();
+            });
+        }
+
+        // Ensure initial state
+        this.setProductImagePreview(null);
+    }
+
     collectSelectedVariants() {
         const result = [];
         const container = document.getElementById('variantContainer');
@@ -181,7 +291,9 @@ class VendorDashboard {
             const variantName = group.dataset.variantName;
             const selected = [];
             group.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
-                const labelText = input.nextSibling && input.nextSibling.textContent ? input.nextSibling.textContent.trim() : input.value;
+                const optionLabel = input.closest('.variant-option');
+                const chip = optionLabel ? optionLabel.querySelector('.variant-chip') : null;
+                const labelText = chip && chip.textContent ? chip.textContent.trim() : input.value;
                 selected.push({ label: labelText, value: input.value });
             });
             if (selected.length > 0) {
@@ -432,6 +544,15 @@ class VendorDashboard {
             // Render products in list/table style with inline edit
             let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
 
+            const badgeLabelMap = {
+                handmade: 'Handmade',
+                limited: 'Limited',
+                'eco-friendly': 'Eco',
+                spiritual: 'Spiritual',
+                traditional: 'Traditional',
+                artisan: 'Artisan'
+            };
+
             products.forEach(product => {
                 const statusColor = product.status === 'approved' ? '#10b981' : product.status === 'pending' ? '#f59e0b' : '#dc2626';
                 const statusBgColor = product.status === 'approved' ? '#dcfce7' : product.status === 'pending' ? '#fef3c7' : '#fee2e2';
@@ -439,18 +560,9 @@ class VendorDashboard {
                 const isActive = product.is_active;
                 const isPending = product.status === 'pending';
                 const isRejected = product.status === 'rejected';
-
-                const badgeLabelMap = {
-                    handmade: '🖐️ Handmade',
-                    limited: '⭐ Limited',
-                    'eco-friendly': '🌱 Eco',
-                    spiritual: '🔮 Spiritual',
-                    traditional: '🏛️ Traditional',
-                    artisan: '🎨 Artisan'
-                };
-
-                const badgeMarkup = Array.isArray(product.badges) && product.badges.length > 0
-                    ? `<div class="vendor-product-badges">${product.badges.map(badge => `<span class="vendor-badge vendor-badge-${badge}">${badgeLabelMap[badge] || badge}</span>`).join('')}</div>`
+                const productBadges = Array.isArray(product.badges) ? product.badges : [];
+                const badgesHtml = productBadges.length > 0
+                    ? `<div class="product-inline-badges">${productBadges.map((badge) => `<span class="product-inline-badge">${badgeLabelMap[badge] || badge}</span>`).join('')}</div>`
                     : '';
 
                 // Active/Inactive toggle styling
@@ -557,7 +669,7 @@ class VendorDashboard {
                                     onfocus="this.style.borderColor='var(--vendor-primary)'; this.style.boxShadow='0 0 0 3px rgba(45, 104, 83, 0.1)';"
                                     onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
                                 >
-                                ${badgeMarkup}
+                                ${badgesHtml}
                             </div>
 
                             <!-- Price -->
@@ -1823,10 +1935,12 @@ class VendorDashboard {
 
         // Close modal
         const closeModalFunc = () => {
-            if (modal) {
-                modal.style.display = 'none';
+            modal.style.display = 'none';
+            if (productForm) {
+                productForm.reset();
             }
-            this.resetProductModal();
+            this.resetProductImageSelection();
+            this.renderVariantSelectors([]);
         };
 
         if (closeModal) {
@@ -1854,11 +1968,10 @@ class VendorDashboard {
 
         // SEO character counters
         this.setupSEOCounters();
-        this.setupAutoSeoSync();
-        this.setupImageUpload();
-        if (typeof this.updateSeoCounters === 'function') {
-            this.updateSeoCounters();
-        }
+
+        // Image upload handlers
+        this.setupProductImageUpload();
+        this.renderVariantSelectors([]);
 
         const categorySelect = document.getElementById('productCategory');
         if (categorySelect) {
@@ -1882,36 +1995,9 @@ class VendorDashboard {
     openProductModal() {
         const modal = document.getElementById('productModal');
         if (modal) {
+            this.resetProductImageSelection();
+            this.renderVariantSelectors([]);
             modal.style.display = 'block';
-        }
-    }
-
-    resetProductModal() {
-        const productForm = document.getElementById('productForm');
-        if (productForm) {
-            productForm.reset();
-        }
-
-        const preview = document.getElementById('productImagePreview');
-        if (preview) {
-            preview.innerHTML = '';
-        }
-
-        const statusEl = document.getElementById('productImageStatus');
-        if (statusEl) {
-            statusEl.textContent = '';
-            statusEl.style.color = '#64748b';
-        }
-
-        const dropzone = document.getElementById('productImageDropzone');
-        if (dropzone) {
-            dropzone.classList.remove('dragover', 'uploading');
-        }
-
-        this.seoAutoState = { title: true, description: true };
-
-        if (typeof this.updateSeoCounters === 'function') {
-            this.updateSeoCounters();
         }
     }
 
@@ -1947,255 +2033,6 @@ class VendorDashboard {
         });
     }
 
-    setupImageUpload() {
-        const dropzone = document.getElementById('productImageDropzone');
-        const fileInput = document.getElementById('productImageFile');
-        const preview = document.getElementById('productImagePreview');
-        const urlInput = document.getElementById('productImage');
-        const statusEl = document.getElementById('productImageStatus');
-
-        if (!dropzone || !fileInput) {
-            return;
-        }
-
-        const setStatus = (message, type = 'info') => {
-            if (!statusEl) return;
-            statusEl.textContent = message;
-
-            switch (type) {
-                case 'success':
-                    statusEl.style.color = '#16a34a';
-                    break;
-                case 'error':
-                    statusEl.style.color = '#dc2626';
-                    break;
-                default:
-                    statusEl.style.color = '#64748b';
-            }
-        };
-
-        const clearPreview = () => {
-            if (preview) {
-                preview.innerHTML = '';
-            }
-        };
-
-        const renderPreview = (imageUrl, metaText = '') => {
-            if (!preview || !imageUrl) {
-                clearPreview();
-                return;
-            }
-
-            clearPreview();
-
-            const card = document.createElement('div');
-            card.className = 'vendor-image-preview-card';
-
-            const img = document.createElement('img');
-            img.src = imageUrl;
-            img.alt = 'Product image preview';
-            img.loading = 'lazy';
-            card.appendChild(img);
-
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'vendor-image-remove';
-            removeBtn.title = 'Remove image';
-            removeBtn.innerHTML = '✖';
-            removeBtn.addEventListener('click', () => {
-                clearPreview();
-                if (urlInput) {
-                    urlInput.value = '';
-                }
-                setStatus('Image removed. You can upload a new one.', 'info');
-            });
-            card.appendChild(removeBtn);
-
-            preview.appendChild(card);
-
-            if (metaText) {
-                const meta = document.createElement('div');
-                meta.className = 'vendor-image-status';
-                meta.style.marginTop = '0.25rem';
-                meta.textContent = metaText;
-                preview.appendChild(meta);
-            }
-        };
-
-        const handleUpload = async (file) => {
-            if (!file) {
-                return;
-            }
-
-            if (!file.type || !file.type.startsWith('image/')) {
-                setStatus('Please select a valid image file (JPG, PNG, WebP).', 'error');
-                return;
-            }
-
-            try {
-                dropzone.classList.add('uploading');
-                setStatus('Uploading image, please wait...');
-
-                const response = await this.apiClient.uploadProductImage(file);
-
-                dropzone.classList.remove('uploading');
-
-                if (response.success && response.data && response.data.url) {
-                    if (urlInput) {
-                        urlInput.value = response.data.url;
-                    }
-
-                    const optimized = response.data.optimized || {};
-                    const metaText = optimized.width && optimized.height
-                        ? `Optimized to ${optimized.width}x${optimized.height}px (${optimized.format || 'webp'})`
-                        : '';
-
-                    renderPreview(response.data.url, metaText);
-                    setStatus('Image uploaded successfully. ✅', 'success');
-                } else {
-                    throw new Error(response.message || 'Upload failed');
-                }
-            } catch (error) {
-                dropzone.classList.remove('uploading');
-                console.error('[Vendor Dashboard] Image upload error:', error);
-                setStatus(`Image upload failed: ${error.message}`, 'error');
-            }
-        };
-
-        dropzone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-
-        dropzone.addEventListener('dragleave', () => {
-            dropzone.classList.remove('dragover');
-        });
-
-        dropzone.addEventListener('drop', async (event) => {
-            event.preventDefault();
-            dropzone.classList.remove('dragover');
-            const file = event.dataTransfer?.files?.[0];
-            await handleUpload(file);
-        });
-
-        dropzone.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        dropzone.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                fileInput.click();
-            }
-        });
-
-        fileInput.addEventListener('change', async (event) => {
-            const file = event.target.files?.[0];
-            await handleUpload(file);
-            fileInput.value = '';
-        });
-
-        if (urlInput) {
-            urlInput.addEventListener('blur', () => {
-                const value = urlInput.value.trim();
-                if (value) {
-                    renderPreview(value);
-                    setStatus('External image URL will be used for this product.', 'info');
-                } else {
-                    clearPreview();
-                }
-            });
-        }
-    }
-
-    setupAutoSeoSync() {
-        const titleInput = document.getElementById('productTitle');
-        const shortDescInput = document.getElementById('productShortDesc');
-        const descriptionInput = document.getElementById('productDescription');
-        const seoTitleInput = document.getElementById('productSeoTitle');
-        const seoDescInput = document.getElementById('productSeoDescription');
-
-        if (!seoTitleInput || !seoDescInput) {
-            return;
-        }
-
-        const syncSeoTitle = () => {
-            if (!this.seoAutoState.title) {
-                return;
-            }
-
-            const value = titleInput ? titleInput.value.trim() : '';
-            const truncated = value.substring(0, 200);
-
-            if (seoTitleInput.value !== truncated) {
-                seoTitleInput.value = truncated;
-                if (typeof this.updateSeoCounters === 'function') {
-                    this.updateSeoCounters();
-                }
-            }
-        };
-
-        const syncSeoDescription = () => {
-            if (!this.seoAutoState.description) {
-                return;
-            }
-
-            const sources = [shortDescInput?.value?.trim(), descriptionInput?.value?.trim()].filter(Boolean);
-            const value = sources.length > 0 ? sources[0] : '';
-            const truncated = value.substring(0, 500);
-
-            if (seoDescInput.value !== truncated) {
-                seoDescInput.value = truncated;
-                if (typeof this.updateSeoCounters === 'function') {
-                    this.updateSeoCounters();
-                }
-            }
-        };
-
-        if (titleInput) {
-            titleInput.addEventListener('input', () => {
-                syncSeoTitle();
-            });
-        }
-
-        if (shortDescInput) {
-            shortDescInput.addEventListener('input', () => {
-                syncSeoDescription();
-            });
-        }
-
-        if (descriptionInput) {
-            descriptionInput.addEventListener('input', () => {
-                syncSeoDescription();
-            });
-        }
-
-        seoTitleInput.addEventListener('input', () => {
-            const isEmpty = seoTitleInput.value.trim().length === 0;
-            this.seoAutoState.title = isEmpty;
-            if (typeof this.updateSeoCounters === 'function') {
-                this.updateSeoCounters();
-            }
-            if (isEmpty) {
-                syncSeoTitle();
-            }
-        });
-
-        seoDescInput.addEventListener('input', () => {
-            const isEmpty = seoDescInput.value.trim().length === 0;
-            this.seoAutoState.description = isEmpty;
-            if (typeof this.updateSeoCounters === 'function') {
-                this.updateSeoCounters();
-            }
-            if (isEmpty) {
-                syncSeoDescription();
-            }
-        });
-
-        syncSeoTitle();
-        syncSeoDescription();
-    }
-
     async loadCategoryVariantsForForm(categoryId) {
         try {
             console.log('[Variant] Fetching variants for category:', categoryId);
@@ -2220,74 +2057,85 @@ class VendorDashboard {
             console.error('[Variant] productForm not found!');
             return;
         }
+
         let container = document.getElementById('variantContainer');
         if (!container) {
             console.log('[Variant] Creating new variantContainer');
             container = document.createElement('div');
             container.id = 'variantContainer';
             container.style.marginTop = '1.5rem';
-            container.style.padding = '1rem';
-            container.style.border = '1px solid #ddd';
-            container.style.borderRadius = '8px';
-            container.style.background = '#f9f9f9';
             form.appendChild(container);
         }
-        container.innerHTML = '';
-        
+
         if (!variants || variants.length === 0) {
-            console.log('[Variant] No variants to render');
+            container.innerHTML = `
+                <div class="variant-empty-state">
+                    <strong>Varyant Bilgisi</strong>
+                    Kategori seçtiğinizde ürününüze uygun seçenekler burada listelenecek.
+                </div>
+            `;
             return;
         }
-        variants.forEach(v => {
+
+        container.innerHTML = '';
+
+        variants.forEach((variant) => {
             const group = document.createElement('div');
             group.className = 'variant-group';
-            group.dataset.variantId = v.id;
-            group.dataset.variantName = v.name;
+            group.dataset.variantId = variant.id;
+            group.dataset.variantName = variant.name;
 
             const header = document.createElement('div');
-            header.className = 'variant-group-title';
+            header.className = 'variant-header';
 
-            const titleSpan = document.createElement('span');
-            titleSpan.textContent = v.name;
-            header.appendChild(titleSpan);
+            const nameEl = document.createElement('span');
+            nameEl.className = 'variant-name';
+            const variantTitle = `${variant.icon || ''} ${variant.name}${variant.is_required ? ' *' : ''}`.trim();
+            nameEl.textContent = variantTitle;
 
-            if (v.is_required) {
-                const requiredBadge = document.createElement('span');
-                requiredBadge.className = 'variant-required';
-                requiredBadge.textContent = 'Required';
-                header.appendChild(requiredBadge);
+            const allowMultiple = Boolean(variant.allow_multiple || variant.is_multi || variant.selection_type === 'multiple');
+            const hint = document.createElement('span');
+            hint.className = 'variant-hint';
+            if (variant.type === 'color') {
+                hint.textContent = 'Renk seçeneklerinden bir veya birden fazlasını seçin.';
+            } else if (allowMultiple) {
+                hint.textContent = 'Birden fazla seçenek seçebilirsiniz.';
+            } else {
+                hint.textContent = 'Uygun seçenekleri işaretleyin.';
             }
 
+            header.appendChild(nameEl);
+            header.appendChild(hint);
             group.appendChild(header);
 
             const optionsWrap = document.createElement('div');
             optionsWrap.className = 'variant-options';
 
-            (v.options || []).forEach(opt => {
+            (variant.options || []).forEach((option) => {
                 const optionLabel = document.createElement('label');
                 optionLabel.className = 'variant-option';
 
-                const input = document.createElement('input');
-                input.type = 'checkbox';
-                input.name = `variant_${v.id}`;
-                input.value = opt.value;
-                optionLabel.appendChild(input);
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = `variant_${variant.id}`;
+                checkbox.value = option.value;
+                optionLabel.appendChild(checkbox);
 
-                const textSpan = document.createElement('span');
-                textSpan.textContent = opt.label || opt.value;
-                optionLabel.appendChild(textSpan);
-
-                if (v.type === 'color' && opt.value) {
-                    const swatch = document.createElement('span');
-                    swatch.style.display = 'inline-block';
-                    swatch.style.width = '16px';
-                    swatch.style.height = '16px';
-                    swatch.style.borderRadius = '50%';
-                    swatch.style.border = '1px solid rgba(0,0,0,0.1)';
-                    swatch.style.background = opt.value;
-                    swatch.title = opt.label || opt.value;
-                    optionLabel.appendChild(swatch);
+                if (variant.type === 'color' && option.value) {
+                    const colorDot = document.createElement('span');
+                    colorDot.className = 'variant-color-dot';
+                    colorDot.style.background = option.value;
+                    optionLabel.appendChild(colorDot);
                 }
+
+                const chip = document.createElement('span');
+                chip.className = 'variant-chip';
+                chip.textContent = option.label || option.value;
+                optionLabel.appendChild(chip);
+
+                checkbox.addEventListener('change', () => {
+                    optionLabel.classList.toggle('selected', checkbox.checked);
+                });
 
                 optionsWrap.appendChild(optionLabel);
             });
@@ -2311,7 +2159,8 @@ class VendorDashboard {
             const categoryId = document.getElementById('productCategory').value;
             const priceInput = document.getElementById('productPrice').value;
             const stockInput = document.getElementById('productStock').value;
-            const imageUrl = document.getElementById('productImage').value.trim();
+            const imageUrlInput = document.getElementById('productImageUrl');
+            const imageUrl = imageUrlInput ? imageUrlInput.value.trim() : '';
 
             console.log('[Vendor Dashboard] Form values:', {
                 title,
@@ -2320,7 +2169,8 @@ class VendorDashboard {
                 categoryId,
                 priceInput,
                 stockInput,
-                imageUrl
+                imageUrl,
+                hasLocalFile: !!this.selectedProductImageFile
             });
 
             // Validate required fields (only title, category, price are required by backend)
@@ -2373,8 +2223,36 @@ class VendorDashboard {
                 productData.description = description;
             }
 
-            if (imageUrl) {
-                productData.images = [imageUrl];
+            const submitBtn = document.querySelector('#productForm button[type="submit"]');
+            const originalText = submitBtn && submitBtn.textContent ? submitBtn.textContent : '✓ Create Product';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            let finalImageUrl = '';
+
+            if (this.selectedProductImageFile) {
+                if (submitBtn) {
+                    submitBtn.textContent = '⏳ Görsel yükleniyor...';
+                }
+
+                const uploadResponse = await this.apiClient.uploadProductImage(this.selectedProductImageFile);
+                if (!uploadResponse?.success || !uploadResponse.data?.url) {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                    this.showError(uploadResponse?.message || 'Görsel yüklenirken hata oluştu.');
+                    return;
+                }
+
+                finalImageUrl = uploadResponse.data.url;
+            } else if (imageUrl) {
+                finalImageUrl = imageUrl;
+            }
+
+            if (finalImageUrl) {
+                productData.images = [finalImageUrl];
             }
 
             const selectedVariants = this.collectSelectedVariants();
@@ -2399,10 +2277,17 @@ class VendorDashboard {
 
             if (seoTitle) {
                 productData.seo_title = seoTitle;
+            } else if (title) {
+                productData.seo_title = title.substring(0, 200);
             }
 
             if (seoDescription) {
                 productData.seo_description = seoDescription;
+            } else {
+                const fallbackSeoDesc = shortDesc || description;
+                if (fallbackSeoDesc) {
+                    productData.seo_description = fallbackSeoDesc.substring(0, 160);
+                }
             }
 
             if (metaKeywords) {
@@ -2413,25 +2298,27 @@ class VendorDashboard {
             console.log('[Vendor Dashboard] Creating product with data:', productData);
 
             // Show loading
-            const submitBtn = document.querySelector('#productForm button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Oluşturuluyor...';
+            if (submitBtn) {
+                submitBtn.textContent = '⏳ Oluşturuluyor...';
+            }
 
             // Call API
             const response = await this.apiClient.post('/products', productData);
 
             console.log('[Vendor Dashboard] API response:', response);
 
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
 
             if (response.success) {
                 this.showSuccess('✅ Ürün başarıyla oluşturuldu! Admin onayı bekleniyor.');
 
                 // Close modal
                 document.getElementById('productModal').style.display = 'none';
-                this.resetProductModal();
+                document.getElementById('productForm').reset();
+                this.resetProductImageSelection();
 
                 // Reload products
                 if (this.currentSection === 'products') {
@@ -2759,57 +2646,135 @@ VendorDashboard.prototype.setupSEOCounters = function() {
     const seoDescInput = document.getElementById('productSeoDescription');
     const seoTitleCounter = document.getElementById('seoTitleCounter');
     const seoDescCounter = document.getElementById('seoDescCounter');
+    const productTitleInput = document.getElementById('productTitle');
+    const productShortDescInput = document.getElementById('productShortDesc');
+    const productDescriptionInput = document.getElementById('productDescription');
+    const productForm = document.getElementById('productForm');
 
-    const updateTitleCounter = () => {
-        if (!seoTitleInput || !seoTitleCounter) return;
+    if (!this._seoSyncState) {
+        this._seoSyncState = {
+            titleEdited: false,
+            descriptionEdited: false,
+            isSyncing: false,
+            syncTimeout: null,
+        };
+    }
 
-        const length = seoTitleInput.value.length;
-        seoTitleCounter.textContent = `Characters: ${length}/60`;
+    const syncState = this._seoSyncState;
 
-        if (length >= 50 && length <= 60) {
-            seoTitleCounter.style.color = '#10b981';
-        } else if (length > 60) {
-            seoTitleCounter.style.color = '#ef4444';
+    const updateCounter = (inputEl, counterEl, optimalMin, optimalMax, displayMax) => {
+        if (!inputEl || !counterEl) return;
+        const length = inputEl.value.length;
+        counterEl.textContent = `Characters: ${length}/${displayMax}`;
+
+        if (length >= optimalMin && length <= optimalMax) {
+            counterEl.style.color = '#10b981';
+        } else if (length > optimalMax) {
+            counterEl.style.color = '#ef4444';
         } else {
-            seoTitleCounter.style.color = '#666';
+            counterEl.style.color = '#666';
         }
     };
 
-    const updateDescCounter = () => {
-        if (!seoDescInput || !seoDescCounter) return;
+    const autoSyncSeoFields = () => {
+        if ((!seoTitleInput && !seoDescInput) || syncState.isSyncing) {
+            return;
+        }
 
-        const length = seoDescInput.value.length;
-        seoDescCounter.textContent = `Characters: ${length}/160`;
+        const titleSource = (productTitleInput?.value || '').trim();
+        const shortDescSource = (productShortDescInput?.value || '').trim();
+        const longDescSource = (productDescriptionInput?.value || '').trim();
+        const descriptionSource = shortDescSource || longDescSource;
 
-        if (length >= 150 && length <= 160) {
-            seoDescCounter.style.color = '#10b981';
-        } else if (length > 160) {
-            seoDescCounter.style.color = '#ef4444';
-        } else {
-            seoDescCounter.style.color = '#666';
+        if (seoTitleInput && !syncState.titleEdited) {
+            syncState.isSyncing = true;
+            seoTitleInput.value = titleSource.substring(0, 200);
+            syncState.isSyncing = false;
+            updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
+        }
+
+        if (seoDescInput && !syncState.descriptionEdited) {
+            const nextDescription = (descriptionSource || '').substring(0, 160);
+            syncState.isSyncing = true;
+            seoDescInput.value = nextDescription;
+            syncState.isSyncing = false;
+            updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
         }
     };
 
-    const updateCounters = () => {
-        updateTitleCounter();
-        updateDescCounter();
+    const scheduleAutoSync = () => {
+        if (syncState.syncTimeout) {
+            clearTimeout(syncState.syncTimeout);
+        }
+        syncState.syncTimeout = setTimeout(() => {
+            syncState.syncTimeout = null;
+            autoSyncSeoFields();
+        }, 150);
     };
 
-    this.updateSeoCounters = updateCounters;
+    if (seoTitleInput) {
+        if (seoTitleInput.value.trim()) {
+            syncState.titleEdited = true;
+        }
 
-    if (seoTitleInput && seoTitleCounter) {
-        seoTitleInput.addEventListener('input', updateCounters);
+        seoTitleInput.addEventListener('input', () => {
+            if (!syncState.isSyncing) {
+                syncState.titleEdited = seoTitleInput.value.trim().length > 0;
+            }
+            updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
+        });
+
+        seoTitleInput.addEventListener('blur', () => {
+            if (seoTitleInput.value.trim().length === 0) {
+                syncState.titleEdited = false;
+                autoSyncSeoFields();
+            }
+        });
+
+        updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
     }
 
-    if (seoDescInput && seoDescCounter) {
-        seoDescInput.addEventListener('input', updateCounters);
+    if (seoDescInput) {
+        if (seoDescInput.value.trim()) {
+            syncState.descriptionEdited = true;
+        }
+
+        seoDescInput.addEventListener('input', () => {
+            if (!syncState.isSyncing) {
+                syncState.descriptionEdited = seoDescInput.value.trim().length > 0;
+            }
+            updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
+        });
+
+        seoDescInput.addEventListener('blur', () => {
+            if (seoDescInput.value.trim().length === 0) {
+                syncState.descriptionEdited = false;
+                autoSyncSeoFields();
+            }
+        });
+
+        updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
     }
 
-    updateCounters();
+    [productTitleInput, productShortDescInput, productDescriptionInput].forEach((inputEl) => {
+        if (!inputEl) return;
+        inputEl.addEventListener('input', scheduleAutoSync);
+    });
 
-    // ==========================================
-    // CAMPAIGNS MANAGEMENT
-    // ==========================================
+    if (productForm) {
+        productForm.addEventListener('reset', () => {
+            syncState.titleEdited = false;
+            syncState.descriptionEdited = false;
+            scheduleAutoSync();
+        });
+    }
+
+    autoSyncSeoFields();
+};
+
+// ==========================================
+// CAMPAIGNS MANAGEMENT
+// ==========================================
 
     async loadCampaignsData() {
         try {

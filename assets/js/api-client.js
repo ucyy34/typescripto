@@ -20,7 +20,15 @@ class ApiClient {
    * Build headers with authorization
    */
   buildHeaders(customHeaders = {}) {
-    const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
+    const headers = { ...API_CONFIG.HEADERS };
+
+    Object.entries(customHeaders).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        delete headers[key];
+      } else {
+        headers[key] = value;
+      }
+    });
 
     const token = this.getToken();
     if (token) {
@@ -240,6 +248,22 @@ class ApiClient {
     });
   }
 
+  /**
+   * Upload product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': null,
+      },
+    });
+  }
+
   // ==========================================
   // AUTH METHODS
   // ==========================================
@@ -281,6 +305,13 @@ class ApiClient {
    */
   async getStores(filters = {}) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BASE, filters);
+  }
+
+  /**
+   * Get store by slug
+   */
+  async getStoreBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.BY_SLUG(slug));
   }
 
   /**
@@ -349,6 +380,13 @@ class ApiClient {
    */
   async getProducts(filters = {}) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BASE, filters);
+  }
+
+  /**
+   * Get product by slug
+   */
+  async getProductBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -427,6 +465,13 @@ class ApiClient {
    */
   async getTopLevelCategories() {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.TOP_LEVEL);
+  }
+
+  /**
+   * Get category by slug
+   */
+  async getCategoryBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

@@ -10,155 +10,30 @@ const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
-const allowedBadges = new Set(['handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan']);
+const MAX_SEO_DESCRIPTION_LENGTH = 160;
 
-const toUniqueStringArray = (value = []) => {
-  if (!Array.isArray(value)) return [];
-
-  const cleaned = value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter((item) => item && item.length > 0);
-
-  return Array.from(new Set(cleaned));
+const sanitizeSeoText = (text, limit) => {
+  if (!text) return undefined;
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.substring(0, limit - 3).trim()}...`;
 };
 
-const sanitizeBadges = (badges = []) => {
-  if (!Array.isArray(badges)) return [];
-
-  const filtered = badges.filter((badge) => typeof badge === 'string' && allowedBadges.has(badge));
-  return Array.from(new Set(filtered));
+const deriveSeoDescription = (shortDescription, description) => {
+  return (
+    sanitizeSeoText(shortDescription, MAX_SEO_DESCRIPTION_LENGTH) ||
+    sanitizeSeoText(description, MAX_SEO_DESCRIPTION_LENGTH)
+  );
 };
 
-const sanitizeImages = (images = []) => {
-  if (!Array.isArray(images)) return [];
-
-  const filtered = images
-    .map((img) => (typeof img === 'string' ? img.trim() : ''))
-    .filter((img) => img);
-
-  return Array.from(new Set(filtered));
+const assignIfValue = (target, key, value) => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
 };
-
-const truncateText = (text, max) => {
-  if (!text || typeof text !== 'string') return text;
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1).trim()}…`;
-};
-
-const parseBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
 
 class ProductService {
-  prepareProductData(data, { isUpdate = false, existingProduct = null } = {}) {
-    if (!data || typeof data !== 'object') {
-      return {};
-    }
-
-    const prepared = { ...data };
-
-    if (prepared.title) {
-      prepared.title = prepared.title.trim();
-    }
-
-    if (prepared.description) {
-      prepared.description = prepared.description.trim();
-    }
-
-    if (prepared.short_description) {
-      prepared.short_description = truncateText(prepared.short_description.trim(), 500);
-    }
-
-    if (prepared.tags) {
-      prepared.tags = toUniqueStringArray(prepared.tags);
-    }
-
-    const hasMetaKeywordsProp = Object.prototype.hasOwnProperty.call(prepared, 'meta_keywords');
-    if (hasMetaKeywordsProp && prepared.meta_keywords) {
-      prepared.meta_keywords = toUniqueStringArray(prepared.meta_keywords);
-
-      if (prepared.meta_keywords.length === 0) {
-        delete prepared.meta_keywords;
-      }
-    } else if (hasMetaKeywordsProp && (!prepared.meta_keywords || prepared.meta_keywords.length === 0)) {
-      delete prepared.meta_keywords;
-    }
-
-    if (prepared.badges) {
-      prepared.badges = sanitizeBadges(prepared.badges);
-    }
-
-    if (prepared.images) {
-      prepared.images = sanitizeImages(prepared.images);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(prepared, 'price') && prepared.price !== null) {
-      prepared.price = Number(prepared.price);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(prepared, 'compare_price') && prepared.compare_price !== null) {
-      prepared.compare_price = Number(prepared.compare_price);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(prepared, 'stock')) {
-      const parsedStock = Number.parseInt(prepared.stock, 10);
-      prepared.stock = Number.isNaN(parsedStock) ? 0 : Math.max(parsedStock, 0);
-
-      if (prepared.stock === 0) {
-        prepared.is_active = false;
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(prepared, 'is_active')) {
-      prepared.is_active = Boolean(prepared.is_active);
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(prepared, 'short_description') || !prepared.short_description) {
-      const baseDescription =
-        existingProduct?.short_description || prepared.description || existingProduct?.description;
-
-      if (baseDescription && !prepared.short_description) {
-        prepared.short_description = truncateText(baseDescription, 180);
-      }
-    }
-
-    const hasSeoTitle = Object.prototype.hasOwnProperty.call(prepared, 'seo_title');
-    if (hasSeoTitle) {
-      if (prepared.seo_title && prepared.seo_title.trim()) {
-        prepared.seo_title = truncateText(prepared.seo_title.trim(), 200);
-      } else {
-        delete prepared.seo_title;
-      }
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(prepared, 'seo_title')) {
-      const baseTitle = prepared.title || existingProduct?.title;
-      if (baseTitle) {
-        prepared.seo_title = truncateText(baseTitle, 200);
-      }
-    }
-
-    const hasSeoDescription = Object.prototype.hasOwnProperty.call(prepared, 'seo_description');
-    if (hasSeoDescription) {
-      if (prepared.seo_description && prepared.seo_description.trim()) {
-        prepared.seo_description = truncateText(prepared.seo_description.trim(), 500);
-      } else {
-        delete prepared.seo_description;
-      }
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(prepared, 'seo_description')) {
-      const descSource = prepared.short_description || prepared.description || existingProduct?.short_description;
-      if (descSource) {
-        prepared.seo_description = truncateText(descSource, 500);
-      }
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(prepared, 'meta_keywords') && prepared.tags && prepared.tags.length > 0) {
-      prepared.meta_keywords = prepared.tags;
-    }
-
-    return prepared;
-  }
-
   /**
    * Create new product
    * @param {string} userId - User ID (store owner)
@@ -196,20 +71,26 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
-    const normalizedData = this.prepareProductData(productData);
+    const productPayload = {
+      ...productData,
+      slug,
+      status: 'pending', // Needs admin approval
+    };
 
-    delete normalizedData.variants;
+    if (!productPayload.seo_title && productData.title) {
+      assignIfValue(productPayload, 'seo_title', sanitizeSeoText(productData.title, 200));
+    }
 
-    if (normalizedData.stock === 0) {
-      normalizedData.is_active = false;
+    if (!productPayload.seo_description) {
+      assignIfValue(
+        productPayload,
+        'seo_description',
+        deriveSeoDescription(productData.short_description, productData.description)
+      );
     }
 
     // Create product
-    const product = await Product.create({
-      ...normalizedData,
-      slug,
-      status: 'pending', // Needs admin approval
-    });
+    const product = await Product.create(productPayload);
 
     // Create variants if provided
     if (Array.isArray(productData.variants) && productData.variants.length > 0) {
@@ -241,19 +122,40 @@ class ProductService {
    * @returns {Promise<Product>}
    */
   async getProductById(productId, includeInactive = false) {
-    // Try cache first
-    const cacheKey = `product:${productId}`;
-    const cached = await cache.get(cacheKey);
-    if (cached && !includeInactive) {
-      return cached;
+    return this.fetchProductWithCache({ id: productId }, includeInactive, `product:${productId}`);
+  }
+
+  /**
+   * Get product by slug
+   * @param {string} slug
+   * @param {boolean} includeInactive
+   * @returns {Promise<Product>}
+   */
+  async getProductBySlug(slug, includeInactive = false) {
+    return this.fetchProductWithCache({ slug }, includeInactive, `product:slug:${slug}`);
+  }
+
+  /**
+   * Shared product retrieval with caching and storefront visibility checks
+   * @param {Object} whereClause
+   * @param {boolean} includeInactive
+   * @param {string|null} cacheKey
+   * @returns {Promise<Product>}
+   */
+  async fetchProductWithCache(whereClause, includeInactive, cacheKey = null) {
+    if (!includeInactive && cacheKey) {
+      const cached = await cache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    const where = { id: productId };
+    const where = { ...whereClause };
 
     if (!includeInactive) {
-      where.status = 'approved';
-      where.is_active = true;
-      where.stock = { [Op.gt]: 0 };
+      where.status = where.status || 'approved';
+      where.is_active = where.is_active ?? true;
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -262,7 +164,7 @@ class ProductService {
         {
           model: Store,
           as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+          attributes: ['id', 'name', 'slug', 'logo', 'rating', 'total_sales'],
         },
         {
           model: Category,
@@ -280,11 +182,9 @@ class ProductService {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
     }
 
-    // Increment views (async, don't wait)
     product.incrementViews().catch(() => {});
 
-    // Cache for 1 hour
-    if (!includeInactive) {
+    if (!includeInactive && cacheKey) {
       await cache.set(cacheKey, product, 3600);
     }
 
@@ -301,7 +201,9 @@ class ProductService {
       page = 1,
       limit = 20,
       store_id,
+      store_slug,
       category_id,
+      category_slug,
       status,
       search,
       min_price,
@@ -309,24 +211,32 @@ class ProductService {
       in_stock,
       is_featured,
       sort = '-created_at',
-      includeAllStatuses, // Flag to include all statuses (for vendor's own products)
-      include_inactive,
-      include_out_of_stock,
+      includeAllStatuses,  // Flag to include all statuses (for vendor's own products)
     } = filters;
 
     // Parse includeAllStatuses from string (query params are strings)
-    const shouldIncludeAll = parseBoolean(includeAllStatuses);
-    const allowInactive = parseBoolean(include_inactive);
-    const allowOutOfStock = parseBoolean(include_out_of_stock);
+    const shouldIncludeAll = includeAllStatuses === 'true' || includeAllStatuses === true;
 
-    const pageNumber = Number.parseInt(page, 10) > 0 ? Number.parseInt(page, 10) : 1;
-    const limitNumber = Number.parseInt(limit, 10) > 0 ? Number.parseInt(limit, 10) : 20;
-    const offset = (pageNumber - 1) * limitNumber;
+    const offset = (page - 1) * limit;
     const where = {};
 
     // Apply filters
     if (store_id) where.store_id = store_id;
+    if (store_slug) {
+      const store = await Store.findOne({ where: { slug: store_slug } });
+      if (!store) {
+        throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+      }
+      where.store_id = store.id;
+    }
     if (category_id) where.category_id = category_id;
+    if (category_slug) {
+      const category = await Category.findBySlug(category_slug);
+      if (!category) {
+        throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
+      }
+      where.category_id = category.id;
+    }
     if (status) where.status = status;
     if (is_featured !== undefined) where.is_featured = is_featured;
 
@@ -345,22 +255,20 @@ class ProductService {
     }
 
     if (in_stock) {
-      where.stock = { [Op.gt]: 0 };
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
     }
 
-    // If no status filter and includeAllStatuses is not true, only show approved products
-    if (!status && !shouldIncludeAll) {
-      where.status = 'approved';
-    }
+    // If no status filter and includeAllStatuses is not true, only show approved and active products
+    // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
+    if (!shouldIncludeAll) {
+      if (!status) {
+        where.status = 'approved';
+      }
 
-    if (!shouldIncludeAll && !allowInactive) {
-      where.is_active = true;
-    }
-
-    if (!shouldIncludeAll && !allowOutOfStock) {
-      const stockFilter = where.stock || {};
-      stockFilter[Op.gt] = 0;
-      where.stock = stockFilter;
+      if (!status || status === 'approved') {
+        where.is_active = true;
+        where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
+      }
     }
 
     // Parse sort
@@ -370,7 +278,7 @@ class ProductService {
     order.push([sortField, sortDirection]);
 
     // Try cache for common queries
-    const cacheKey = `products:${JSON.stringify({ where, offset, limit: limitNumber, order })}`;
+    const cacheKey = `products:${JSON.stringify({ where, offset, limit, order })}`;
     const cached = await cache.get(cacheKey);
     if (cached) {
       return cached;
@@ -379,7 +287,7 @@ class ProductService {
     // Query products
     const { rows: products, count: total } = await Product.findAndCountAll({
       where,
-      limit: limitNumber,
+      limit,
       offset,
       order,
       include: [
@@ -400,12 +308,12 @@ class ProductService {
     const result = {
       products,
       pagination: {
-        page: pageNumber,
-        limit: limitNumber,
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / limitNumber),
-        hasNext: pageNumber < Math.ceil(total / limitNumber),
-        hasPrev: pageNumber > 1,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
       },
     };
 
@@ -452,15 +360,50 @@ class ProductService {
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
 
-    const normalizedData = this.prepareProductData(updateData, { isUpdate: true, existingProduct: product });
+    // Auto-fill SEO fields when not provided explicitly
+    const nextTitle = updateData.title ?? product.title;
+    const nextShortDescription = updateData.short_description ?? product.short_description;
+    const nextDescription = updateData.description ?? product.description;
 
-    Object.keys(normalizedData).forEach((key) => {
-      if (normalizedData[key] === undefined) {
-        delete normalizedData[key];
+    if (updateData.seo_title === undefined) {
+      if (updateData.title) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(updateData.title, 200));
+      } else if (!product.seo_title && nextTitle) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(nextTitle, 200));
       }
-    });
+    } else if (typeof updateData.seo_title === 'string') {
+      const trimmedSeoTitle = sanitizeSeoText(updateData.seo_title, 200);
+      if (trimmedSeoTitle === undefined) {
+        delete updateData.seo_title;
+      } else {
+        updateData.seo_title = trimmedSeoTitle;
+      }
+    }
 
-    await product.update(normalizedData);
+    if (updateData.seo_description === undefined) {
+      if (updateData.short_description || updateData.description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(updateData.short_description, updateData.description)
+        );
+      } else if (!product.seo_description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(nextShortDescription, nextDescription)
+        );
+      }
+    } else if (typeof updateData.seo_description === 'string') {
+      const trimmedSeoDescription = sanitizeSeoText(updateData.seo_description, MAX_SEO_DESCRIPTION_LENGTH);
+      if (trimmedSeoDescription === undefined) {
+        delete updateData.seo_description;
+      } else {
+        updateData.seo_description = trimmedSeoDescription;
+      }
+    }
+
+    await product.update(updateData);
 
     // Clear cache
     await cache.del(`product:${productId}`);

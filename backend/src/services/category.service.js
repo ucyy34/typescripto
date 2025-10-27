@@ -3,10 +3,12 @@
  * Business logic for category management
  */
 
-const { Category, CategoryVariant } = require('../models');
+const { Category, CategoryVariant, Product, Store } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { cache } = require('../config/redis');
+const { sequelize } = require('../config/sequelize');
+const { Op } = require('sequelize');
 
 class CategoryService {
   /**
@@ -70,6 +72,9 @@ class CategoryService {
       throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
     }
 
+    const stats = await this.getCategoryStats(category.id);
+    category.setDataValue('stats', stats);
+
     return category;
   }
 
@@ -79,19 +84,91 @@ class CategoryService {
    * @returns {Promise<Category>}
    */
   async getCategoryBySlug(slug) {
-    const cacheKey = `categories:slug:${slug}`;
-    const cached = await cache.get(cacheKey);
-    if (cached) return cached;
-
-    const category = await Category.findBySlug(slug);
+    const category = await Category.findOne({
+      where: { slug },
+      include: [
+        {
+          model: Category,
+          as: 'children',
+          where: { is_active: true },
+          required: false,
+        },
+        {
+          model: Category,
+          as: 'parent',
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
+    });
 
     if (!category) {
       throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
     }
 
-    await cache.set(cacheKey, category, 86400);
+    const stats = await this.getCategoryStats(category.id);
+    category.setDataValue('stats', stats);
 
     return category;
+  }
+
+  /**
+   * Build aggregated stats for a category (public storefront)
+   * @param {string} categoryId
+   * @returns {Promise<Object>}
+   */
+  async getCategoryStats(categoryId) {
+    const baseWhere = {
+      category_id: categoryId,
+      status: 'approved',
+      is_active: true,
+      stock: { [Op.gt]: 0 },
+    };
+
+    const [summary] = await Product.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('Product.id')), 'totalProducts'],
+        [sequelize.fn('AVG', sequelize.col('Product.price')), 'avgPrice'],
+        [sequelize.fn('MIN', sequelize.col('Product.price')), 'minPrice'],
+        [sequelize.fn('MAX', sequelize.col('Product.price')), 'maxPrice'],
+        [sequelize.fn('AVG', sequelize.col('Product.rating')), 'avgRating'],
+        [sequelize.fn('SUM', sequelize.col('Product.total_sales')), 'totalSales'],
+      ],
+      where: baseWhere,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: [],
+          where: { status: 'approved' },
+          required: true,
+        },
+      ],
+      raw: true,
+    });
+
+    const uniqueStoreCount = await Product.aggregate('store_id', 'count', {
+      distinct: true,
+      where: baseWhere,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: [],
+          where: { status: 'approved' },
+          required: true,
+        },
+      ],
+    });
+
+    return {
+      totalProducts: summary?.totalProducts ? Number(summary.totalProducts) : 0,
+      averagePrice: summary?.avgPrice ? Number(summary.avgPrice) : 0,
+      minPrice: summary?.minPrice ? Number(summary.minPrice) : 0,
+      maxPrice: summary?.maxPrice ? Number(summary.maxPrice) : 0,
+      averageRating: summary?.avgRating ? Number(summary.avgRating) : 0,
+      totalSales: summary?.totalSales ? Number(summary.totalSales) : 0,
+      uniqueStoreCount: uniqueStoreCount ? Number(uniqueStoreCount) : 0,
+    };
   }
 
   /**

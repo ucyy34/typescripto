@@ -16,6 +16,7 @@ const {
   updateStoreSchema,
   updateStoreStatusSchema,
   storeIdSchema,
+  storeSlugSchema,
   storeQuerySchema,
   storeSlugSchema,
 } = require('../validators/store.validator');

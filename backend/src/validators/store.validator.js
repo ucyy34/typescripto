@@ -96,14 +96,10 @@ const storeIdSchema = Joi.object({
 
 const storeSlugSchema = Joi.object({
   slug: Joi.string()
-    .pattern(/^[a-z0-9-]+$/)
-    .min(2)
-    .max(250)
+    .pattern(/^[a-z0-9-]{3,}$/)
     .required()
     .messages({
-      'string.pattern.base': 'Store slug may only contain lowercase letters, numbers, and hyphens',
-      'string.min': 'Store slug must be at least 2 characters',
-      'string.max': 'Store slug cannot exceed 250 characters',
+      'string.pattern.base': 'Store slug can only include lowercase letters, numbers, and hyphens',
       'any.required': 'Store slug is required',
     }),
 });
@@ -114,7 +110,7 @@ const storeSlugSchema = Joi.object({
 const storeQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  status: Joi.string().valid('pending', 'approved', 'rejected', 'suspended').optional(),
+  status: Joi.string().valid('pending', 'approved', 'rejected', 'suspended', 'all').optional(),
   search: Joi.string().max(200).optional().trim(),
   city: Joi.string().max(100).optional().trim(),
   is_featured: Joi.boolean().optional(),
@@ -128,6 +124,6 @@ module.exports = {
   updateStoreSchema,
   updateStoreStatusSchema,
   storeIdSchema,
-  storeQuerySchema,
   storeSlugSchema,
+  storeQuerySchema,
 };

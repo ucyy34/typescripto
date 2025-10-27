@@ -1,393 +1,482 @@
 /**
- * Store Directory Page Integration
- * Connects artisan.html to backend store listings
+ * Store Directory Page
+ * Connects artisan.html to the backend store listings.
  */
 
 class StoreDirectoryPage {
-  constructor() {
-    this.grid = document.getElementById('artisanGrid');
-    if (!this.grid) {
-      return;
+    constructor() {
+        if (typeof ApiClient === 'undefined') {
+            console.warn('[Store Directory] ApiClient missing. Did you include api-client.js?');
+            return;
+        }
+
+        this.apiClient = new ApiClient();
+        this.storeCache = [];
+        this.filteredStores = [];
+        this.featuredStore = null;
+        this.totalStores = 0;
+
+        this.currentPage = 1;
+        this.limit = 12;
+        this.hasNext = false;
+        this.isLoading = false;
+
+        this.searchTerm = '';
+        this.selectedCategory = 'all';
+
+        this.elements = {
+            grid: document.getElementById('artisanGrid'),
+            filters: document.getElementById('artisanFilters'),
+            search: document.getElementById('artisanSearchInput'),
+            loadMore: document.getElementById('artisanLoadMore'),
+            noResults: document.getElementById('artisanNoResults'),
+            heroStoreCount: document.getElementById('artisanStoreCount'),
+            heroTotalPieces: document.getElementById('artisanTotalPieces'),
+            heroAvgRating: document.getElementById('artisanAvgRating'),
+            featured: document.getElementById('featuredArtisan'),
+            featuredName: document.getElementById('featuredStoreName'),
+            featuredTagline: document.getElementById('featuredStoreTagline'),
+            featuredYears: document.getElementById('featuredStoreYears'),
+            featuredRating: document.getElementById('featuredStoreRating'),
+            featuredSales: document.getElementById('featuredStoreSales'),
+            featuredDescription: document.getElementById('featuredStoreDescription'),
+            featuredImage: document.getElementById('featuredStoreImage'),
+            featuredBadge: document.getElementById('featuredStoreBadge'),
+            featuredProfile: document.getElementById('featuredStoreProfile'),
+            featuredProducts: document.getElementById('featuredStoreProducts'),
+        };
+
+        if (!this.elements.grid) {
+            console.warn('[Store Directory] artisan grid container not found.');
+            return;
+        }
+
+        this.debouncedSearch = this.debounce(async () => {
+            this.currentPage = 1;
+            this.storeCache = [];
+            await this.loadStores();
+        }, 350);
+
+        this.init();
     }
 
-    this.apiClient = new ApiClient();
-    this.filterBar = document.querySelector('.filter-bar');
-    this.featuredSection = document.querySelector('.featured-artisan');
-    this.heroCounts = {
-      stores: document.getElementById('heroStoreCount'),
-      products: document.getElementById('heroProductCount'),
-      rating: document.getElementById('heroAverageRating'),
-    };
-
-    this.stores = [];
-    this.filteredStores = [];
-    this.filters = {
-      status: 'all',
-      country: 'all',
-      search: '',
-    };
-
-    this.init();
-  }
-
-  async init() {
-    try {
-      this.showLoading();
-      await this.loadStores();
-      this.renderHero();
-      this.renderFilterBar();
-      this.renderFeaturedStore();
-      this.applyFiltersAndRender();
-      this.setupSearch();
-    } catch (error) {
-      console.error('[StoreDirectory] Failed to initialize:', error);
-      this.showError('Mağazalar yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
-    }
-  }
-
-  async loadStores() {
-    const response = await this.apiClient.getStores({ status: 'approved', limit: 50, sort: '-rating' });
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to load stores');
+    async init() {
+        try {
+            this.showLoading();
+            await this.loadFeaturedStore();
+            await this.loadStores();
+            this.setupEventListeners();
+        } catch (error) {
+            console.error('[Store Directory] init error:', error);
+            this.showError('Mağazalar yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+        }
     }
 
-    this.stores = (response.data || []).map((store) => ({
-      ...store,
-      rating: store.rating ? parseFloat(store.rating) : 0,
-      total_sales: Number(store.total_sales || 0),
-      product_count: Number(store.product_count || 0),
-      city: store.city || '',
-      country: store.country || '',
-      banner: store.banner || '',
-      logo: store.logo || '',
-      description: store.description || 'Nordic artisan store sharing handmade treasures.',
-    }));
-
-    this.stores.sort((a, b) => b.rating - a.rating || b.total_sales - a.total_sales);
-    this.filteredStores = [...this.stores];
-  }
-
-  renderHero() {
-    if (!this.heroCounts) return;
-
-    if (this.heroCounts.stores) {
-      this.heroCounts.stores.textContent = this.stores.length.toString();
+    debounce(fn, wait = 200) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn.apply(this, args), wait);
+        };
     }
 
-    if (this.heroCounts.products) {
-      const totalProducts = this.stores.reduce((sum, store) => sum + (store.product_count || 0), 0);
-      this.heroCounts.products.textContent = totalProducts > 0 ? totalProducts.toLocaleString('en-US') : '—';
+    async loadFeaturedStore() {
+        try {
+            const response = await this.apiClient.getStores({
+                status: 'approved',
+                is_featured: true,
+                limit: 1,
+                sort: '-total_sales',
+            });
+
+            if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+                this.featuredStore = response.data[0];
+                this.renderFeaturedStore();
+            }
+        } catch (error) {
+            console.warn('[Store Directory] loadFeaturedStore warning:', error);
+        }
     }
 
-    if (this.heroCounts.rating) {
-      const avgRating = this.stores.length
-        ? this.stores.reduce((sum, store) => sum + (store.rating || 0), 0) / this.stores.length
-        : 0;
-      this.heroCounts.rating.textContent = avgRating > 0 ? `${avgRating.toFixed(1)}/5` : '—';
-    }
-  }
+    async loadStores({ append = false } = {}) {
+        if (this.isLoading) return;
 
-  renderFilterBar() {
-    if (!this.filterBar) return;
+        this.isLoading = true;
+        if (!append) {
+            this.showLoading();
+        } else if (this.elements.loadMore) {
+            this.elements.loadMore.disabled = true;
+            this.elements.loadMore.textContent = 'Yükleniyor...';
+        }
 
-    const countryCounts = new Map();
-    this.stores.forEach((store) => {
-      if (store.country) {
-        const key = store.country.trim();
-        countryCounts.set(key, (countryCounts.get(key) || 0) + 1);
-      }
-    });
+        try {
+            const params = {
+                status: 'approved',
+                page: this.currentPage,
+                limit: this.limit,
+                sort: '-total_sales',
+            };
 
-    const topCountries = Array.from(countryCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([country]) => country);
+            if (this.searchTerm) {
+                params.search = this.searchTerm.trim();
+            }
 
-    const buttons = [
-      { type: 'status', key: 'all', label: '🌟 Tüm Mağazalar' },
-      { type: 'status', key: 'featured', label: '🔥 Öne Çıkanlar' },
-      { type: 'status', key: 'top', label: '⭐ 4.5+ Puan' },
-      { type: 'status', key: 'bestsellers', label: '🏆 Çok Satanlar' },
-      ...topCountries.map((country) => ({ type: 'country', key: country, label: `📍 ${country}` })),
-    ];
+            const response = await this.apiClient.getStores(params);
+            if (!response.success || !Array.isArray(response.data)) {
+                throw new Error(response.message || 'Mağazalar alınamadı');
+            }
 
-    this.filterBar.innerHTML = buttons
-      .map((button, index) => `
-        <button class="filter-btn ${index === 0 ? 'active' : ''}" data-type="${button.type}" data-key="${button.key}">
-          ${button.label}
-        </button>
-      `)
-      .join('');
+            const incoming = response.data;
+            if (append) {
+                this.storeCache = this.storeCache.concat(incoming);
+            } else {
+                this.storeCache = incoming;
+            }
 
-    this.filters.status = 'all';
-    this.filters.country = 'all';
+            this.totalStores = response.pagination?.total ?? this.storeCache.length;
+            this.hasNext = Boolean(response.pagination?.hasNext);
 
-    this.filterBar.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-type]');
-      if (!button) return;
+            this.filteredStores = this.applyCategoryFilter(this.storeCache);
 
-      this.filterBar.querySelectorAll('button[data-type]').forEach((btn) => btn.classList.remove('active'));
-      button.classList.add('active');
+            if (!this.featuredStore && this.filteredStores.length > 0) {
+                this.featuredStore = this.filteredStores[0];
+            }
 
-      const { type, key } = button.dataset;
-      if (type === 'status') {
-        this.filters.status = key;
-        this.filters.country = 'all';
-      } else if (type === 'country') {
-        this.filters.country = key;
-        this.filters.status = 'all';
-      }
-
-      this.applyFiltersAndRender();
-    });
-  }
-
-  renderFeaturedStore() {
-    if (!this.featuredSection) return;
-
-    const featured = this.stores.find((store) => store.is_featured) || this.stores[0];
-    if (!featured) {
-      this.featuredSection.style.display = 'none';
-      return;
+            this.renderAll();
+        } catch (error) {
+            console.error('[Store Directory] loadStores error:', error);
+            this.showError('Mağazalar yüklenirken bir sorun oluştu.');
+        } finally {
+            this.isLoading = false;
+            if (this.elements.loadMore) {
+                this.elements.loadMore.disabled = false;
+                this.elements.loadMore.textContent = 'Daha fazla mağaza';
+            }
+        }
     }
 
-    const banner = featured.banner || 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=800&q=80';
-    const logoLetter = featured.name ? featured.name.charAt(0).toUpperCase() : 'A';
-    const rating = featured.rating ? featured.rating.toFixed(1) : '—';
+    applyCategoryFilter(stores) {
+        if (!Array.isArray(stores) || this.selectedCategory === 'all') {
+            return Array.isArray(stores) ? [...stores] : [];
+        }
 
-    this.featuredSection.innerHTML = `
-      <div class="featured-content">
-        <div class="artisan-badge" style="position: static; display: inline-block; margin-bottom: var(--space-md);">
-          ${featured.is_featured ? '🌟 Öne Çıkan Mağaza' : '🏅 Vitrin Mağaza'}
-        </div>
-        <h2 style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">${this.escapeHtml(featured.name)}</h2>
-        <p class="accent-text" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">
-          ${this.escapeHtml(featured.city || 'Nordic Region')}
-        </p>
-
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
-          <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
-            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-            <div style="font-size: 1.5rem; font-weight: 700;">${rating}</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">Mağaza Puanı</div>
-          </div>
-          <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
-            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🛍️</div>
-            <div style="font-size: 1.5rem; font-weight: 700;">${featured.product_count || 0}</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">Ürün</div>
-          </div>
-          <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
-            <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-            <div style="font-size: 1.5rem; font-weight: 700;">${featured.total_sales || 0}</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">Satış</div>
-          </div>
-        </div>
-
-        <p style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
-          ${this.escapeHtml(featured.description)}
-        </p>
-
-        <div style="display: flex; gap: var(--space-md); justify-content: center;">
-          <button class="btn btn-secondary" data-action="view" data-store-id="${featured.id}" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👁️ Mağazayı Gör</button>
-          <button class="btn btn-accent" data-action="message" data-store-id="${featured.id}" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">💬 Mesaj Gönder</button>
-        </div>
-      </div>
-
-      <div class="featured-image">
-        <div style="position: absolute; top: var(--space-md); left: var(--space-md); width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.85); display:flex; align-items:center; justify-content:center; font-size:1.5rem; color: var(--forest-deep); font-weight:700;">
-          ${this.escapeHtml(logoLetter)}
-        </div>
-        <img src="${banner}" alt="${this.escapeHtml(featured.name)} mağazası">
-      </div>
-    `;
-
-    this.featuredSection.querySelectorAll('button[data-store-id]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        this.handleStoreAction(button.dataset.action, featured.id);
-      });
-    });
-  }
-
-  applyFiltersAndRender() {
-    this.filteredStores = this.stores.filter((store) => this.applyFilters(store));
-    this.renderStores();
-  }
-
-  applyFilters(store) {
-    if (this.filters.status === 'featured' && !store.is_featured) {
-      return false;
-    }
-
-    if (this.filters.status === 'top' && store.rating < 4.5) {
-      return false;
-    }
-
-    if (this.filters.status === 'bestsellers' && store.total_sales < 10) {
-      return false;
-    }
-
-    if (this.filters.country !== 'all' && store.country.trim() !== this.filters.country) {
-      return false;
-    }
-
-    if (this.filters.search) {
-      const haystack = `${store.name || ''} ${store.description || ''} ${store.city || ''} ${store.country || ''}`.toLowerCase();
-      if (!haystack.includes(this.filters.search)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  renderStores() {
-    this.grid.innerHTML = '';
-
-    if (this.filteredStores.length === 0) {
-      this.grid.innerHTML = `
-        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--forest-medium);">
-          <div style="font-size:3rem;margin-bottom:1rem;">🧭</div>
-          <h3>Aradığınız kriterlere uygun mağaza bulunamadı</h3>
-          <p>Filtreleri temizleyerek tüm ustaları görüntüleyebilirsiniz.</p>
-        </div>
-      `;
-      return;
-    }
-
-    this.filteredStores.forEach((store) => {
-      const card = document.createElement('div');
-      card.className = 'artisan-card';
-      card.dataset.storeId = store.id;
-
-      const banner = store.banner || 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=800&q=80';
-      const logoLetter = store.name ? store.name.charAt(0).toUpperCase() : 'A';
-      const rating = store.rating ? store.rating.toFixed(1) : '—';
-
-      card.innerHTML = `
-        <div class="artisan-image">
-          <img src="${banner}" alt="${this.escapeHtml(store.name)} mağazası">
-          ${store.is_featured ? '<div class="artisan-badge">🔥 Öne Çıkan</div>' : ''}
-        </div>
-        <div class="artisan-info">
-          <h3 class="artisan-name">${this.escapeHtml(store.name)}</h3>
-          <p class="artisan-specialty">${this.escapeHtml(store.city || 'Nordic Region')} · ${this.escapeHtml(store.country || 'Scandinavia')}</p>
-
-          <div class="artisan-stats">
-            <div class="stat">
-              <span class="stat-number">${rating}</span>
-              <span class="stat-label">Puan</span>
-            </div>
-            <div class="stat">
-              <span class="stat-number">${store.product_count || 0}</span>
-              <span class="stat-label">Ürün</span>
-            </div>
-            <div class="stat">
-              <span class="stat-number">${store.total_sales || 0}</span>
-              <span class="stat-label">Satış</span>
-            </div>
-          </div>
-
-          <p class="artisan-description">${this.escapeHtml(store.description)}</p>
-
-          <div class="artisan-actions">
-            <button class="btn btn-primary" data-action="view" data-store-id="${store.id}">👁️ Mağazayı Gör</button>
-            <button class="btn btn-secondary" data-action="message" data-store-id="${store.id}">✉️ İletişim</button>
-          </div>
-        </div>
-      `;
-
-      const badgeLogo = document.createElement('div');
-      badgeLogo.style.cssText = 'position:absolute;top:var(--space-md);left:var(--space-md);width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--forest-deep);';
-      badgeLogo.textContent = logoLetter;
-      card.querySelector('.artisan-image').appendChild(badgeLogo);
-
-      card.querySelectorAll('button[data-store-id]').forEach((button) => {
-        button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.handleStoreAction(button.dataset.action, button.dataset.storeId);
+        return stores.filter((store) => {
+            const categories = Array.isArray(store?.productSummary?.topCategories)
+                ? store.productSummary.topCategories
+                : [];
+            return categories.some((cat) => cat.slug === this.selectedCategory);
         });
-      });
-
-      this.grid.appendChild(card);
-    });
-  }
-
-  handleStoreAction(action, storeId) {
-    const store = this.stores.find((s) => s.id === storeId);
-    if (!store) {
-      alert('Mağaza bilgisi bulunamadı.');
-      return;
     }
 
-    if (action === 'view') {
-      this.showToast(`${store.name} mağazasının vitrin sayfası yakında hazır olacak!`);
-      return;
+    renderAll() {
+        this.renderFilters();
+        this.renderStores();
+        this.renderStats();
+        this.renderFeaturedStore();
+        this.updateLoadMoreVisibility();
     }
 
-    if (action === 'message') {
-      const contact = store.email || store.phone || 'support@dostanwebcss.com';
-      this.showToast(`${store.name} ile iletişime geçmek için: ${contact}`);
+    renderStores() {
+        if (!this.elements.grid) return;
+
+        if (this.filteredStores.length === 0) {
+            this.elements.grid.innerHTML = '';
+            if (this.elements.noResults) {
+                this.elements.noResults.style.display = 'block';
+            }
+            return;
+        }
+
+        if (this.elements.noResults) {
+            this.elements.noResults.style.display = 'none';
+        }
+
+        const cards = this.filteredStores.map((store) => this.renderStoreCard(store));
+        this.elements.grid.innerHTML = cards.join('');
     }
-  }
 
-  setupSearch() {
-    const searchInput = document.getElementById('globalSearch') || document.querySelector('.search-input');
-    if (!searchInput) return;
+    renderStoreCard(store) {
+        const summary = store.productSummary || {};
+        const rating = (parseFloat(store.rating) || 0).toFixed(1);
+        const totalProducts = summary.totalProducts || 0;
+        const totalSales = summary.totalSales || store.total_sales || 0;
+        const badge = store.is_featured ? '⭐ Öne Çıkan' : (totalSales > 100 ? '🔥 Popüler' : '🎨 Özgün');
+        const categories = Array.isArray(summary.topCategories) ? summary.topCategories : [];
+        const topCategory = categories[0]?.name || 'Çok kategorili mağaza';
+        const categoryChips = categories.slice(0, 3).map((cat) => `<span class="store-chip">#${cat.name}</span>`).join(' ');
+        const description = (store.description || 'Bu mağaza eşsiz el işçiliği ürünler sunuyor.').substring(0, 220);
+        const image = store.banner || store.logo || 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=80';
+        const contactHref = store.email
+            ? `mailto:${store.email}`
+            : (store.phone ? `tel:${store.phone}` : null);
+        const contactLabel = store.email ? '💌 İletişim' : (store.phone ? '📞 Ara' : '📍 Konum');
 
-    let debounceTimer;
-    searchInput.addEventListener('input', (event) => {
-      clearTimeout(debounceTimer);
-      const value = event.target.value || '';
-      debounceTimer = setTimeout(() => {
-        this.filters.search = value.trim().toLowerCase();
-        this.applyFiltersAndRender();
-      }, 300);
-    });
-  }
-
-  showLoading() {
-    this.grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:3rem;">
-        <div style="font-size:3rem;">🌀</div>
-        <p>Nordik ustalar yükleniyor...</p>
-      </div>
-    `;
-  }
-
-  showError(message) {
-    this.grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#dc2626;">
-        <div style="font-size:3rem;margin-bottom:1rem;">❌</div>
-        <h3>${this.escapeHtml(message)}</h3>
-        <p>Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.</p>
-      </div>
-    `;
-  }
-
-  showToast(message) {
-    if (window.showToast) {
-      window.showToast(message);
-    } else {
-      alert(message);
+        return `
+            <article class="artisan-card" data-store-id="${store.id}">
+                <div class="artisan-image">
+                    <img src="${image}" alt="${store.name} mağaza görseli" loading="lazy">
+                    <div class="artisan-badge">${badge}</div>
+                </div>
+                <div class="artisan-info">
+                    <h3 class="artisan-name">${store.name}</h3>
+                    <p class="artisan-specialty">${topCategory}</p>
+                    <div class="artisan-stats">
+                        <div class="stat">
+                            <span class="stat-number">${rating}</span>
+                            <span class="stat-label">Puan</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${totalProducts}</span>
+                            <span class="stat-label">Ürün</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${totalSales}</span>
+                            <span class="stat-label">Satış</span>
+                        </div>
+                    </div>
+                    <p class="artisan-description">${description}${description.length === 220 ? '...' : ''}</p>
+                    <div class="artisan-actions">
+                        <a class="btn btn-primary" style="flex: 2;" href="products.html?storeSlug=${store.slug}">🎨 Ürünleri Gör</a>
+                        ${contactHref ? `<a class="btn btn-secondary" style="flex: 1;" href="${contactHref}">${contactLabel}</a>` : `<button class="btn btn-secondary" style="flex: 1;" data-store="${store.slug}" data-action="locate">📍 Detay</button>`}
+                    </div>
+                    ${categoryChips ? `<div class="artisan-tags">${categoryChips}</div>` : ''}
+                </div>
+            </article>
+        `;
     }
-  }
 
-  escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+    renderFilters() {
+        if (!this.elements.filters) return;
+
+        const facets = this.buildCategoryFacets();
+        const buttons = [`<button type="button" class="filter-btn ${this.selectedCategory === 'all' ? 'active' : ''}" data-category="all">Tüm Mağazalar (${this.totalStores})</button>`];
+
+        facets.forEach((facet) => {
+            buttons.push(`
+                <button type="button" class="filter-btn ${this.selectedCategory === facet.slug ? 'active' : ''}" data-category="${facet.slug}">
+                    ${facet.icon || '🏷️'} ${facet.name} (${facet.count})
+                </button>
+            `);
+        });
+
+        this.elements.filters.innerHTML = buttons.join('');
+    }
+
+    buildCategoryFacets() {
+        const map = new Map();
+        this.storeCache.forEach((store) => {
+            const categories = Array.isArray(store?.productSummary?.topCategories)
+                ? store.productSummary.topCategories
+                : [];
+
+            categories.forEach((cat, index) => {
+                if (!cat?.slug) return;
+                if (!map.has(cat.slug)) {
+                    map.set(cat.slug, { slug: cat.slug, name: cat.name || cat.slug, count: 0, priority: index });
+                }
+                const entry = map.get(cat.slug);
+                entry.count += Number(cat.productCount || 1);
+                entry.priority = Math.min(entry.priority, index);
+            });
+        });
+
+        return Array.from(map.values())
+            .sort((a, b) => {
+                if (b.count === a.count) {
+                    return a.priority - b.priority;
+                }
+                return b.count - a.count;
+            })
+            .slice(0, 8);
+    }
+
+    renderStats() {
+        const storeCount = this.totalStores || this.storeCache.length;
+        if (this.elements.heroStoreCount) {
+            this.elements.heroStoreCount.textContent = storeCount.toLocaleString('tr-TR');
+        }
+
+        const totalPieces = this.storeCache.reduce((sum, store) => {
+            return sum + (store?.productSummary?.totalProducts || 0);
+        }, 0);
+        if (this.elements.heroTotalPieces) {
+            this.elements.heroTotalPieces.textContent = totalPieces.toLocaleString('tr-TR');
+        }
+
+        const avgRating = this.storeCache.length
+            ? (this.storeCache.reduce((sum, store) => sum + (parseFloat(store.rating) || 0), 0) / this.storeCache.length)
+            : 0;
+        if (this.elements.heroAvgRating) {
+            this.elements.heroAvgRating.textContent = avgRating.toFixed(1);
+        }
+    }
+
+    renderFeaturedStore() {
+        const store = this.featuredStore || this.filteredStores[0];
+        if (!store) {
+            if (this.elements.featured) {
+                this.elements.featured.style.display = 'none';
+            }
+            return;
+        }
+
+        if (this.elements.featured) {
+            this.elements.featured.style.display = 'grid';
+        }
+
+        const summary = store.productSummary || {};
+        const categories = Array.isArray(summary.topCategories) ? summary.topCategories : [];
+        const tagline = categories.map((cat) => cat.name).join(' • ') || 'Nordik zanaatkar tasarımları';
+        const rating = (parseFloat(store.rating) || 0).toFixed(1);
+        const totalSales = summary.totalSales || store.total_sales || 0;
+        const totalProducts = summary.totalProducts || 0;
+        const createdAt = store.createdAt ? new Date(store.createdAt) : null;
+        const yearsActive = createdAt ? Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24 * 365))) : 1;
+        const description = store.description || 'Bu usta mağaza, geleneksel tekniklerle modern tasarımları buluşturuyor.';
+        const image = store.banner || store.logo || (this.elements.featuredImage?.src ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80');
+
+        if (this.elements.featuredName) {
+            this.elements.featuredName.textContent = store.name;
+        }
+        if (this.elements.featuredTagline) {
+            this.elements.featuredTagline.textContent = tagline;
+        }
+        if (this.elements.featuredYears) {
+            this.elements.featuredYears.textContent = yearsActive.toString();
+        }
+        if (this.elements.featuredRating) {
+            this.elements.featuredRating.textContent = rating;
+        }
+        if (this.elements.featuredSales) {
+            this.elements.featuredSales.textContent = totalSales.toLocaleString('tr-TR');
+        }
+        if (this.elements.featuredDescription) {
+            this.elements.featuredDescription.textContent = description;
+        }
+        if (this.elements.featuredImage) {
+            this.elements.featuredImage.src = image;
+            this.elements.featuredImage.alt = `${store.name} mağaza afişi`;
+        }
+        if (this.elements.featuredBadge) {
+            this.elements.featuredBadge.textContent = store.is_featured ? '⭐ Öne Çıkan Mağaza' : '✨ Topluluk Seçimi';
+        }
+        if (this.elements.featuredProfile) {
+            if (store.email) {
+                this.elements.featuredProfile.textContent = '💌 Mağaza ile İletişim';
+                this.elements.featuredProfile.onclick = () => {
+                    window.location.href = `mailto:${store.email}`;
+                };
+            } else {
+                this.elements.featuredProfile.textContent = '📍 Mağaza Detayları';
+                this.elements.featuredProfile.onclick = () => {
+                    window.location.href = `products.html?storeSlug=${store.slug}`;
+                };
+            }
+        }
+        if (this.elements.featuredProducts) {
+            this.elements.featuredProducts.onclick = () => {
+                window.location.href = `products.html?storeSlug=${store.slug}`;
+            };
+        }
+    }
+
+    updateLoadMoreVisibility() {
+        if (!this.elements.loadMore) return;
+
+        if (this.hasNext) {
+            this.elements.loadMore.style.display = 'inline-flex';
+        } else {
+            this.elements.loadMore.style.display = 'none';
+        }
+    }
+
+    setupEventListeners() {
+        if (this.elements.filters) {
+            this.elements.filters.addEventListener('click', async (event) => {
+                const button = event.target.closest('[data-category]');
+                if (!button) return;
+
+                const category = button.getAttribute('data-category');
+                if (category === this.selectedCategory) {
+                    return;
+                }
+
+                this.selectedCategory = category;
+                this.filteredStores = this.applyCategoryFilter(this.storeCache);
+                if (!this.filteredStores.length && this.hasNext) {
+                    await this.handleLoadMore();
+                }
+                this.renderAll();
+
+                if (window.dostikAI) {
+                    window.dostikAI.addChatMessage(`🐉 ${category === 'all' ? 'Tüm ustalar karşınızda!' : `${button.textContent.trim()} koleksiyonuna göz atmaya ne dersiniz?`}`);
+                }
+            });
+        }
+
+        if (this.elements.search) {
+            this.elements.search.addEventListener('input', (event) => {
+                this.searchTerm = event.target.value;
+                this.debouncedSearch();
+            });
+        }
+
+        if (this.elements.loadMore) {
+            this.elements.loadMore.addEventListener('click', () => {
+                this.handleLoadMore();
+            });
+        }
+
+        if (this.elements.grid) {
+            this.elements.grid.addEventListener('click', (event) => {
+                const target = event.target.closest('button[data-action="locate"]');
+                if (!target) return;
+
+                const slug = target.getAttribute('data-store');
+                if (!slug) return;
+
+                alert('Mağaza detay sayfası yakında aktif olacak! Şimdilik ürünlerine göz atabilirsiniz.');
+                window.location.href = `products.html?storeSlug=${slug}`;
+            });
+        }
+    }
+
+    async handleLoadMore() {
+        if (this.isLoading || !this.hasNext) return;
+        this.currentPage += 1;
+        await this.loadStores({ append: true });
+    }
+
+    showLoading() {
+        if (!this.elements.grid) return;
+        this.elements.grid.innerHTML = `
+            <div class="loading-state" style="grid-column: 1 / -1; text-align: center; padding: var(--space-xxl);">
+                <div class="spinner" style="margin: 0 auto 1rem;"></div>
+                <p>Mağazalar yükleniyor...</p>
+            </div>
+        `;
+        if (this.elements.noResults) {
+            this.elements.noResults.style.display = 'none';
+        }
+    }
+
+    showError(message) {
+        if (!this.elements.grid) return;
+        this.elements.grid.innerHTML = `
+            <div class="error-state" style="grid-column: 1 / -1; text-align: center; padding: var(--space-xxl); color: #dc2626;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                <h3>Hata</h3>
+                <p>${message}</p>
+            </div>
+        `;
+        if (this.elements.loadMore) {
+            this.elements.loadMore.style.display = 'none';
+        }
+    }
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    window.storeDirectoryPage = new StoreDirectoryPage();
-  });
+    document.addEventListener('DOMContentLoaded', () => new StoreDirectoryPage());
 } else {
-  window.storeDirectoryPage = new StoreDirectoryPage();
+    new StoreDirectoryPage();
 }

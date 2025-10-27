@@ -12,37 +12,29 @@ class ProductsPageAPI {
         this.currentView = 'grid';
         this.currentPage = 1;
         this.totalPages = 1;
-        this.urlParams = new URLSearchParams(window.location.search);
         this.filters = {
             categories: [],
             priceRange: 1000,
             rating: '',
             search: '',
-            sort: 'featured',
-            storeId: this.urlParams.get('store') || null,
+            sort: 'featured'
         };
-        this.activeRequestController = null;
-        this.debug = Boolean(API_CONFIG.DEBUG);
-        const initialSearch = this.urlParams.get('search');
-        if (initialSearch) {
-            this.filters.search = initialSearch.trim();
-        }
-        this.storeName = this.urlParams.get('storeName')
-            ? decodeURIComponent(this.urlParams.get('storeName'))
-            : null;
 
-        this.log('Initializing products page API');
+        this.urlParams = new URLSearchParams(window.location.search);
+        this.storeId = this.urlParams.get('storeId');
+        this.storeSlug = this.urlParams.get('storeSlug');
+        this.categorySlug = this.urlParams.get('categorySlug');
+        this.activeStore = null;
+        this.initialCategory = null;
+
+        console.log('[Products Page API] Initializing...');
         this.init();
-    }
-
-    log(...args) {
-        if (this.debug && typeof console !== 'undefined' && console.debug) {
-            console.debug('[Products Page]', ...args);
-        }
     }
 
     async init() {
         try {
+            await this.resolveInitialFilters();
+
             // Load categories first
             await this.loadCategories();
 
@@ -52,21 +44,48 @@ class ProductsPageAPI {
             // Setup event listeners
             this.setupEventListeners();
 
-            this.log('Initialization complete');
+            console.log('[Products Page API] Initialization complete');
         } catch (error) {
             console.error('[Products Page API] Initialization error:', error);
             this.showError('Failed to initialize products page');
         }
     }
 
+    async resolveInitialFilters() {
+        try {
+            if (this.storeSlug && !this.storeId) {
+                const storeResponse = await this.apiClient.getStoreBySlug(this.storeSlug);
+                if (storeResponse.success && storeResponse.data) {
+                    this.activeStore = storeResponse.data;
+                    this.storeId = storeResponse.data.id;
+                }
+            } else if (this.storeId) {
+                const storeResponse = await this.apiClient.getStore(this.storeId);
+                if (storeResponse.success && storeResponse.data) {
+                    this.activeStore = storeResponse.data;
+                }
+            }
+
+            if (this.categorySlug) {
+                const categoryResponse = await this.apiClient.getCategoryBySlug(this.categorySlug);
+                if (categoryResponse.success && categoryResponse.data) {
+                    this.initialCategory = categoryResponse.data;
+                    this.filters.categories = [categoryResponse.data.id];
+                }
+            }
+        } catch (error) {
+            console.warn('[Products Page API] resolveInitialFilters warning:', error);
+        }
+    }
+
     async loadCategories() {
         try {
-            this.log('Loading categories...');
+            console.log('[Products Page API] Loading categories...');
             const response = await this.apiClient.getTopLevelCategories();
 
             if (response.success && response.data) {
                 this.categories = response.data;
-                this.log('Loaded categories', this.categories.length);
+                console.log('[Products Page API] Categories loaded:', this.categories.length);
                 this.renderCategoryFilters();
             }
         } catch (error) {
@@ -75,9 +94,8 @@ class ProductsPageAPI {
     }
 
     async loadProducts() {
-        let controller = null;
         try {
-            this.log('Loading products...');
+            console.log('[Products Page API] Loading products...');
 
             // Show loading state
             this.showLoading();
@@ -89,14 +107,19 @@ class ProductsPageAPI {
                 sort: this.getSortParam()
             };
 
-            if (this.filters.storeId) {
-                params.store_id = this.filters.storeId;
-                params.includeAllStatuses = false;
-            }
-
             // Add category filter
             if (this.filters.categories.length > 0) {
                 params.category_id = this.filters.categories[0]; // Backend expects single category for now
+            }
+
+            if (this.categorySlug && !params.category_id) {
+                params.category_slug = this.categorySlug;
+            }
+
+            if (this.storeId) {
+                params.store_id = this.storeId;
+            } else if (this.storeSlug) {
+                params.store_slug = this.storeSlug;
             }
 
             // Add price filter
@@ -112,22 +135,7 @@ class ProductsPageAPI {
             // Add rating filter (only approved products shown by default)
             // Backend returns only approved & active products by default
 
-            if (this.activeRequestController) {
-                this.activeRequestController.abort();
-            }
-
-            controller = new AbortController();
-            this.activeRequestController = controller;
-
-            const response = await this.apiClient.getProducts(params, { signal: controller.signal });
-
-            if (controller !== this.activeRequestController) {
-                return;
-            }
-
-            if (!response) {
-                return;
-            }
+            const response = await this.apiClient.getProducts(params);
 
             if (response.success && response.data) {
                 this.allProducts = response.data;
@@ -139,33 +147,19 @@ class ProductsPageAPI {
                     this.totalPages = response.pagination.totalPages || 1;
                 }
 
-                this.log('Products loaded', this.allProducts.length);
+                console.log('[Products Page API] Products loaded:', this.allProducts.length);
 
                 this.renderProducts();
                 this.updateResultsCount();
-                this.updateStoreContext();
-                this.syncSearchInput();
+                this.renderActiveStoreBanner();
             } else {
-                if (response.error === 'ABORTED') {
-                    return;
-                }
                 this.showError('No products found');
             }
         } catch (error) {
-            if (error?.error === 'ABORTED') {
-                return;
-            }
             console.error('[Products Page API] Error loading products:', error);
             this.showError('Failed to load products');
         } finally {
-            const isLatest = controller && this.activeRequestController === controller;
-            if (isLatest && this.activeRequestController.signal.aborted) {
-                this.log('Latest product request aborted');
-            }
-            if (isLatest) {
-                this.hideLoading();
-                this.activeRequestController = null;
-            }
+            this.hideLoading();
         }
     }
 
@@ -213,37 +207,6 @@ class ProductsPageAPI {
         this.loadProducts();
     }
 
-    syncSearchInput() {
-        const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.value = this.filters.search || '';
-        }
-    }
-
-    updateQueryParams() {
-        const params = new URLSearchParams(window.location.search);
-
-        if (this.filters.search) {
-            params.set('search', this.filters.search);
-        } else {
-            params.delete('search');
-        }
-
-        if (this.filters.storeId) {
-            params.set('store', this.filters.storeId);
-            if (this.storeName) {
-                params.set('storeName', this.storeName);
-            }
-        } else {
-            params.delete('store');
-            params.delete('storeName');
-        }
-
-        const queryString = params.toString();
-        const nextUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
-        window.history.replaceState({}, '', nextUrl);
-    }
-
     setupEventListeners() {
         // Sort dropdown
         const sortSelect = document.getElementById('sortSelect');
@@ -252,48 +215,20 @@ class ProductsPageAPI {
                 this.filters.sort = e.target.value;
                 this.loadProducts();
             });
-            if (this.filters.storeId) {
-                sortSelect.value = 'newest';
-            }
         }
 
         // Search (use globalSearch from header)
         const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
         if (searchInput) {
             let searchTimeout;
-            this.syncSearchInput();
             searchInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filters.search = value;
-                    this.currentPage = 1;
-                    this.updateQueryParams();
+                    this.filters.search = e.target.value.toLowerCase();
                     this.loadProducts();
-                }, 400);
+                }, 500); // Debounce
             });
-        } else {
-            this.syncSearchInput();
         }
-
-        document.addEventListener('global-search:submit', (event) => {
-            if (!event || !event.detail) return;
-            event.preventDefault();
-            this.filters.search = (event.detail.query || '').trim();
-            this.currentPage = 1;
-            this.updateQueryParams();
-            this.syncSearchInput();
-            this.loadProducts();
-        });
-
-        document.addEventListener('global-search:clear', () => {
-            if (!this.filters.search) return;
-            this.filters.search = '';
-            this.currentPage = 1;
-            this.updateQueryParams();
-            this.syncSearchInput();
-            this.loadProducts();
-        });
 
         // Price range slider
         const priceRange = document.getElementById('priceRange');
@@ -366,22 +301,6 @@ class ProductsPageAPI {
         }
     }
 
-    updateStoreContext() {
-        if (!this.filters.storeId) return;
-
-        const resultsInfo = document.getElementById('resultsCount');
-        if (resultsInfo) {
-            const storeLabel = this.storeName || (this.filteredProducts[0]?.store?.name ?? 'selected artisan');
-            const count = this.filteredProducts.length;
-            resultsInfo.textContent = `Showing ${count} treasures from ${storeLabel}`;
-        }
-
-        const pageTitle = document.querySelector('.page-title') || document.querySelector('.section-title h2');
-        if (pageTitle && this.storeName) {
-            pageTitle.textContent = `${this.storeName} Treasures`;
-        }
-    }
-
     createProductCard(product) {
         const card = document.createElement('div');
         card.className = 'product-card fade-in';
@@ -446,6 +365,11 @@ class ProductsPageAPI {
 
         // Store information (if available)
         const storeName = product.store ? product.store.name : 'Nordic Artisan';
+        const storeSlug = product.store?.slug;
+        const storeLink = product.store?.id
+            ? `products.html?storeId=${product.store.id}${storeSlug ? `&storeSlug=${storeSlug}` : ''}`
+            : null;
+        const detailUrl = product.slug ? `product-detail.html?slug=${product.slug}` : `product-detail.html?id=${product.id}`;
 
         card.innerHTML = `
             <div class="journey-indicator"></div>
@@ -455,7 +379,9 @@ class ProductsPageAPI {
             </div>
             <div class="product-info">
                 <h3 class="product-title">${product.title}</h3>
-                <p class="product-artisan">by ${storeName}</p>
+                <p class="product-artisan">
+                    by ${storeLink ? `<a href="${storeLink}" data-store-link="true">${storeName}</a>` : storeName}
+                </p>
                 <p class="product-description">${product.short_description || product.description?.substring(0, 100) + '...' || ''}</p>
                 <div class="social-proof">
                     <span class="rating-stars">${'★'.repeat(Math.floor(product.rating || 0))}${'☆'.repeat(5 - Math.floor(product.rating || 0))}</span>
@@ -483,9 +409,10 @@ class ProductsPageAPI {
         // Click to view details
         card.addEventListener('click', (e) => {
             // Don't navigate if clicking on buttons
-            if (!e.target.closest('button')) {
-                window.location.href = `product-detail.html?id=${product.id}`;
+            if (e.target.closest('button') || e.target.closest('a[data-store-link="true"]')) {
+                return;
             }
+            window.location.href = detailUrl;
         });
 
         return card;
@@ -585,7 +512,42 @@ class ProductsPageAPI {
         const resultsElement = document.getElementById('resultsCount');
 
         if (resultsElement) {
-            resultsElement.textContent = `Showing ${count} product${count !== 1 ? 's' : ''}`;
+            let summary = `Showing ${count} product${count !== 1 ? 's' : ''}`;
+            if (this.activeStore?.name) {
+                summary += ` from ${this.activeStore.name}`;
+            }
+            resultsElement.textContent = summary;
+        }
+    }
+
+    renderActiveStoreBanner() {
+        const banner = document.getElementById('activeStoreBanner');
+        if (!banner) return;
+
+        if (this.activeStore?.name) {
+            banner.innerHTML = `
+                <div class="active-store-chip">
+                    <span>🏪 Viewing products from <strong>${this.activeStore.name}</strong></span>
+                    <button id="clearStoreFilter" class="btn btn-link">Clear</button>
+                </div>
+            `;
+
+            const clearBtn = banner.querySelector('#clearStoreFilter');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    this.storeId = null;
+                    this.storeSlug = null;
+                    this.activeStore = null;
+                    this.urlParams.delete('storeId');
+                    this.urlParams.delete('storeSlug');
+                    const newUrl = `${window.location.pathname}?${this.urlParams.toString()}`.replace(/\?$/, '');
+                    window.history.replaceState({}, '', newUrl);
+                    this.loadProducts();
+                    this.renderActiveStoreBanner();
+                });
+            }
+        } else {
+            banner.innerHTML = '';
         }
     }
 

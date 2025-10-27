@@ -842,25 +842,22 @@
                 <!-- Product Images -->
                 <div>
                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Images</label>
-                    <div class="vendor-image-upload">
-                        <div id="productImageDropzone" class="vendor-image-dropzone" role="button" tabindex="0" aria-describedby="productImageHelp">
-                            <input type="file" id="productImageFile" accept="image/*" aria-label="Select product image" />
-                            <div class="vendor-image-dropzone-inner">
-                                <div class="vendor-image-icon">🖼️</div>
-                                <div>
-                                    <div class="vendor-image-title">Drag & drop or click to upload</div>
-                                    <div class="vendor-image-subtitle">We automatically convert to optimized WebP format</div>
-                                </div>
-                            </div>
+                    <div class="image-upload-grid">
+                        <label class="image-upload-dropzone" id="productImageDropzone">
+                            <input type="file" id="productImageFile" accept="image/*" style="display:none;">
+                            <div class="upload-icon">⬆️</div>
+                            <div class="upload-text">Drop or click to upload</div>
+                            <div class="upload-hint">Images are converted to fast-loading WebP automatically</div>
+                        </label>
+                        <div class="image-upload-preview" id="productImagePreview">
+                            <span class="preview-placeholder">No image selected</span>
                         </div>
-                        <div id="productImageStatus" class="vendor-image-status" aria-live="polite"></div>
-                        <div id="productImagePreview" class="vendor-image-preview" aria-live="polite"></div>
                     </div>
-                    <div class="vendor-image-divider">or paste an existing image URL</div>
-                    <input type="url" id="productImage"
-                           placeholder="https://example.com/image.jpg"
-                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
-                    <small id="productImageHelp" style="color: #666; font-size: 0.85rem;">Uploaded images are stored on our servers and optimized as WebP automatically.</small>
+                    <div class="image-upload-actions">
+                        <input type="url" id="productImageUrl" placeholder="https://example.com/image.jpg (optional)" class="image-url-input">
+                        <button type="button" id="clearProductImage" class="image-clear-btn">Remove image</button>
+                    </div>
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">You can upload a photo from your computer or paste an existing URL. Uploaded images are hosted on Dosttan Palas and optimised for the marketplace.</small>
                 </div>
 
                 <!-- Product Badges -->

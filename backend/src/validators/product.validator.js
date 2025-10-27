@@ -7,21 +7,11 @@ const Joi = require('joi');
 
 const imageUrlSchema = Joi.string()
   .trim()
-  .custom((value, helpers) => {
-    if (!value) return value;
-
-    const isHttp = /^https?:\/\//i.test(value);
-    const isRelativeUpload = value.startsWith('/uploads/');
-
-    if (isHttp || isRelativeUpload) {
-      return value;
-    }
-
-    return helpers.error('any.invalid');
-  }, 'image URL validation');
-
-const tagsArraySchema = Joi.array().items(Joi.string().max(50).trim()).max(20);
-const keywordsArraySchema = Joi.array().items(Joi.string().max(60).trim()).max(30);
+  .pattern(/^https?:\/\/.+|^\/uploads\/.+/, 'image url')
+  .messages({
+    'string.pattern.name': 'Images must be valid URLs or start with /uploads/',
+    'string.pattern.base': 'Images must be valid URLs or start with /uploads/',
+  });
 
 /**
  * Create product validation schema
@@ -59,7 +49,7 @@ const createProductSchema = Joi.object({
     height: Joi.number().min(0).optional(),
   }).optional(),
   attributes: Joi.object().optional().default({}),
-  tags: tagsArraySchema.default([]),
+  tags: Joi.array().items(Joi.string().max(50)).max(20).default([]),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -67,7 +57,6 @@ const createProductSchema = Joi.object({
     .messages({
       'any.only': 'Badge must be one of: handmade, limited, eco-friendly, spiritual, traditional, artisan',
     }),
-  meta_keywords: keywordsArraySchema.default([]),
   variants: Joi.array().items(
     Joi.object({
       category_variant_id: Joi.string().uuid().required(),
@@ -110,7 +99,7 @@ const updateProductSchema = Joi.object({
     height: Joi.number().min(0).optional(),
   }).optional(),
   attributes: Joi.object().optional(),
-  tags: tagsArraySchema.optional(),
+  tags: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -121,7 +110,6 @@ const updateProductSchema = Joi.object({
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),
   is_active: Joi.boolean().optional(),
-  meta_keywords: keywordsArraySchema.optional(),
 });
 
 /**
@@ -161,13 +149,20 @@ const productQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
   store_id: Joi.string().uuid().optional(),
+  store_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
+    'string.pattern.base': 'Store slug can only include letters, numbers, and hyphens',
+  }),
   category_id: Joi.string().uuid().optional(),
+  category_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
+    'string.pattern.base': 'Category slug can only include letters, numbers, and hyphens',
+  }),
   status: Joi.string().valid('draft', 'pending', 'approved', 'rejected').optional(),
   search: Joi.string().max(200).optional().trim(),
   min_price: Joi.number().min(0).optional(),
   max_price: Joi.number().min(0).optional(),
-  in_stock: Joi.boolean().truthy('true').falsy('false').optional(),
-  is_featured: Joi.boolean().truthy('true').falsy('false').optional(),
+  in_stock: Joi.boolean().optional(),
+  is_featured: Joi.boolean().optional(),
+  includeAllStatuses: Joi.boolean().optional(),
   sort: Joi.string()
     .valid(
       'title',
@@ -182,9 +177,6 @@ const productQuerySchema = Joi.object({
       '-created_at'
     )
     .default('-created_at'),
-  includeAllStatuses: Joi.boolean().truthy('true').falsy('false').optional(),
-  include_inactive: Joi.boolean().truthy('true').falsy('false').optional(),
-  include_out_of_stock: Joi.boolean().truthy('true').falsy('false').optional(),
 });
 
 module.exports = {
@@ -192,5 +184,14 @@ module.exports = {
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
+  productSlugSchema: Joi.object({
+    slug: Joi.string()
+      .pattern(/^[a-z0-9-]{3,}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Product slug can only include lowercase letters, numbers, and hyphens',
+        'any.required': 'Product slug is required',
+      }),
+  }),
   productQuerySchema,
 };

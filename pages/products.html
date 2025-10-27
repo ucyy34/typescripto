@@ -140,6 +140,34 @@
             flex-shrink: 0;
         }
 
+        .active-store-banner {
+            margin-bottom: var(--space-lg);
+        }
+
+        .active-store-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            background: rgba(26, 74, 58, 0.08);
+            color: var(--forest-deep);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+        }
+
+        .active-store-chip .btn-link {
+            background: none;
+            border: none;
+            color: var(--aurora-blue);
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0;
+        }
+
+        .active-store-chip .btn-link:hover {
+            text-decoration: underline;
+        }
+
         .results-info {
             display: flex;
             justify-content: space-between;
@@ -434,6 +462,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <div id="activeStoreBanner" class="active-store-banner" aria-live="polite"></div>
 
                     <!-- Products Grid -->
                     <div class="products-grid-view">

@@ -1,735 +1,571 @@
 /**
- * Category Page Integration
- * Connects category landing pages to backend API data
+ * Category Landing Page Integration
+ * Connects category-specific landing pages to the backend API
  */
 
-class CategoryPage {
-  constructor() {
-    const body = document.body || document.querySelector('body');
-    this.categorySlug = body?.dataset?.categorySlug || null;
-    this.productsContainerId = body?.dataset?.productsContainerId || null;
-    this.loadMoreButtonId = body?.dataset?.loadMoreId || null;
+class CategoryLandingPage {
+    constructor() {
+        this.categorySlug = document.body?.dataset?.categorySlug;
+        this.categoryTitle = document.body?.dataset?.categoryTitle || '';
 
-    if (!this.categorySlug || !this.productsContainerId) {
-      console.warn('[CategoryPage] Missing category configuration. Skipping initialization.');
-      return;
+        this.apiClient = typeof ApiClient !== 'undefined' ? new ApiClient() : null;
+        this.category = null;
+        this.products = [];
+        this.currentPage = 1;
+        this.totalPages = 1;
+        this.limit = 12;
+        this.sort = '-created_at';
+
+        this.selectedChildCategory = null;
+        this.selectedStoreId = null;
+        this.priceCeiling = null;
+        this.maxPrice = null;
+        this.searchTerm = '';
+
+        this.isLoading = false;
+
+        this.elements = {
+            container: document.getElementById('categoryProductsContainer'),
+            loadMore: document.getElementById('categoryLoadMore'),
+            subcategoryFilters: document.getElementById('subcategoryFilters'),
+            storeFilters: document.getElementById('storeFilters'),
+            priceSlider: document.getElementById('categoryPriceRange'),
+            priceValue: document.getElementById('categoryPriceValue'),
+            priceMax: document.getElementById('categoryPriceMax'),
+            searchInput: document.getElementById('categorySearchInput'),
+            clearFilters: document.getElementById('clearCategoryFilters'),
+            overlay: document.getElementById('filterOverlay'),
+            sidebar: document.getElementById('filtersSidebar'),
+            mobileToggle: document.getElementById('mobileFilterToggle'),
+            closeMobile: document.getElementById('closeMobileFilters'),
+            productCount: document.getElementById('categoryProductCount'),
+            storeCount: document.getElementById('categoryStoreCount'),
+            ratingAverage: document.getElementById('categoryAverageRating'),
+        };
+
+        if (!this.categorySlug || !this.apiClient || !this.elements.container) {
+            console.warn('[Category Landing] Required elements missing, skipping initialization.');
+            return;
+        }
+
+        this.init();
     }
 
-    this.apiClient = new ApiClient();
-    this.categoryData = null;
-    this.products = [];
-    this.filteredProducts = [];
-    this.productIndex = new Map();
-    this.displayedProducts = 0;
-    this.productsPerLoad = 9;
-    this.filters = {
-      activeButton: 'all',
-      maxPrice: null,
-      storeIds: new Set(),
-      minRating: 0,
-      searchQuery: '',
-    };
-
-    this.filterOptions = [
-      { key: 'all', label: '🌟 All Treasures', predicate: () => true },
-      {
-        key: 'on-sale',
-        label: '💸 On Sale',
-        predicate: (product) =>
-          product.compare_price && parseFloat(product.compare_price) > parseFloat(product.price || product.compare_price),
-      },
-      {
-        key: 'best-rated',
-        label: '⭐ Rated 4.5+',
-        predicate: (product) => (parseFloat(product.rating || 0) >= 4.5),
-      },
-      {
-        key: 'low-stock',
-        label: '⚠️ Limited Stock',
-        predicate: (product) => {
-          const stock = Number(product.stock || 0);
-          const threshold = Number(product.low_stock_threshold || 0);
-          return stock > 0 && threshold > 0 && stock <= threshold;
-        },
-      },
-      {
-        key: 'featured',
-        label: '🌠 Featured',
-        predicate: (product) => Boolean(product.is_featured),
-      },
-    ];
-
-    this.init();
-  }
-
-  async init() {
-    this.productsContainer = document.getElementById(this.productsContainerId);
-    if (!this.productsContainer) {
-      console.error('[CategoryPage] Products container not found:', this.productsContainerId);
-      return;
+    async init() {
+        try {
+            this.showLoading();
+            await this.loadCategory();
+            await this.loadProducts();
+            this.setupEventListeners();
+        } catch (error) {
+            console.error('[Category Landing] Initialization error:', error);
+            this.showError('Kategori verileri yüklenirken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+        }
     }
 
-    this.loadMoreButton = this.loadMoreButtonId ? document.getElementById(this.loadMoreButtonId) : null;
+    async loadCategory() {
+        const response = await this.apiClient.getCategoryBySlug(this.categorySlug);
+        if (!response.success || !response.data) {
+            throw new Error(response.message || 'Category not found');
+        }
 
-    try {
-      this.showLoading();
-      await this.loadCategory();
-      await this.loadProducts();
-      this.renderHero();
-      this.setupFilterButtons();
-      this.setupSidebarFilters();
-      this.setupMobileFilters();
-      this.setupLoadMore();
-      this.setupSearch();
-      this.applyAndRender(true);
-    } catch (error) {
-      console.error('[CategoryPage] Initialization error:', error);
-      this.showError('Failed to load category data.');
-    } finally {
-      this.hideLoading();
-    }
-  }
-
-  async loadCategory() {
-    try {
-      const response = await this.apiClient.getCategoryBySlug(this.categorySlug);
-      if (response.success) {
-        this.categoryData = response.data;
-        return;
-      }
-
-      throw new Error(response.message || 'Category not found');
-    } catch (error) {
-      console.error('[CategoryPage] Error loading category:', error);
-      throw error;
-    }
-  }
-
-  async loadProducts() {
-    try {
-      const response = await this.apiClient.getCategoryProducts(this.categoryData.id, {
-        limit: 60,
-        sort: '-created_at',
-      });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to load products');
-      }
-
-      this.products = Array.isArray(response.data) ? response.data : [];
-
-      if (this.products.length === 0) {
-        console.warn('[CategoryPage] No products returned for category', this.categorySlug);
-      }
-
-      const prices = this.products
-        .map((product) => parseFloat(product.price))
-        .filter((price) => !Number.isNaN(price));
-
-      const maxPrice = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 0;
-      const minPrice = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0;
-
-      this.filters.maxPrice = maxPrice || 0;
-      this.priceBounds = { min: minPrice, max: maxPrice };
-    } catch (error) {
-      console.error('[CategoryPage] Error loading products:', error);
-      throw error;
-    }
-  }
-
-  renderHero() {
-    if (!this.categoryData) return;
-
-    if (this.categoryData.meta_title) {
-      document.title = this.categoryData.meta_title;
-    } else if (this.categoryData.name) {
-      document.title = `${this.categoryData.name} - DostanWebCSS Marketplace`;
+        this.category = response.data;
+        this.renderCategoryMeta();
+        this.renderSubcategoryFilters();
     }
 
-    if (this.categoryData.meta_description) {
-      const meta = document.querySelector('meta[name="description"]');
-      if (meta) {
-        meta.setAttribute('content', this.categoryData.meta_description);
-      }
+    renderCategoryMeta() {
+        if (!this.category) return;
+
+        if (this.category.meta_title) {
+            document.title = this.category.meta_title;
+        } else if (this.categoryTitle) {
+            document.title = `${this.categoryTitle} - DostanWebCSS`;
+        }
+
+        if (this.category.meta_description) {
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) {
+                metaDesc.setAttribute('content', this.category.meta_description);
+            }
+        }
+
+        const stats = this.category.stats || {};
+        const totalProducts = Number(stats.totalProducts || 0);
+        const uniqueStores = Number(stats.uniqueStoreCount || 0);
+        const avgRating = Number(stats.averageRating || 0);
+        const maxPrice = Number(stats.maxPrice || 0);
+
+        if (this.elements.productCount) {
+            this.elements.productCount.textContent = totalProducts.toLocaleString('tr-TR');
+        }
+        if (this.elements.storeCount) {
+            this.elements.storeCount.textContent = uniqueStores.toLocaleString('tr-TR');
+        }
+        if (this.elements.ratingAverage) {
+            this.elements.ratingAverage.textContent = avgRating.toFixed(1);
+        }
+
+        this.priceCeiling = Math.max(Math.ceil(maxPrice || 500), 50);
+        this.maxPrice = this.priceCeiling;
+
+        if (this.elements.priceSlider) {
+            this.elements.priceSlider.max = String(this.priceCeiling);
+            this.elements.priceSlider.value = String(this.priceCeiling);
+        }
+        if (this.elements.priceValue) {
+            this.elements.priceValue.textContent = `₺${this.priceCeiling.toLocaleString('tr-TR')}`;
+        }
+        if (this.elements.priceMax) {
+            this.elements.priceMax.textContent = `₺${this.priceCeiling.toLocaleString('tr-TR')}`;
+        }
     }
 
-    if (window.seoMetaManager && typeof window.seoMetaManager.updateCategoryMeta === 'function') {
-      try {
-        window.seoMetaManager.updateCategoryMeta(this.categoryData);
-      } catch (error) {
-        console.warn('[CategoryPage] Failed to update SEO metadata:', error);
-      }
-    }
+    renderSubcategoryFilters() {
+        if (!this.elements.subcategoryFilters) return;
 
-    const heroTitle = document.querySelector('.category-hero h1');
-    if (heroTitle && this.categoryData.name) {
-      const icon = this.categoryData.icon || (heroTitle.textContent.match(/[\p{Emoji}\p{Extended_Pictographic}]/u) || [''])[0];
-      heroTitle.textContent = `${icon ? `${icon} ` : ''}${this.categoryData.name}`;
-    }
+        const children = Array.isArray(this.category?.children) ? this.category.children : [];
+        if (children.length === 0) {
+            this.elements.subcategoryFilters.innerHTML = '<p style="opacity:0.7;">Alt koleksiyon bulunamadı.</p>';
+            return;
+        }
 
-    const heroDescription = document.querySelector('.category-hero p');
-    if (heroDescription && this.categoryData.description) {
-      heroDescription.textContent = this.categoryData.description;
-    }
+        const items = [
+            `<label class="filter-option">
+                <input type="radio" name="subcategory" value="" ${this.selectedChildCategory ? '' : 'checked'}>
+                <span>Tüm Koleksiyonlar</span>
+            </label>`
+        ];
 
-    const statNumbers = document.querySelectorAll('.category-stats .stat-number');
-    if (statNumbers[0]) {
-      statNumbers[0].textContent = this.products.length.toString();
-    }
-
-    if (statNumbers[1]) {
-      statNumbers[1].textContent = this.getUniqueStoreCount().toString();
-    }
-
-    if (statNumbers[2]) {
-      const avgRating = this.getAverageRating();
-      statNumbers[2].textContent = avgRating > 0 ? avgRating.toFixed(1) : '—';
-    }
-  }
-
-  getUniqueStoreCount() {
-    const ids = new Set();
-    this.products.forEach((product) => {
-      if (product.store?.id) {
-        ids.add(product.store.id);
-      }
-    });
-    return ids.size;
-  }
-
-  getAverageRating() {
-    if (this.products.length === 0) return 0;
-    const total = this.products.reduce((sum, product) => sum + Number(product.rating || 0), 0);
-    return total / this.products.length;
-  }
-
-  setupFilterButtons() {
-    const container = document.querySelector('.filter-buttons');
-    if (!container) return;
-
-    const availableOptions = this.filterOptions.filter((option) => {
-      if (option.key === 'all') return true;
-      return this.products.some(option.predicate);
-    });
-
-    container.innerHTML = availableOptions
-      .map(
-        (option, index) => `
-          <button class="filter-btn ${index === 0 ? 'active' : ''}" data-filter="${option.key}">
-            ${option.label}
-          </button>
-        `
-      )
-      .join('');
-
-    this.filters.activeButton = availableOptions.length > 0 ? availableOptions[0].key : 'all';
-
-    container.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-filter]');
-      if (!button) return;
-
-      container.querySelectorAll('button[data-filter]').forEach((btn) => btn.classList.remove('active'));
-      button.classList.add('active');
-
-      this.filters.activeButton = button.dataset.filter;
-      this.applyAndRender(true);
-    });
-  }
-
-  setupSidebarFilters() {
-    const sidebar = document.getElementById('filtersSidebar');
-    if (!sidebar) return;
-
-    const uniqueStores = this.getStoreList();
-    const maxPrice = this.priceBounds?.max || 0;
-    const minPrice = this.priceBounds?.min || 0;
-
-    sidebar.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-lg);">
-        <h3 style="margin:0;">🔎 Refine Results</h3>
-        <button id="closeMobileFilters" style="display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;">×</button>
-      </div>
-
-      <div class="filter-group">
-        <h4>🏪 Store</h4>
-        <div class="store-filter-list" id="categoryStoreFilters">
-          ${uniqueStores
-            .map(
-              (store) => `
+        children.forEach((child) => {
+            items.push(`
                 <label class="filter-option">
-                  <input type="checkbox" value="${store.id}" data-store-filter>
-                  <span>${this.escapeHtml(store.name)}</span>
+                    <input type="radio" name="subcategory" value="${child.id}" ${this.selectedChildCategory === child.id ? 'checked' : ''}>
+                    <span>${child.icon || '🪵'} ${child.name}</span>
                 </label>
-              `
-            )
-            .join('')}
-          ${uniqueStores.length === 0 ? '<p style="font-size:0.9rem;color:var(--forest-medium);">Stores will appear as products are approved.</p>' : ''}
-        </div>
-      </div>
+            `);
+        });
 
-      <div class="filter-group">
-        <h4>💰 Maximum Price</h4>
-        <input type="range" id="priceRange" min="${minPrice}" max="${Math.max(maxPrice, 1)}" value="${Math.max(maxPrice, 1)}" step="1" class="price-range-slider">
-        <div style="display:flex;justify-content:space-between;font-size:0.9rem;color:var(--forest-medium);">
-          <span>${this.formatCurrency(minPrice)}</span>
-          <span id="priceValue">${this.formatCurrency(Math.max(maxPrice, 1))}</span>
-        </div>
-      </div>
+        this.elements.subcategoryFilters.innerHTML = items.join('');
+    }
 
-      <div class="filter-group">
-        <h4>⭐ Minimum Rating</h4>
-        <label class="filter-option">
-          <input type="radio" name="ratingFilter" value="0" checked>
-          <span>Any rating</span>
-        </label>
-        <label class="filter-option">
-          <input type="radio" name="ratingFilter" value="4.5">
-          <span>4.5 stars & above</span>
-        </label>
-        <label class="filter-option">
-          <input type="radio" name="ratingFilter" value="4">
-          <span>4.0 stars & above</span>
-        </label>
-      </div>
+    async loadProducts({ append = false } = {}) {
+        if (this.isLoading) return;
+        this.isLoading = true;
 
-      <button class="btn btn-secondary" id="clearFilters" style="width:100%;">🧹 Clear Filters</button>
-    `;
+        if (!append) {
+            this.showLoading();
+        }
 
-    sidebar.querySelectorAll('input[data-store-filter]').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => {
-        const { value } = checkbox;
-        if (checkbox.checked) {
-          this.filters.storeIds.add(value);
+        try {
+            const params = {
+                page: this.currentPage,
+                limit: this.limit,
+                sort: this.sort,
+                category_id: this.selectedChildCategory || this.category.id,
+            };
+
+            if (this.selectedStoreId) {
+                params.store_id = this.selectedStoreId;
+            }
+
+            if (this.maxPrice !== null && this.priceCeiling !== null && this.maxPrice < this.priceCeiling) {
+                params.max_price = this.maxPrice;
+            }
+
+            if (this.searchTerm) {
+                params.search = this.searchTerm.trim();
+            }
+
+            const response = await this.apiClient.getProducts(params);
+
+            if (!response.success || !Array.isArray(response.data)) {
+                throw new Error(response.message || 'Products not available');
+            }
+
+            const incomingProducts = response.data;
+
+            if (append) {
+                this.products = this.products.concat(incomingProducts);
+            } else {
+                this.products = incomingProducts;
+            }
+
+            if (response.pagination) {
+                this.totalPages = response.pagination.totalPages || 1;
+                this.currentPage = response.pagination.page || 1;
+            }
+
+            this.renderProducts(append);
+            this.renderStoreFilters();
+            this.updateLoadMore();
+        } catch (error) {
+            console.error('[Category Landing] loadProducts error:', error);
+            this.showError('Ürünler yüklenirken bir sorun oluştu.');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    renderProducts(append = false) {
+        const container = this.elements.container;
+        if (!container) return;
+
+        if (!append) {
+            container.innerHTML = '';
+        }
+
+        if (this.products.length === 0) {
+            container.innerHTML = `
+                <div class="no-products" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🪵</div>
+                    <h3>Ürün bulunamadı</h3>
+                    <p>Filtreleri değiştirerek tekrar deneyin.</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.products.forEach((product) => {
+            const card = this.createProductCard(product);
+            container.appendChild(card);
+        });
+    }
+
+    createProductCard(product) {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.dataset.productId = product.id;
+
+        const mainImage = Array.isArray(product.images) && product.images.length > 0
+            ? product.images[0]
+            : 'https://via.placeholder.com/400x300?text=No+Image';
+
+        const price = Number(product.price || 0);
+        const comparePrice = product.compare_price ? Number(product.compare_price) : null;
+        const discount = comparePrice && comparePrice > price
+            ? Math.round(((comparePrice - price) / comparePrice) * 100)
+            : null;
+
+        const storeName = product.store?.name || 'Zanaatkâr';
+        const storeLink = product.store?.id
+            ? `products.html?storeId=${product.store.id}${product.store.slug ? `&storeSlug=${product.store.slug}` : ''}`
+            : null;
+
+        const detailUrl = product.slug
+            ? `product-detail.html?slug=${product.slug}`
+            : `product-detail.html?id=${product.id}`;
+
+        const ratingValue = Number(product.rating || 0).toFixed(1);
+        const badges = Array.isArray(product.badges) ? product.badges : [];
+
+        card.innerHTML = `
+            <div class="journey-indicator"></div>
+            <div class="product-image">
+                <img src="${mainImage}" alt="${product.title}" loading="lazy">
+                ${product.stock <= 0 ? '<span class="stock-badge out-of-stock">Stokta Yok</span>' : ''}
+                ${discount ? `<span class="stock-badge discount">-${discount}%</span>` : ''}
+            </div>
+            <div class="product-info">
+                <h3 class="product-title">${product.title}</h3>
+                <p class="product-artisan">
+                    by ${storeLink ? `<a href="${storeLink}" data-store-link="true">${storeName}</a>` : storeName}
+                </p>
+                <p class="product-description">${product.short_description || (product.description ? product.description.substring(0, 100) + '…' : '')}</p>
+                <div class="social-proof">
+                    <span class="rating-stars">${'★'.repeat(Math.round(product.rating || 0))}${'☆'.repeat(5 - Math.round(product.rating || 0))}</span>
+                    <span class="rating-value">${ratingValue}</span>
+                    <span class="purchases-count">${product.total_sales || 0} satış</span>
+                </div>
+                <div class="product-badges">
+                    ${badges.map((badge) => `<span class="badge">${badge}</span>`).join('')}
+                </div>
+                <div class="product-price">
+                    <span class="price-current">₺${price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    ${comparePrice ? `<span class="price-original">₺${comparePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
+                </div>
+                <div class="product-actions">
+                    <button class="btn btn-card btn-add-cart" data-product-id="${product.id}" ${product.stock <= 0 ? 'disabled' : ''}>
+                        ${product.stock <= 0 ? 'Stokta Yok' : 'Sepete Ekle'}
+                    </button>
+                    <button class="btn btn-card btn-wishlist" data-product-id="${product.id}">
+                        <span class="heart-icon">♡</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        card.addEventListener('click', (event) => {
+            if (event.target.closest('button') || event.target.closest('a[data-store-link="true"]')) {
+                return;
+            }
+            window.location.href = detailUrl;
+        });
+
+        return card;
+    }
+
+    renderStoreFilters() {
+        if (!this.elements.storeFilters) return;
+
+        const storeMap = new Map();
+        this.products.forEach((product) => {
+            if (product.store && product.store.id) {
+                storeMap.set(product.store.id, product.store);
+            }
+        });
+
+        if (storeMap.size === 0) {
+            this.elements.storeFilters.innerHTML = '<p style="opacity:0.7;">Bu koleksiyonda yalnızca bu kategoriye ait ürünler mevcut.</p>';
+            return;
+        }
+
+        const items = [
+            `<label class="filter-option">
+                <input type="radio" name="storeFilter" value="" ${this.selectedStoreId ? '' : 'checked'}>
+                <span>Tüm Atölyeler</span>
+            </label>`
+        ];
+
+        Array.from(storeMap.values()).forEach((store) => {
+            items.push(`
+                <label class="filter-option">
+                    <input type="radio" name="storeFilter" value="${store.id}" ${this.selectedStoreId === store.id ? 'checked' : ''}>
+                    <span>${store.name}</span>
+                </label>
+            `);
+        });
+
+        this.elements.storeFilters.innerHTML = items.join('');
+    }
+
+    updateLoadMore() {
+        const button = this.elements.loadMore;
+        if (!button) return;
+
+        if (this.currentPage >= this.totalPages) {
+            button.style.display = 'none';
         } else {
-          this.filters.storeIds.delete(value);
+            button.style.display = 'inline-flex';
         }
-        this.applyAndRender(true);
-      });
-    });
-
-    const priceRange = sidebar.querySelector('#priceRange');
-    const priceValue = sidebar.querySelector('#priceValue');
-
-    if (priceRange) {
-      priceRange.addEventListener('input', (event) => {
-        const nextValue = Number(event.target.value || 0);
-        this.filters.maxPrice = nextValue;
-        if (priceValue) {
-          priceValue.textContent = this.formatCurrency(nextValue);
-        }
-      });
-
-      priceRange.addEventListener('change', () => this.applyAndRender(true));
     }
 
-    sidebar.querySelectorAll('input[name="ratingFilter"]').forEach((radio) => {
-      radio.addEventListener('change', (event) => {
-        this.filters.minRating = Number(event.target.value || 0);
-        this.applyAndRender(true);
-      });
-    });
+    setupEventListeners() {
+        if (this.elements.loadMore) {
+            this.elements.loadMore.addEventListener('click', () => {
+                if (this.currentPage >= this.totalPages) return;
+                this.currentPage += 1;
+                this.loadProducts({ append: true });
+            });
+        }
 
-    const clearFilters = sidebar.querySelector('#clearFilters');
-    if (clearFilters) {
-      clearFilters.addEventListener('click', () => {
-        this.filters.storeIds.clear();
-        this.filters.minRating = 0;
-        this.filters.maxPrice = this.priceBounds?.max || 0;
+        if (this.elements.subcategoryFilters) {
+            this.elements.subcategoryFilters.addEventListener('change', (event) => {
+                if (event.target.name === 'subcategory') {
+                    this.selectedChildCategory = event.target.value || null;
+                    this.currentPage = 1;
+                    this.loadProducts();
+                }
+            });
+        }
 
-        sidebar.querySelectorAll('input[data-store-filter]').forEach((checkbox) => {
-          checkbox.checked = false;
+        if (this.elements.storeFilters) {
+            this.elements.storeFilters.addEventListener('change', (event) => {
+                if (event.target.name === 'storeFilter') {
+                    this.selectedStoreId = event.target.value || null;
+                    this.currentPage = 1;
+                    this.loadProducts();
+                }
+            });
+        }
+
+        if (this.elements.priceSlider) {
+            this.elements.priceSlider.addEventListener('input', (event) => {
+                const value = Number(event.target.value);
+                if (this.elements.priceValue) {
+                    this.elements.priceValue.textContent = `₺${value.toLocaleString('tr-TR')}`;
+                }
+            });
+
+            this.elements.priceSlider.addEventListener('change', (event) => {
+                const value = Number(event.target.value);
+                this.maxPrice = value;
+                this.currentPage = 1;
+                this.loadProducts();
+            });
+        }
+
+        if (this.elements.searchInput) {
+            let debounceTimer;
+            this.elements.searchInput.addEventListener('input', (event) => {
+                clearTimeout(debounceTimer);
+                const term = event.target.value;
+                debounceTimer = setTimeout(() => {
+                    this.searchTerm = term;
+                    this.currentPage = 1;
+                    this.loadProducts();
+                }, 400);
+            });
+        }
+
+        if (this.elements.clearFilters) {
+            this.elements.clearFilters.addEventListener('click', () => {
+                this.resetFilters();
+            });
+        }
+
+        if (this.elements.mobileToggle && this.elements.sidebar && this.elements.overlay) {
+            const openSidebar = () => {
+                this.elements.sidebar.classList.add('open');
+                this.elements.overlay.classList.add('active');
+            };
+            const closeSidebar = () => {
+                this.elements.sidebar.classList.remove('open');
+                this.elements.overlay.classList.remove('active');
+            };
+
+            this.elements.mobileToggle.addEventListener('click', openSidebar);
+            this.elements.overlay.addEventListener('click', closeSidebar);
+            this.elements.closeMobile?.addEventListener('click', closeSidebar);
+        }
+
+        document.addEventListener('click', (event) => {
+            if (event.target.matches('.btn-add-cart')) {
+                const productId = event.target.dataset.productId;
+                if (productId) {
+                    this.addToCart(productId);
+                }
+            }
         });
+    }
 
-        const priceSlider = sidebar.querySelector('#priceRange');
-        if (priceSlider) {
-          priceSlider.value = Math.max(this.priceBounds?.max || 0, 1);
+    resetFilters() {
+        this.selectedChildCategory = null;
+        this.selectedStoreId = null;
+        this.maxPrice = this.priceCeiling;
+        this.searchTerm = '';
+        this.currentPage = 1;
+
+        if (this.elements.priceSlider && this.priceCeiling !== null) {
+            this.elements.priceSlider.value = String(this.priceCeiling);
         }
-        if (priceValue) {
-          priceValue.textContent = this.formatCurrency(Math.max(this.priceBounds?.max || 0, 1));
+        if (this.elements.priceValue && this.priceCeiling !== null) {
+            this.elements.priceValue.textContent = `₺${this.priceCeiling.toLocaleString('tr-TR')}`;
+        }
+        if (this.elements.searchInput) {
+            this.elements.searchInput.value = '';
         }
 
-        const anyRating = sidebar.querySelector('input[name="ratingFilter"][value="0"]');
-        if (anyRating) {
-          anyRating.checked = true;
+        this.renderSubcategoryFilters();
+        this.renderStoreFilters();
+        this.loadProducts();
+    }
+
+    showLoading() {
+        if (!this.elements.container) return;
+        this.elements.container.innerHTML = `
+            <div class="loading-state" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                <div class="spinner" style="margin: 0 auto 1rem;"></div>
+                <p>Ürünler yükleniyor...</p>
+            </div>
+        `;
+    }
+
+    showError(message) {
+        if (!this.elements.container) return;
+        this.elements.container.innerHTML = `
+            <div class="error-state" style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #b91c1c;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                <h3>Bir sorun oluştu</h3>
+                <p>${message}</p>
+            </div>
+        `;
+    }
+
+    async addToCart(productId) {
+        try {
+            const product = this.products.find((item) => item.id === productId);
+            if (!product) {
+                alert('Ürün bulunamadı');
+                return;
+            }
+
+            if (product.stock <= 0) {
+                alert('Bu ürün stokta yok.');
+                return;
+            }
+
+            if (typeof AuthManager !== 'undefined' && AuthManager.isLoggedIn()) {
+                const response = await this.apiClient.post('/cart/items', {
+                    product_id: productId,
+                    quantity: 1,
+                });
+
+                if (response.success) {
+                    this.showToast('Ürün sepetinize eklendi!');
+                    if (window.updateCartCount) {
+                        window.updateCartCount();
+                    }
+                    return;
+                }
+            }
+
+            this.addToLocalCart(product);
+            this.showToast('Ürün sepetinize eklendi!');
+        } catch (error) {
+            console.error('[Category Landing] addToCart error:', error);
+            this.showToast('Ürün sepete eklenemedi.');
         }
-
-        this.applyAndRender(true);
-      });
-    }
-  }
-
-    setupMobileFilters() {
-        const sidebar = document.getElementById('filtersSidebar');
-        const toggle = document.getElementById('mobileFilterToggle');
-        const overlay = document.getElementById('filterOverlay');
-    const closeButton = document.getElementById('closeMobileFilters');
-
-    if (!sidebar || !overlay) return;
-
-    const openSidebar = () => {
-      sidebar.classList.add('open');
-      overlay.classList.add('visible');
-    };
-
-    const closeSidebar = () => {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('visible');
-    };
-
-    toggle?.addEventListener('click', openSidebar);
-    closeButton?.addEventListener('click', closeSidebar);
-    overlay.addEventListener('click', closeSidebar);
-
-    if (toggle) {
-      toggle.style.display = 'block';
-    }
-  }
-
-  setupLoadMore() {
-    if (!this.loadMoreButton) return;
-
-    this.loadMoreButton.addEventListener('click', () => {
-      this.renderProducts();
-    });
-  }
-
-  setupSearch() {
-    const searchInput = document.getElementById('globalSearch') || document.querySelector('.search-input');
-    if (!searchInput) return;
-
-    let debounceTimer;
-    searchInput.addEventListener('input', (event) => {
-      const value = event.target.value || '';
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        this.filters.searchQuery = value.trim().toLowerCase();
-        this.applyAndRender(true);
-      }, 300);
-    });
-  }
-
-  applyAndRender(reset = false) {
-    this.filteredProducts = this.products.filter((product) => this.applyFilters(product));
-    this.renderProducts(reset);
-  }
-
-  applyFilters(product) {
-    const activeFilter = this.filterOptions.find((option) => option.key === this.filters.activeButton);
-    if (activeFilter && !activeFilter.predicate(product)) {
-      return false;
     }
 
-    const price = parseFloat(product.price || 0);
-    if (this.filters.maxPrice && !Number.isNaN(price) && price > this.filters.maxPrice) {
-      return false;
-    }
-
-    if (this.filters.storeIds.size > 0) {
-      const storeId = product.store?.id;
-      if (!storeId || !this.filters.storeIds.has(storeId)) {
-        return false;
-      }
-    }
-
-    if (this.filters.minRating > 0) {
-      const rating = Number(product.rating || 0);
-      if (rating < this.filters.minRating) {
-        return false;
-      }
-    }
-
-    if (this.filters.searchQuery) {
-      const haystack = `${product.title || ''} ${product.short_description || ''} ${product.description || ''} ${
-        product.store?.name || ''
-      }`.toLowerCase();
-      if (!haystack.includes(this.filters.searchQuery)) {
-        return false;
-      }
-    }
-
-    const stock = Number(product.stock || 0);
-    if (stock <= 0 || product.is_active === false) {
-      return false;
-    }
-
-    return true;
-  }
-
-  renderProducts(reset = false) {
-    if (reset) {
-      this.productsContainer.innerHTML = '';
-      this.displayedProducts = 0;
-    }
-
-    this.productIndex.clear();
-
-    if (this.filteredProducts.length === 0) {
-      this.productsContainer.innerHTML = `
-        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--forest-medium);">
-          <div style="font-size:3rem;margin-bottom:1rem;">🧭</div>
-          <h3>No treasures match your filters</h3>
-          <p>Try adjusting the filters or search terms to discover more Nordic creations.</p>
-        </div>
-      `;
-      if (this.loadMoreButton) {
-        this.loadMoreButton.style.display = 'none';
-      }
-      return;
-    }
-
-    const slice = this.filteredProducts.slice(
-      this.displayedProducts,
-      this.displayedProducts + this.productsPerLoad
-    );
-
-    slice.forEach((product) => {
-      this.productIndex.set(product.id, product);
-      this.productsContainer.appendChild(this.createProductCard(product));
-    });
-
-    this.displayedProducts += slice.length;
-
-    if (this.loadMoreButton) {
-      this.loadMoreButton.style.display = this.displayedProducts >= this.filteredProducts.length ? 'none' : 'block';
-    }
-  }
-
-  createProductCard(product) {
-    const card = document.createElement('div');
-    card.className = 'product-card fade-in';
-    card.dataset.productId = product.id;
-
-    const mainImage = Array.isArray(product.images) && product.images.length > 0
-      ? product.images[0]
-      : 'https://via.placeholder.com/400x300?text=Nordic+Treasure';
-
-    const price = parseFloat(product.price || 0);
-    const comparePrice = product.compare_price ? parseFloat(product.compare_price) : null;
-    const discount = comparePrice && comparePrice > price
-      ? Math.round(((comparePrice - price) / comparePrice) * 100)
-      : null;
-
-    const stock = Number(product.stock || 0);
-    const threshold = Number(product.low_stock_threshold || 0);
-    const stockClass = stock <= 0 ? 'out-of-stock' : stock <= threshold ? 'low-stock' : 'in-stock';
-    const stockLabel = stock <= 0 ? 'Out of Stock' : stock <= threshold ? `Low Stock (${stock})` : 'In Stock';
-
-    const badges = [];
-    if (product.is_featured) {
-      badges.push('<span class="badge featured">Featured</span>');
-    }
-    if (discount) {
-      badges.push(`<span class="badge discount">-${discount}%</span>`);
-    }
-    if (Array.isArray(product.badges)) {
-      product.badges.forEach((badge) => {
-        const label = this.formatBadgeLabel(badge);
-        if (label) {
-          badges.push(`<span class="badge ${badge}">${label}</span>`);
+    addToLocalCart(product) {
+        try {
+            const cart = JSON.parse(localStorage.getItem('guestCart') || '[]');
+            const existing = cart.find((item) => item.id === product.id);
+            if (existing) {
+                existing.quantity = Math.min((existing.quantity || 1) + 1, product.stock || 1);
+            } else {
+                cart.push({
+                    id: product.id,
+                    title: product.title,
+                    price: product.price,
+                    image: Array.isArray(product.images) && product.images.length ? product.images[0] : null,
+                    quantity: 1,
+                    stock: product.stock,
+                });
+            }
+            localStorage.setItem('guestCart', JSON.stringify(cart));
+        } catch (error) {
+            console.warn('[Category Landing] addToLocalCart failed:', error);
         }
-      });
     }
 
-    card.innerHTML = `
-      <div class="journey-indicator"></div>
-      <div class="product-image">
-        <img src="${mainImage}" alt="${this.escapeHtml(product.title || 'Nordic product')}" loading="lazy">
-        <span class="stock-badge ${stockClass}">${stockLabel}</span>
-      </div>
-      <div class="product-info">
-        <h3 class="product-title">${this.escapeHtml(product.title || 'Unnamed Product')}</h3>
-        <p class="product-artisan">${product.store?.name ? `by ${this.escapeHtml(product.store.name)}` : 'Independent Artisan'}</p>
-        <p class="product-description">${this.escapeHtml(product.short_description || this.truncateText(product.description, 120))}</p>
-        <div class="social-proof">
-          <span class="rating-stars">${this.buildRatingStars(product.rating)}</span>
-          <span class="rating-value">${Number(product.rating || 0).toFixed(1)}</span>
-          <span class="purchases-count">${Number(product.total_sales || 0)} sold</span>
-        </div>
-        <div class="product-badges">${badges.join('')}</div>
-        <div class="product-price">
-          <span class="price-current">${this.formatCurrency(price)}</span>
-          ${comparePrice ? `<span class="price-original">${this.formatCurrency(comparePrice)}</span>` : ''}
-        </div>
-        <div class="product-actions">
-          <button class="btn btn-card btn-add-cart" data-product-id="${product.id}" ${stock <= 0 ? 'disabled' : ''}>
-            ${stock <= 0 ? 'Sold Out' : 'Add to Cart'}
-          </button>
-          <button class="btn btn-card" data-action="view" data-product-id="${product.id}">View Details</button>
-        </div>
-      </div>
-    `;
-
-    card.addEventListener('click', (event) => {
-      const button = event.target.closest('button');
-      if (button) return;
-      window.location.href = `product-detail.html?id=${product.id}`;
-    });
-
-    card.querySelector('[data-action="view"]').addEventListener('click', (event) => {
-      event.stopPropagation();
-      window.location.href = `product-detail.html?id=${product.id}`;
-    });
-
-    const addToCartButton = card.querySelector('.btn-add-cart');
-    if (addToCartButton) {
-      addToCartButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        this.handleAddToCart(product.id);
-      });
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification success';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #16a34a;
+            color: white;
+            padding: 0.9rem 1.4rem;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(22, 163, 74, 0.25);
+            z-index: 9999;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 2500);
     }
-
-    return card;
-  }
-
-  async handleAddToCart(productId) {
-    const product = this.productIndex.get(productId);
-    if (!product) {
-      alert('Product details are not available yet. Please try again.');
-      return;
-    }
-
-    if (Number(product.stock || 0) <= 0) {
-      alert('This product is currently out of stock.');
-      return;
-    }
-
-    try {
-      if (typeof AuthManager !== 'undefined' && AuthManager.isLoggedIn()) {
-        const response = await this.apiClient.post('/cart/items', {
-          product_id: productId,
-          quantity: 1,
-        });
-
-        if (response.success) {
-          this.showToast('Product added to your cart!');
-          if (window.updateCartCount) {
-            window.updateCartCount();
-          }
-          return;
-        }
-      }
-
-      this.addToLocalCart(product);
-      this.showToast('Product added to your cart!');
-    } catch (error) {
-      console.error('[CategoryPage] Failed to add to cart:', error);
-      this.addToLocalCart(product);
-      this.showToast('Product added to your cart!');
-    }
-  }
-
-  addToLocalCart(product) {
-    const cart = JSON.parse(localStorage.getItem('localCart') || '[]');
-    const existing = cart.find((item) => item.product_id === product.id);
-
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      cart.push({ product_id: product.id, quantity: 1, product });
-    }
-
-    localStorage.setItem('localCart', JSON.stringify(cart));
-  }
-
-  showLoading() {
-    this.productsContainer.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:3rem;">
-        <div style="font-size:3rem;">🌀</div>
-        <p>Loading handcrafted treasures...</p>
-      </div>
-    `;
-  }
-
-  hideLoading() {
-    // No-op for now; actual rendering handles content
-  }
-
-  showError(message) {
-    this.productsContainer.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#dc2626;">
-        <div style="font-size:3rem;margin-bottom:1rem;">❌</div>
-        <h3>${this.escapeHtml(message)}</h3>
-        <p>Please refresh the page or try again later.</p>
-      </div>
-    `;
-    if (this.loadMoreButton) {
-      this.loadMoreButton.style.display = 'none';
-    }
-  }
-
-  showToast(message) {
-    if (window.showToast) {
-      window.showToast(message);
-      return;
-    }
-
-    alert(message);
-  }
-
-  getStoreList() {
-    const stores = new Map();
-    this.products.forEach((product) => {
-      if (product.store?.id && product.store?.name) {
-        stores.set(product.store.id, {
-          id: product.store.id,
-          name: product.store.name,
-        });
-      }
-    });
-    return Array.from(stores.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  formatCurrency(value) {
-    const number = Number(value || 0);
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(number);
-  }
-
-  buildRatingStars(rating) {
-    const value = Number(rating || 0);
-    const filled = Math.round(Math.min(Math.max(value, 0), 5));
-    return '★'.repeat(filled) + '☆'.repeat(5 - filled);
-  }
-
-  formatBadgeLabel(badge) {
-    if (!badge) return '';
-    const map = {
-      handmade: 'Handmade',
-      limited: 'Limited',
-      'eco-friendly': 'Eco',
-      spiritual: 'Spiritual',
-      traditional: 'Traditional',
-      artisan: 'Artisan',
-    };
-
-    if (map[badge]) return map[badge];
-    return badge.toString().replace(/[-_]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-  }
-
-  truncateText(text, limit = 100) {
-    if (!text) return '';
-    if (text.length <= limit) return text;
-    return `${text.substring(0, limit)}…`;
-  }
-
-  escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    window.categoryPage = new CategoryPage();
-  });
+    document.addEventListener('DOMContentLoaded', () => new CategoryLandingPage());
 } else {
-  window.categoryPage = new CategoryPage();
+    new CategoryLandingPage();
 }
