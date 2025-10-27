@@ -522,62 +522,6 @@ if (document.readyState === 'loading') {
 
 
 
-    /**
-
-     * Show loading indicator
-
-     */
-
-    showLoading() {
-
-        const container = document.getElementById('products-grid');
-
-        if (container) {
-
-            container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading products...</div>';
-
-        }
-
-    },
-
-
-
-    /**
-
-     * Hide loading indicator
-
-     */
-
-    hideLoading() {
-
-        // Loading is replaced by actual content or error message
-
-    },
-
-
-
-    /**
-
-     * Show error message
-
-     * @param {string} message - Error message to display
-
-     */
-
-    showError(message) {
-
-        const container = document.getElementById('products-grid');
-
-        if (container) {
-
-            container.innerHTML = `<div class="error-message"><i class="fas fa-exclamation-circle"></i> ${message}</div>`;
-
-        }
-
-    }
-
-};
-
 
 
 /**
@@ -920,22 +864,5 @@ function showToast(message, type = 'info') {
 
 }
 
-
-
-// Initialize when DOM is ready
-
-if (document.readyState === 'loading') {
-
-    document.addEventListener('DOMContentLoaded', () => {
-
-        HomeAPI.initHomePage();
-
-    });
-
-} else {
-
-    HomeAPI.initHomePage();
-
-}
 
 
