@@ -1,3 +1,7 @@
+# dosttan.com Render Blueprint
+# Backend (Node.js) + PostgreSQL + Redis (Key-Value)
+# Uğurcan Yeşilyurt - dosttanpalas yapılandırması
+
 services:
   - type: web
     name: dosttan-backend
@@ -21,9 +25,12 @@ services:
       - key: REDIS_HOST
         value: red-d3vmp72li9vc73cvuud0
       - key: REDIS_PORT
-        value: 6379
+        value: "6379"
       - key: REDIS_PASSWORD
         value: ""
+      - key: BASE_URL
+        value: https://dosttan.onrender.com
+
 databases:
   - name: dosttan-db
     databaseName: dosttan
