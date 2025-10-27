@@ -10,6 +10,211 @@ const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
+const MAX_SEO_DESCRIPTION_LENGTH = 160;
+
+const sanitizeSeoText = (text, limit) => {
+  if (!text) return undefined;
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.substring(0, limit - 3).trim()}...`;
+};
+
+const deriveSeoDescription = (shortDescription, description) => {
+  return (
+    sanitizeSeoText(shortDescription, MAX_SEO_DESCRIPTION_LENGTH) ||
+    sanitizeSeoText(description, MAX_SEO_DESCRIPTION_LENGTH)
+  );
+};
+
+const assignIfValue = (target, key, value) => {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+};
+
+const removeDiacritics = (value) => {
+  if (!value) return '';
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
+const normalizeSearchValue = (value) => {
+  if (!value) return '';
+  return removeDiacritics(String(value)).toLowerCase();
+};
+
+const buildSearchableText = (product) => {
+  const parts = [];
+
+  if (product.title) parts.push(product.title);
+  if (product.short_description) parts.push(product.short_description);
+  if (product.description) parts.push(product.description);
+  if (product.seo_title) parts.push(product.seo_title);
+  if (product.seo_description) parts.push(product.seo_description);
+  if (product.store?.name) parts.push(product.store.name);
+  if (product.category?.name) parts.push(product.category.name);
+  if (Array.isArray(product.tags) && product.tags.length > 0) {
+    parts.push(product.tags.join(' '));
+  }
+
+  return normalizeSearchValue(parts.join(' '));
+};
+
+const calculateSearchScore = (product, normalizedTerm, tokens) => {
+  const corpus = buildSearchableText(product);
+  const normalizedTitle = normalizeSearchValue(product.title);
+  const normalizedStore = normalizeSearchValue(product.store?.name);
+  const normalizedCategory = normalizeSearchValue(product.category?.name);
+
+  let score = 0;
+
+  if (normalizedTerm && normalizedTitle.startsWith(normalizedTerm)) {
+    score += 12;
+  }
+
+  if (normalizedTerm && corpus.includes(normalizedTerm)) {
+    score += 8;
+  }
+
+  if (normalizedTerm && normalizedStore.includes(normalizedTerm)) {
+    score += 6;
+  }
+
+  tokens.forEach((token) => {
+    if (!token) return;
+
+    if (normalizedTitle.includes(token)) score += 4;
+    if (normalizedStore.includes(token)) score += 3;
+    if (normalizedCategory.includes(token)) score += 2;
+    if (corpus.includes(token)) score += 2;
+
+    if (Array.isArray(product.tags)) {
+      const hasTag = product.tags.some((tag) => normalizeSearchValue(tag) === token);
+      if (hasTag) {
+        score += 3;
+      }
+    }
+  });
+
+  if (product.is_featured) {
+    score += 2;
+  }
+
+  const rating = Number(product.rating) || 0;
+  if (rating > 0) {
+    score += Math.min(rating, 5);
+  }
+
+  const totalSales = Number(product.total_sales) || 0;
+  if (totalSales > 0) {
+    score += Math.min(totalSales / 10, 5);
+  }
+
+  const views = Number(product.views_count) || 0;
+  if (views > 0) {
+    score += Math.min(views / 50, 4);
+  }
+
+  return score;
+};
+
+const createNormalizedValueStore = () => {
+  const store = new Map();
+
+  return {
+    add(value) {
+      if (!value) return;
+      const trimmed = String(value).trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!store.has(key)) {
+        store.set(key, trimmed);
+      }
+    },
+    toArray(limit) {
+      const values = Array.from(store.values());
+      if (typeof limit === 'number') {
+        return values.slice(0, limit);
+      }
+      return values;
+    },
+  };
+};
+
+const buildSearchSuggestions = (products, originalTokens, originalQuery) => {
+  const categoryMap = new Map();
+  const storeMap = new Map();
+  const tagStore = createNormalizedValueStore();
+  const queryStore = createNormalizedValueStore();
+
+  if (originalQuery) {
+    queryStore.add(originalQuery);
+  }
+
+  originalTokens.forEach((token) => queryStore.add(token));
+
+  products.forEach((product) => {
+    if (product.category?.id) {
+      categoryMap.set(product.category.id, {
+        id: product.category.id,
+        name: product.category.name,
+        slug: product.category.slug,
+      });
+      queryStore.add(product.category.name);
+    }
+
+    if (product.store?.id) {
+      storeMap.set(product.store.id, {
+        id: product.store.id,
+        name: product.store.name,
+        slug: product.store.slug,
+      });
+      queryStore.add(product.store.name);
+    }
+
+    queryStore.add(product.title);
+
+    if (Array.isArray(product.tags)) {
+      product.tags.forEach((tag) => {
+        tagStore.add(tag);
+        queryStore.add(tag);
+      });
+    }
+  });
+
+  return {
+    categories: Array.from(categoryMap.values()).slice(0, 5),
+    stores: Array.from(storeMap.values()).slice(0, 5),
+    tags: tagStore.toArray(8),
+    queries: queryStore.toArray(8),
+  };
+};
+
+const mapProductForSearch = (product) => {
+  const base = {
+    id: product.id,
+    slug: product.slug,
+    title: product.title,
+    short_description: product.short_description,
+    price: product.price,
+    compare_price: product.compare_price,
+    store: product.store,
+    category: product.category,
+    badges: product.badges,
+    rating: Number(product.rating) || 0,
+    total_reviews: product.total_reviews,
+    total_sales: product.total_sales,
+    thumbnail: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null,
+    tags: Array.isArray(product.tags) ? product.tags : [],
+  };
+
+  if (product.searchScore !== undefined) {
+    base.searchScore = product.searchScore;
+  }
+
+  return base;
+};
+
 class ProductService {
   /**
    * Create new product
@@ -48,12 +253,26 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
-    // Create product
-    const product = await Product.create({
+    const productPayload = {
       ...productData,
       slug,
       status: 'pending', // Needs admin approval
-    });
+    };
+
+    if (!productPayload.seo_title && productData.title) {
+      assignIfValue(productPayload, 'seo_title', sanitizeSeoText(productData.title, 200));
+    }
+
+    if (!productPayload.seo_description) {
+      assignIfValue(
+        productPayload,
+        'seo_description',
+        deriveSeoDescription(productData.short_description, productData.description)
+      );
+    }
+
+    // Create product
+    const product = await Product.create(productPayload);
 
     // Create variants if provided
     if (Array.isArray(productData.variants) && productData.variants.length > 0) {
@@ -74,6 +293,7 @@ class ProductService {
 
     // Clear cache
     await cache.delPattern('products:*');
+    await cache.delPattern('search:products:*');
 
     return product;
   }
@@ -97,6 +317,7 @@ class ProductService {
     if (!includeInactive) {
       where.status = 'approved';
       where.is_active = true;
+      where.stock = { [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
@@ -127,6 +348,60 @@ class ProductService {
     product.incrementViews().catch(() => {});
 
     // Cache for 1 hour
+    if (!includeInactive) {
+      await cache.set(cacheKey, product, 3600);
+    }
+
+    return product;
+  }
+
+  /**
+   * Get product by slug
+   * @param {string} slug
+   * @param {boolean} includeInactive
+   * @returns {Promise<Product>}
+   */
+  async getProductBySlug(slug, includeInactive = false) {
+    const cacheKey = `product:slug:${slug}`;
+    const cached = await cache.get(cacheKey);
+    if (cached && !includeInactive) {
+      return cached;
+    }
+
+    const where = { slug };
+
+    if (!includeInactive) {
+      where.status = 'approved';
+      where.is_active = true;
+      where.stock = { [Op.gt]: 0 };
+    }
+
+    const product = await Product.findOne({
+      where,
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+        },
+        {
+          model: ProductVariant,
+          as: 'productVariants',
+        },
+      ],
+    });
+
+    if (!product) {
+      throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
+    }
+
+    product.incrementViews().catch(() => {});
+
     if (!includeInactive) {
       await cache.set(cacheKey, product, 3600);
     }
@@ -182,14 +457,20 @@ class ProductService {
     }
 
     if (in_stock) {
-      where.stock = { [Op.gt]: 0 };
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
     }
 
     // If no status filter and includeAllStatuses is not true, only show approved and active products
     // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
-    if (!status && !shouldIncludeAll) {
-      where.status = 'approved';
-      where.is_active = true;
+    if (!shouldIncludeAll) {
+      if (!status) {
+        where.status = 'approved';
+      }
+
+      if (!status || status === 'approved') {
+        where.is_active = true;
+        where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
+      }
     }
 
     // Parse sort
@@ -245,6 +526,156 @@ class ProductService {
   }
 
   /**
+   * Search products by keyword with suggestions and relevancy scoring
+   * @param {string} term
+   * @param {Object} options
+   * @returns {Promise<Object>}
+   */
+  async searchProducts(term, options = {}) {
+    const { limit = 8, includeSuggestions = true } = options;
+    const rawQuery = typeof term === 'string' ? term.trim() : '';
+
+    if (!rawQuery) {
+      return {
+        products: [],
+        ...(includeSuggestions
+          ? { suggestions: { categories: [], stores: [], tags: [], queries: [] } }
+          : {}),
+      };
+    }
+
+    const normalizedQuery = normalizeSearchValue(rawQuery.replace(/\s+/g, ' '));
+    const originalTokens = rawQuery.split(/\s+/).filter(Boolean);
+    const normalizedTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+    const searchLimit = Math.max(1, Math.min(parseInt(limit, 10) || 8, 25));
+    const includeSuggestionData = includeSuggestions !== false;
+
+    const cacheKey = `search:products:${searchLimit}:${normalizedQuery}:${includeSuggestionData ? 'sug' : 'nosug'}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const likeTerm = `%${rawQuery}%`;
+    const orConditions = [
+      { title: { [Op.iLike]: likeTerm } },
+      { short_description: { [Op.iLike]: likeTerm } },
+      { description: { [Op.iLike]: likeTerm } },
+      { seo_title: { [Op.iLike]: likeTerm } },
+      { seo_description: { [Op.iLike]: likeTerm } },
+      { '$store.name$': { [Op.iLike]: likeTerm } },
+      { '$category.name$': { [Op.iLike]: likeTerm } },
+    ];
+
+    originalTokens.forEach((token) => {
+      const trimmed = token.trim();
+      if (!trimmed) return;
+      const likeToken = `%${trimmed}%`;
+      orConditions.push({ title: { [Op.iLike]: likeToken } });
+      orConditions.push({ short_description: { [Op.iLike]: likeToken } });
+      orConditions.push({ description: { [Op.iLike]: likeToken } });
+      orConditions.push({ seo_title: { [Op.iLike]: likeToken } });
+      orConditions.push({ seo_description: { [Op.iLike]: likeToken } });
+      orConditions.push({ '$store.name$': { [Op.iLike]: likeToken } });
+      orConditions.push({ '$category.name$': { [Op.iLike]: likeToken } });
+      orConditions.push({ tags: { [Op.overlap]: [trimmed.toLowerCase()] } });
+    });
+
+    const products = await Product.findAll({
+      where: {
+        status: 'approved',
+        is_active: true,
+        stock: { [Op.gt]: 0 },
+        [Op.or]: orConditions,
+      },
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo'],
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
+      limit: searchLimit * 3,
+      order: [
+        ['is_featured', 'DESC'],
+        ['total_sales', 'DESC'],
+        ['rating', 'DESC'],
+        ['created_at', 'DESC'],
+      ],
+    });
+
+    const scoredProducts = products.map((product) => {
+      const plain = product.get({ plain: true });
+      plain.searchScore = calculateSearchScore(plain, normalizedQuery, normalizedTokens);
+      return plain;
+    });
+
+    scoredProducts.sort((a, b) => (b.searchScore || 0) - (a.searchScore || 0));
+
+    const topResults = scoredProducts.slice(0, searchLimit);
+    const formattedProducts = topResults.map((product) => mapProductForSearch(product));
+
+    let recommendationSource = topResults;
+    let recommended = [];
+
+    if (formattedProducts.length === 0) {
+      const fallbackProducts = await Product.findAll({
+        where: {
+          status: 'approved',
+          is_active: true,
+          stock: { [Op.gt]: 0 },
+        },
+        include: [
+          {
+            model: Store,
+            as: 'store',
+            attributes: ['id', 'name', 'slug', 'logo'],
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'slug'],
+          },
+        ],
+        order: [
+          ['total_sales', 'DESC'],
+          ['rating', 'DESC'],
+          ['created_at', 'DESC'],
+        ],
+        limit: searchLimit,
+      });
+
+      recommendationSource = fallbackProducts.map((item) => item.get({ plain: true }));
+      recommended = recommendationSource.map((product) => mapProductForSearch(product));
+    }
+
+    const response = {
+      products: formattedProducts,
+    };
+
+    if (includeSuggestionData) {
+      response.suggestions = buildSearchSuggestions(
+        recommendationSource,
+        originalTokens,
+        rawQuery
+      );
+    }
+
+    if (recommended.length > 0) {
+      response.recommended = recommended;
+    }
+
+    await cache.set(cacheKey, response, 120);
+
+    return response;
+  }
+
+  /**
    * Get products by store ID
    * @param {string} storeId
    * @param {Object} filters
@@ -281,11 +712,60 @@ class ProductService {
     delete updateData.approved_by;
     delete updateData.store_id; // Cannot change store
 
+    // Auto-fill SEO fields when not provided explicitly
+    const nextTitle = updateData.title ?? product.title;
+    const nextShortDescription = updateData.short_description ?? product.short_description;
+    const nextDescription = updateData.description ?? product.description;
+
+    if (updateData.seo_title === undefined) {
+      if (updateData.title) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(updateData.title, 200));
+      } else if (!product.seo_title && nextTitle) {
+        assignIfValue(updateData, 'seo_title', sanitizeSeoText(nextTitle, 200));
+      }
+    } else if (typeof updateData.seo_title === 'string') {
+      const trimmedSeoTitle = sanitizeSeoText(updateData.seo_title, 200);
+      if (trimmedSeoTitle === undefined) {
+        delete updateData.seo_title;
+      } else {
+        updateData.seo_title = trimmedSeoTitle;
+      }
+    }
+
+    if (updateData.seo_description === undefined) {
+      if (updateData.short_description || updateData.description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(updateData.short_description, updateData.description)
+        );
+      } else if (!product.seo_description) {
+        assignIfValue(
+          updateData,
+          'seo_description',
+          deriveSeoDescription(nextShortDescription, nextDescription)
+        );
+      }
+    } else if (typeof updateData.seo_description === 'string') {
+      const trimmedSeoDescription = sanitizeSeoText(updateData.seo_description, MAX_SEO_DESCRIPTION_LENGTH);
+      if (trimmedSeoDescription === undefined) {
+        delete updateData.seo_description;
+      } else {
+        updateData.seo_description = trimmedSeoDescription;
+      }
+    }
+
+    const currentSlug = product.slug;
+
     await product.update(updateData);
 
     // Clear cache
     await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
     await cache.delPattern('products:*');
+    await cache.delPattern('search:products:*');
 
     return product;
   }
@@ -317,11 +797,17 @@ class ProductService {
       updateData.approved_by = null;
     }
 
+    const currentSlug = product.slug;
+
     await product.update(updateData);
 
     // Clear cache
     await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
     await cache.delPattern('products:*');
+    await cache.delPattern('search:products:*');
 
     return product;
   }
@@ -346,11 +832,17 @@ class ProductService {
       throw new ApiError('You do not have permission to delete this product', StatusCodes.FORBIDDEN);
     }
 
+    const currentSlug = product.slug;
+
     await product.destroy(); // Soft delete
 
     // Clear cache
     await cache.del(`product:${productId}`);
+    if (currentSlug) {
+      await cache.del(`product:slug:${currentSlug}`);
+    }
     await cache.delPattern('products:*');
+    await cache.delPattern('search:products:*');
   }
 
   /**
@@ -403,6 +895,7 @@ class ProductService {
       where: {
         status: 'approved',
         is_active: true,
+        stock: { [Op.gt]: 0 },
       },
       include: [
         { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },

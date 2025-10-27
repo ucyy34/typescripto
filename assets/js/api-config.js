@@ -72,6 +72,7 @@ const API_CONFIG = {
     // Product endpoints
     PRODUCTS: {
       BASE: '/products',
+      SEARCH: '/products/search',
       BY_ID: (id) => `/products/${id}`,
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,
@@ -129,6 +130,11 @@ const API_CONFIG = {
       STATS: '/dashboard/stats',
       RECENT_ORDERS: '/dashboard/recent-orders',
       RECENT_PRODUCTS: '/dashboard/recent-products',
+    },
+
+    // Upload endpoints
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
     },
   },
 

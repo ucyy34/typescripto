@@ -7,19 +7,6 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
-    this.debug = false;
-
-    try {
-      if (typeof window !== 'undefined') {
-        if (window.API_DEBUG === true) {
-          this.debug = true;
-        } else if (window.localStorage) {
-          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
-        }
-      }
-    } catch (_) {
-      this.debug = false;
-    }
   }
 
   /**
@@ -33,7 +20,15 @@ class ApiClient {
    * Build headers with authorization
    */
   buildHeaders(customHeaders = {}) {
-    const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
+    const headers = { ...API_CONFIG.HEADERS };
+
+    Object.entries(customHeaders).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        delete headers[key];
+      } else {
+        headers[key] = value;
+      }
+    });
 
     const token = this.getToken();
     if (token) {
@@ -135,48 +130,32 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      this._log(`${config.method || 'GET'} ${endpoint}`);
+      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      const responseText = await response.text();
-      let data;
+      // Parse JSON response
+      const data = await response.json();
 
-      if (responseText) {
-        try {
-          data = JSON.parse(responseText);
-        } catch (_) {
-          data = { success: response.ok, message: responseText };
-        }
-      } else {
-        data = { success: response.ok };
-      }
-
-      if (typeof data.success !== 'boolean') {
-        data.success = response.ok;
-      }
-
-      if (!data.message && response.statusText) {
-        data.message = response.statusText;
-      }
-
+      // Check if request was successful
       if (!response.ok) {
-        this._log(`Error ${response.status} ${endpoint}`, data);
+        console.error(`[API] Error ${response.status}:`, data);
 
+        // Return backend error message directly if available
         if (data.message) {
           return {
             success: false,
             message: data.message,
             error: data.error || 'API_ERROR',
-            status: response.status,
+            status: response.status
           };
         }
 
-        return this.handleError(new Error('Request failed'), response);
+        return this.handleError(new Error(data.message || 'Request failed'), response);
       }
 
-      this._log(`Success ${endpoint}`, data);
+      console.log(`[API] Success:`, data);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -250,10 +229,20 @@ class ApiClient {
     });
   }
 
-  _log(...args) {
-    if (this.debug) {
-      console.log('[API]', ...args);
-    }
+  /**
+   * Upload product image
+   */
+  async uploadProductImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': null,
+      },
+    });
   }
 
   // ==========================================
@@ -304,20 +293,6 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
-  }
-
-  /**
-   * Get current user's store
-   */
-  async getMyStore() {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
-  }
-
-  /**
-   * Create a new store for the authenticated seller
-   */
-  async createStore(storeData = {}) {
-    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
   }
 
   /**
@@ -382,10 +357,48 @@ class ApiClient {
   }
 
   /**
+   * Search products with suggestions
+   */
+  async searchProducts(query, options = {}) {
+    const trimmedQuery = (query || '').trim();
+
+    if (!trimmedQuery) {
+      return {
+        success: true,
+        message: 'Empty query',
+        data: {
+          products: [],
+          suggestions: { categories: [], stores: [], tags: [], queries: [] },
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const params = { q: trimmedQuery };
+
+    if (options.limit) {
+      params.limit = options.limit;
+    }
+
+    if (typeof options.includeSuggestions === 'boolean') {
+      params.includeSuggestions = options.includeSuggestions;
+    }
+
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
+  }
+
+  /**
    * Get product by ID
    */
   async getProduct(productId) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(productId));
+  }
+
+  /**
+   * Get product by slug
+   */
+  async getProductBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -442,91 +455,6 @@ class ApiClient {
   }
 
   // ==========================================
-  // CAMPAIGN METHODS
-  // ==========================================
-
-  /**
-   * Get all campaigns (admin)
-   */
-  async getCampaigns(filters = {}) {
-    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BASE, filters);
-  }
-
-  /**
-   * Get campaign by ID
-   */
-  async getCampaign(campaignId) {
-    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
-  }
-
-  /**
-   * Update campaign (admin)
-   */
-  async updateCampaign(campaignId, data = {}) {
-    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId), data);
-  }
-
-  /**
-   * Approve or reject campaign (admin)
-   */
-  async updateCampaignApproval(campaignId, approvalStatus, rejectionReason = '') {
-    const payload = { approval_status: approvalStatus };
-    if (approvalStatus === 'rejected' && rejectionReason) {
-      payload.rejection_reason = rejectionReason;
-    }
-    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.APPROVAL(campaignId), payload);
-  }
-
-  /**
-   * Delete campaign (admin)
-   */
-  async deleteCampaign(campaignId) {
-    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
-  }
-
-  /**
-   * Get campaign stats (admin)
-   */
-  async getCampaignStats(campaignId) {
-    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STATS(campaignId));
-  }
-
-  /**
-   * Get campaigns for a store (seller)
-   */
-  async getStoreCampaigns(storeId, filters = {}) {
-    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), filters);
-  }
-
-  /**
-   * Create campaign for a store (seller)
-   */
-  async createStoreCampaign(storeId, data = {}) {
-    return this.post(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), data);
-  }
-
-  /**
-   * Update store campaign (seller)
-   */
-  async updateStoreCampaign(storeId, campaignId, data = {}) {
-    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId), data);
-  }
-
-  /**
-   * Delete store campaign (seller)
-   */
-  async deleteStoreCampaign(storeId, campaignId) {
-    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId));
-  }
-
-  /**
-   * Get store campaign stats (seller)
-   */
-  async getStoreCampaignStats(storeId, campaignId) {
-    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_STATS(storeId, campaignId));
-  }
-
-  // ==========================================
   // CATEGORY METHODS
   // ==========================================
 
@@ -549,6 +477,13 @@ class ApiClient {
    */
   async getCategory(categoryId) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_ID(categoryId));
+  }
+
+  /**
+   * Get category by slug
+   */
+  async getCategoryBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

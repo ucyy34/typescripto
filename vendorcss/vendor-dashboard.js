@@ -6,34 +6,7 @@
 // ==========================================
 // AUTH CHECK - MUST BE FIRST
 // ==========================================
-
-const vendorDebugEnabled = (() => {
-    try {
-        if (typeof window !== 'undefined') {
-            if (window.VENDOR_DEBUG === true) {
-                return true;
-            }
-            if (window.localStorage) {
-                return window.localStorage.getItem('VENDOR_DEBUG') === 'true';
-            }
-        }
-    } catch (_) {
-        return false;
-    }
-    return false;
-})();
-
-const vdLog = (...args) => {
-    if (vendorDebugEnabled) {
-        console.log('[Vendor Dashboard]', ...args);
-    }
-};
-
-const vdVariantLog = (...args) => {
-    if (vendorDebugEnabled) {
-        console.log('[Variant]', ...args);
-    }
-};
+console.log('[Vendor Dashboard] Checking authentication...');
 
 // Check if user is logged in
 if (!AuthManager.isLoggedIn()) {
@@ -43,7 +16,7 @@ if (!AuthManager.isLoggedIn()) {
 
 // Check if user has seller or admin role
 const currentUser = AuthManager.getUser();
-vdLog('Current user:', currentUser);
+console.log('[Vendor Dashboard] Current user:', currentUser);
 
 if (currentUser.role !== 'seller' && currentUser.role !== 'admin') {
     console.warn('[Vendor Dashboard] User is not seller or admin:', currentUser.role);
@@ -63,17 +36,19 @@ class VendorDashboard {
         this.storeId = null;
         this.storeName = null;
         this.storeInfo = null;
-        this.storeStatus = null;
         this.user = currentUser;
         this.userId = currentUser.id;
         this.categories = [];
+        this.selectedProductImageFile = null;
+        this.currentImagePreviewUrl = null;
+        this.currentImagePreviewUrlIsObject = false;
 
-        vdLog('Initializing for user:', this.userId);
+        console.log('[Vendor Dashboard] Initializing for user:', this.userId);
         this.init();
     }
 
     async init() {
-        vdLog('Starting initialization...');
+        console.log('[Vendor Dashboard] Starting initialization...');
 
         // Load store information first
         await this.loadStoreInfo();
@@ -84,18 +59,6 @@ class VendorDashboard {
         this.setupTheme();
         this.setupLogout();
         this.displayUserInfo();
-
-        if (!this.storeId) {
-            vdLog('No store yet. Awaiting application submission.');
-            return;
-        }
-
-        if (this.storeStatus !== 'approved') {
-            vdLog('Store is not approved yet. Limiting dashboard features.', this.storeStatus);
-            this.applyPendingStateUI();
-            return;
-        }
-
         this.setupProductModal();
         this.setupCampaignModal();
 
@@ -103,12 +66,14 @@ class VendorDashboard {
         await this.loadCategories();
 
         // Load initial dashboard data
-        await this.loadDashboardData();
+        if (this.storeId) {
+            await this.loadDashboardData();
+        }
 
         // Setup return policy form if elements exist
         this.setupReturnPolicyUI();
 
-        vdLog('Initialization complete');
+        console.log('[Vendor Dashboard] Initialization complete');
     }
 
     // ==========================================
@@ -117,33 +82,19 @@ class VendorDashboard {
 
     async loadStoreInfo() {
         try {
-            vdLog('Loading store info for user:', this.userId);
+            console.log('[Vendor Dashboard] Loading store info for user:', this.userId);
 
-            this.storeId = null;
-            this.storeName = null;
-            this.storeInfo = null;
-            this.storeStatus = null;
+            // Get stores for this user
+            const response = await this.apiClient.get('/stores', { userId: this.userId });
+            console.log('[Vendor Dashboard] Stores API response:', response);
 
-            // Fetch the authenticated seller's store using the dedicated endpoint
-            const response = await this.apiClient.getMyStore();
-            vdLog('My store API response:', response);
-
-            let store = null;
-
-            if (response?.success && response.data) {
-                store = response.data;
-            } else if (Array.isArray(response?.data) && response.data.length > 0) {
-                // Fallback for older API responses that still return an array
-                store = response.data[0];
-            }
-
-            if (store) {
+            if (response.success && response.data && response.data.length > 0) {
+                const store = response.data[0]; // Get first store
                 this.storeId = store.id;
                 this.storeName = store.name;
                 this.storeInfo = store;
-                this.storeStatus = store.status || 'pending';
 
-                vdLog('Store loaded:', this.storeName, this.storeId);
+                console.log('[Vendor Dashboard] Store loaded:', this.storeName, this.storeId);
 
                 // Update UI with store name
                 this.updateStoreNameInUI();
@@ -154,14 +105,12 @@ class VendorDashboard {
                 return true;
             } else {
                 console.warn('[Vendor Dashboard] No store found for user');
-                this.storeStatus = null;
                 this.showNoStoreMessage();
                 return false;
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading store:', error);
             this.showError('Mağaza bilgileri yüklenemedi: ' + error.message);
-            this.storeStatus = null;
             return false;
         }
     }
@@ -225,6 +174,114 @@ class VendorDashboard {
         });
     }
 
+    setProductImagePreview(src, isObjectUrl = false) {
+        const preview = document.getElementById('productImagePreview');
+        if (!preview) return;
+
+        if (this.currentImagePreviewUrl && this.currentImagePreviewUrlIsObject) {
+            try { URL.revokeObjectURL(this.currentImagePreviewUrl); } catch (_) {}
+        }
+
+        if (!src) {
+            preview.innerHTML = '<span class="preview-placeholder">No image selected</span>';
+            this.currentImagePreviewUrl = null;
+            this.currentImagePreviewUrlIsObject = false;
+            return;
+        }
+
+        preview.innerHTML = `<img src="${src}" alt="Product preview" loading="lazy">`;
+        this.currentImagePreviewUrl = src;
+        this.currentImagePreviewUrlIsObject = isObjectUrl;
+    }
+
+    resetProductImageSelection() {
+        const fileInput = document.getElementById('productImageFile');
+        const imageUrlInput = document.getElementById('productImageUrl');
+        const dropzone = document.getElementById('productImageDropzone');
+
+        if (fileInput) { fileInput.value = ''; }
+        if (imageUrlInput) { imageUrlInput.value = ''; }
+        if (dropzone) { dropzone.classList.remove('dragover'); }
+
+        this.selectedProductImageFile = null;
+        this.setProductImagePreview(null);
+    }
+
+    setupProductImageUpload() {
+        const fileInput = document.getElementById('productImageFile');
+        const dropzone = document.getElementById('productImageDropzone');
+        const imageUrlInput = document.getElementById('productImageUrl');
+        const clearBtn = document.getElementById('clearProductImage');
+
+        const handleFile = (file) => {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                this.showError('Lütfen görsel bir dosya seçin.');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                this.showError('Görsel boyutu 5MB\'ı geçmemelidir.');
+                return;
+            }
+
+            this.selectedProductImageFile = file;
+            this.setProductImagePreview(URL.createObjectURL(file), true);
+            if (imageUrlInput) {
+                imageUrlInput.value = '';
+            }
+        };
+
+        if (fileInput) {
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files && event.target.files[0];
+                handleFile(file);
+            });
+        }
+
+        if (dropzone) {
+            dropzone.addEventListener('click', () => fileInput && fileInput.click());
+
+            dropzone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover');
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                dropzone.classList.remove('dragover');
+                const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+                handleFile(file);
+            });
+        }
+
+        if (imageUrlInput) {
+            imageUrlInput.addEventListener('input', (event) => {
+                const value = event.target.value.trim();
+                if (value && (value.startsWith('http') || value.startsWith('/uploads/'))) {
+                    this.selectedProductImageFile = null;
+                    if (fileInput) { fileInput.value = ''; }
+                    this.setProductImagePreview(value, false);
+                } else if (!value && !this.selectedProductImageFile) {
+                    this.setProductImagePreview(null);
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.resetProductImageSelection();
+            });
+        }
+
+        // Ensure initial state
+        this.setProductImagePreview(null);
+    }
+
     collectSelectedVariants() {
         const result = [];
         const container = document.getElementById('variantContainer');
@@ -234,7 +291,9 @@ class VendorDashboard {
             const variantName = group.dataset.variantName;
             const selected = [];
             group.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
-                const labelText = input.nextSibling && input.nextSibling.textContent ? input.nextSibling.textContent.trim() : input.value;
+                const optionLabel = input.closest('.variant-option');
+                const chip = optionLabel ? optionLabel.querySelector('.variant-chip') : null;
+                const labelText = chip && chip.textContent ? chip.textContent.trim() : input.value;
                 selected.push({ label: labelText, value: input.value });
             });
             if (selected.length > 0) {
@@ -260,257 +319,17 @@ class VendorDashboard {
         const mainContent = document.querySelector('.vendor-main');
         if (mainContent) {
             mainContent.innerHTML = `
-                <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.5rem; box-shadow: 0 12px 40px rgba(0,0,0,0.08);">
-                    <div style="text-align: center; margin-bottom: 2rem;">
-                        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🏪</div>
-                        <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">İlk Mağazanızı Oluşturun</h2>
-                        <p style="margin: 0; opacity: 0.7;">Nordik pazarında satışa başlamak için mağaza bilgilerinizi doldurun.</p>
-                    </div>
-
-                    <form id="createStoreForm" style="display: grid; gap: 1.25rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Adı *</label>
-                            <input type="text" name="storeName" required placeholder="Örn: Erik'in Ahşap Atölyesi"
-                                   style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem;">
-                        </div>
-
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Açıklaması</label>
-                            <textarea name="storeDescription" rows="4" placeholder="Kısa bir mağaza açıklaması..."
-                                      style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Şehir</label>
-                                <input type="text" name="storeCity" placeholder="İstanbul"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Telefon</label>
-                                <input type="tel" name="storePhone" placeholder="+90 555 123 45 67"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza E-postası</label>
-                                <input type="email" name="storeEmail" placeholder="magaza@ornek.com"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Vergi / Kimlik No</label>
-                                <input type="text" name="taxNumber" placeholder="Opsiyonel"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                        </div>
-
-                        <div id="createStoreStatus" style="display: none; font-weight: 600; border-radius: 10px; padding: 0.85rem 1rem;"></div>
-
-                        <button id="createStoreBtn" type="submit"
-                                style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;">
-                            Mağaza Oluştur
-                        </button>
-                        <p style="margin: 0; font-size: 0.9rem; opacity: 0.7; text-align: center;">Mağazanız oluşturulduktan sonra admin onayına gönderilecektir.</p>
-                    </form>
-                </section>
-            `;
-
-            const form = document.getElementById('createStoreForm');
-            const statusEl = document.getElementById('createStoreStatus');
-            const submitBtn = document.getElementById('createStoreBtn');
-
-            const setStatus = (message, type = 'info') => {
-                if (!statusEl) return;
-                statusEl.textContent = message;
-                statusEl.style.display = message ? 'block' : 'none';
-                if (type === 'error') {
-                    statusEl.style.background = '#fef2f2';
-                    statusEl.style.color = '#b91c1c';
-                    statusEl.style.border = '1px solid #fecaca';
-                } else {
-                    statusEl.style.background = '#ecfdf5';
-                    statusEl.style.color = '#047857';
-                    statusEl.style.border = '1px solid #bbf7d0';
-                }
-            };
-
-            if (form && submitBtn) {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-
-                    const formData = new FormData(form);
-                    const name = (formData.get('storeName') || '').toString().trim();
-                    const description = (formData.get('storeDescription') || '').toString().trim();
-                    const city = (formData.get('storeCity') || '').toString().trim();
-                    const phone = (formData.get('storePhone') || '').toString().trim();
-                    const email = (formData.get('storeEmail') || '').toString().trim();
-                    const taxNumber = (formData.get('taxNumber') || '').toString().trim();
-
-                    if (!name || name.length < 3) {
-                        setStatus('Lütfen en az 3 karakterden oluşan bir mağaza adı girin.', 'error');
-                        return;
-                    }
-
-                    const payload = { name };
-                    if (description) payload.description = description;
-                    if (city) payload.city = city;
-                    if (phone) payload.phone = phone;
-                    if (email) payload.email = email;
-                    if (taxNumber) payload.tax_number = taxNumber;
-
-                    try {
-                        submitBtn.disabled = true;
-                        submitBtn.textContent = 'Mağaza Oluşturuluyor...';
-                        setStatus('Mağazanız oluşturuluyor, lütfen bekleyin...', 'info');
-
-                        const response = await this.apiClient.createStore(payload);
-
-                        if (!response.success) {
-                            throw new Error(response.message || 'Mağaza oluşturulamadı.');
-                        }
-
-                        const store = response.data || {};
-                        this.storeInfo = store;
-                        this.storeId = store.id;
-                        this.storeName = store.name;
-
-                        setStatus('Mağaza başvurunuz alındı! Durum ekranına yönlendiriliyorsunuz...', 'info');
-
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1200);
-                    } catch (error) {
-                        console.error('[Vendor Dashboard] Store creation failed:', error);
-                        setStatus(error.message || 'Mağaza oluşturulamadı. Lütfen tekrar deneyin.', 'error');
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Mağaza Oluştur';
-                    }
-                });
-            }
-        }
-    }
-
-    applyPendingStateUI() {
-        this.disableNavigationForPending();
-        this.showPendingApprovalMessage();
-    }
-
-    disableNavigationForPending() {
-        const menuItems = document.querySelectorAll('.menu-item');
-        menuItems.forEach(item => {
-            item.classList.add('disabled');
-            item.style.pointerEvents = 'none';
-            item.style.opacity = '0.45';
-            item.setAttribute('aria-disabled', 'true');
-        });
-
-        const quickActions = document.querySelector('.vendor-quick-actions');
-        if (quickActions) {
-            quickActions.style.display = 'none';
-        }
-    }
-
-    getStoreStatusLabel(status) {
-        const labels = {
-            pending: 'Onay Bekliyor',
-            approved: 'Onaylandı',
-            rejected: 'Reddedildi',
-            suspended: 'Askıya Alındı'
-        };
-        return labels[status] || status;
-    }
-
-    getStoreStatusColor(status) {
-        const colors = {
-            pending: '#f59e0b',
-            approved: '#10b981',
-            rejected: '#ef4444',
-            suspended: '#6b7280'
-        };
-        return colors[status] || '#6b7280';
-    }
-
-    showPendingApprovalMessage() {
-        const mainContent = document.querySelector('.vendor-main');
-        if (!mainContent) return;
-
-        const status = this.storeStatus || 'pending';
-        const statusLabel = this.getStoreStatusLabel(status);
-        const statusColor = this.getStoreStatusColor(status);
-        const createdAt = this.storeInfo?.created_at || this.storeInfo?.createdAt;
-        let createdAtText = '';
-
-        if (createdAt) {
-            const createdDate = new Date(createdAt);
-            if (!Number.isNaN(createdDate.getTime())) {
-                createdAtText = createdDate.toLocaleString('tr-TR', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short'
-                });
-            }
-        }
-
-        const rejectionReason = this.storeInfo?.rejection_reason;
-
-        mainContent.innerHTML = `
-            <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.75rem; box-shadow: 0 14px 48px rgba(0,0,0,0.08); text-align: center;">
-                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🕒</div>
-                <h2 style="margin-bottom: 0.75rem; color: var(--vendor-primary);">Mağaza Başvurunuz Alındı</h2>
-                <p style="margin: 0 auto 2rem; max-width: 520px; font-size: 1rem; line-height: 1.6; opacity: 0.75;">
-                    ${this.storeName ? `<strong>${this.storeName}</strong> mağazanız için başvurunuz alındı.` : 'Mağaza başvurunuz alındı.'}
-                    Başvurunuz yönetici onayına iletildi. Onaylandıktan sonra ürün ekleme ve sipariş yönetimi gibi tüm panel özellikleri otomatik olarak açılacaktır.
-                </p>
-                <div style="display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1.35rem; border-radius: 999px; background: rgba(17,24,39,0.04); margin-bottom: 1.5rem;">
-                    <span style="display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; color: ${statusColor};">
-                        <span style="width: 10px; height: 10px; border-radius: 50%; background: ${statusColor}; display: inline-block;"></span>
-                        ${statusLabel}
-                    </span>
-                    ${createdAtText ? `<span style="opacity: 0.65; font-size: 0.95rem;">Başvuru tarihi: ${createdAtText}</span>` : ''}
+                <div style="text-align: center; padding: 4rem 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">🏪</div>
+                    <h2 style="margin-bottom: 1rem;">Henüz Mağazanız Yok</h2>
+                    <p style="opacity: 0.7; margin-bottom: 2rem;">Satış yapmaya başlamak için önce bir mağaza oluşturmanız gerekiyor.</p>
+                    <button onclick="alert('Mağaza oluşturma özelliği yakında eklenecek!')"
+                            style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        Mağaza Oluştur
+                    </button>
                 </div>
-                ${rejectionReason ? `<div style="border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: left;">
-                    <strong>Reddedilme sebebi:</strong>
-                    <p style="margin: 0.65rem 0 0; line-height: 1.5;">${rejectionReason}</p>
-                </div>` : ''}
-                <button id="refreshStoreStatusBtn" style="background: var(--vendor-primary); color: white; border: none; padding: 0.9rem 1.8rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;">
-                    Durumu Yenile
-                </button>
-                <p style="margin: 1.5rem 0 0; font-size: 0.9rem; opacity: 0.65;">Onay alındığında bu ekran otomatik olarak mağaza paneline dönüşecektir.</p>
-            </section>
-        `;
-
-        const refreshBtn = document.getElementById('refreshStoreStatusBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async (event) => {
-                event.preventDefault();
-                refreshBtn.disabled = true;
-                const originalText = refreshBtn.textContent;
-                refreshBtn.textContent = 'Durum yenileniyor...';
-                try {
-                    await this.refreshStoreStatus();
-                } finally {
-                    refreshBtn.disabled = false;
-                    refreshBtn.textContent = originalText;
-                }
-            });
+            `;
         }
-    }
-
-    async refreshStoreStatus() {
-        await this.loadStoreInfo();
-
-        if (!this.storeId) {
-            this.showNoStoreMessage();
-            return;
-        }
-
-        if (this.storeStatus === 'approved') {
-            window.location.reload();
-            return;
-        }
-
-        this.applyPendingStateUI();
     }
 
     // ==========================================
@@ -518,12 +337,8 @@ class VendorDashboard {
     // ==========================================
 
     async loadDashboardData() {
-        if (!this.storeId || this.storeStatus !== 'approved') {
-            vdLog('Skipping dashboard data load because store is not approved.');
-            return;
-        }
         try {
-            vdLog('Loading dashboard data...');
+            console.log('[Vendor Dashboard] Loading dashboard data...');
 
             // Load stats and recent orders in parallel
             await Promise.all([
@@ -531,7 +346,7 @@ class VendorDashboard {
                 this.loadRecentOrders()
             ]);
 
-            vdLog('Dashboard data loaded');
+            console.log('[Vendor Dashboard] Dashboard data loaded');
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading dashboard:', error);
             this.showError('Dashboard verileri yüklenemedi');
@@ -539,11 +354,8 @@ class VendorDashboard {
     }
 
     async loadDashboardStats() {
-        if (!this.storeId || this.storeStatus !== 'approved') {
-            return;
-        }
         try {
-            vdLog('Loading stats for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading stats for store:', this.storeId);
 
             // Get products count
             const productsResponse = await this.apiClient.get('/products', {
@@ -556,7 +368,7 @@ class VendorDashboard {
                 limit: 1
             });
 
-            vdLog('Stats loaded:', {
+            console.log('[Vendor Dashboard] Stats loaded:', {
                 products: productsResponse.pagination?.total || 0,
                 orders: ordersResponse.pagination?.total || 0
             });
@@ -575,17 +387,14 @@ class VendorDashboard {
     }
 
     updateStatsUI(stats) {
-        vdLog('Updating stats UI:', stats);
+        console.log('[Vendor Dashboard] Updating stats UI:', stats);
         // Update stat cards if they exist
         // This is a placeholder - you can enhance based on your HTML structure
     }
 
     async loadRecentOrders() {
-        if (!this.storeId || this.storeStatus !== 'approved') {
-            return;
-        }
         try {
-            vdLog('Loading recent orders...');
+            console.log('[Vendor Dashboard] Loading recent orders...');
 
             const response = await this.apiClient.get(`/stores/${this.storeId}/orders`, {
                 limit: 5,
@@ -593,7 +402,7 @@ class VendorDashboard {
             });
 
             if (response.success && response.data) {
-                vdLog('Recent orders loaded:', response.data.length);
+                console.log('[Vendor Dashboard] Recent orders loaded:', response.data.length);
                 this.renderRecentOrders(response.data);
             }
         } catch (error) {
@@ -639,12 +448,7 @@ class VendorDashboard {
     // ==========================================
 
     loadSectionData(sectionName) {
-        vdLog(`Loading section data: ${sectionName}`);
-
-        if (this.storeStatus !== 'approved') {
-            vdLog('Section data request ignored because store is not approved yet.');
-            return;
-        }
+        console.log(`[Vendor Dashboard] Loading section data: ${sectionName}`);
 
         switch(sectionName) {
             case 'dashboard':
@@ -687,7 +491,7 @@ class VendorDashboard {
                 this.loadProfileData();
                 break;
             default:
-                vdLog(`No loader for section: ${sectionName}`);
+                console.log(`[Vendor Dashboard] No loader for section: ${sectionName}`);
         }
     }
 
@@ -711,7 +515,7 @@ class VendorDashboard {
         container.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="spinner"></div><p>Ürünler yükleniyor...</p></div>';
 
         try {
-            vdLog('Loading products for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading products for store:', this.storeId);
 
             // For vendors, fetch ALL products (pending, approved, rejected, active, inactive)
             // We explicitly fetch all statuses for the vendor's own store
@@ -721,7 +525,7 @@ class VendorDashboard {
                 includeAllStatuses: 'true'  // Query param must be string
             });
 
-            vdLog('Products response:', response);
+            console.log('[Vendor Dashboard] Products response:', response);
 
             // Handle different response structures
             const products = response.data || response;
@@ -740,6 +544,15 @@ class VendorDashboard {
             // Render products in list/table style with inline edit
             let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
 
+            const badgeLabelMap = {
+                handmade: 'Handmade',
+                limited: 'Limited',
+                'eco-friendly': 'Eco',
+                spiritual: 'Spiritual',
+                traditional: 'Traditional',
+                artisan: 'Artisan'
+            };
+
             products.forEach(product => {
                 const statusColor = product.status === 'approved' ? '#10b981' : product.status === 'pending' ? '#f59e0b' : '#dc2626';
                 const statusBgColor = product.status === 'approved' ? '#dcfce7' : product.status === 'pending' ? '#fef3c7' : '#fee2e2';
@@ -747,6 +560,10 @@ class VendorDashboard {
                 const isActive = product.is_active;
                 const isPending = product.status === 'pending';
                 const isRejected = product.status === 'rejected';
+                const productBadges = Array.isArray(product.badges) ? product.badges : [];
+                const badgesHtml = productBadges.length > 0
+                    ? `<div class="product-inline-badges">${productBadges.map((badge) => `<span class="product-inline-badge">${badgeLabelMap[badge] || badge}</span>`).join('')}</div>`
+                    : '';
 
                 // Active/Inactive toggle styling
                 let activeToggleText, activeToggleBg, activeToggleBorder, activeToggleColor, activeToggleDisabled;
@@ -852,6 +669,7 @@ class VendorDashboard {
                                     onfocus="this.style.borderColor='var(--vendor-primary)'; this.style.boxShadow='0 0 0 3px rgba(45, 104, 83, 0.1)';"
                                     onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
                                 >
+                                ${badgesHtml}
                             </div>
 
                             <!-- Price -->
@@ -965,7 +783,7 @@ class VendorDashboard {
             // Attach event listeners for save, delete, and toggle buttons
             this.attachProductActionListeners();
 
-            vdLog('Products rendered successfully:', products.length);
+            console.log('[Vendor Dashboard] Products rendered successfully:', products.length);
 
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading products:', error);
@@ -999,13 +817,13 @@ class VendorDashboard {
         container.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="spinner"></div><p>Siparişler yükleniyor...</p></div>';
 
         try {
-            vdLog('Loading orders for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading orders for store:', this.storeId);
 
             const response = await this.apiClient.get(`/stores/${this.storeId}/orders`, {
                 limit: 50
             });
 
-            vdLog('Orders response:', response);
+            console.log('[Vendor Dashboard] Orders response:', response);
 
             // Handle different response structures
             const orders = response.data || response;
@@ -1092,7 +910,7 @@ class VendorDashboard {
             `;
 
             container.innerHTML = html;
-            vdLog('Orders rendered successfully:', orders.length);
+            console.log('[Vendor Dashboard] Orders rendered successfully:', orders.length);
 
             // Attach event listeners to status selects
             this.attachOrderStatusListeners();
@@ -1111,7 +929,7 @@ class VendorDashboard {
 
     // Other section loaders
     async loadInventoryData() {
-        vdLog('Loading inventory...');
+        console.log('[Vendor Dashboard] Loading inventory...');
         const container = document.querySelector('#inventory-section');
         if (container) {
             container.innerHTML = `
@@ -1125,7 +943,7 @@ class VendorDashboard {
     }
 
     async loadAnalyticsData() {
-        vdLog('Loading analytics...');
+        console.log('[Vendor Dashboard] Loading analytics...');
         const container = document.querySelector('#analytics-section');
         if (container) {
             container.innerHTML = `
@@ -1139,7 +957,7 @@ class VendorDashboard {
     }
 
     async loadReturnsData() {
-        vdLog('Loading returns...');
+        console.log('[Vendor Dashboard] Loading returns...');
         const container = document.querySelector('#returns-section');
         if (!container || !this.storeId) return;
 
@@ -1156,7 +974,7 @@ class VendorDashboard {
             const response = await this.apiClient.get(`/returns/stores/${this.storeId}`);
             const returns = response.data || [];
 
-            vdLog('Loaded', returns.length, 'returns');
+            console.log('[Vendor Dashboard] Loaded', returns.length, 'returns');
 
             // Render returns
             this.renderReturns(returns);
@@ -1439,16 +1257,16 @@ class VendorDashboard {
     }
 
     async loadStoreData() {
-        vdLog('Loading store management...');
+        console.log('[Vendor Dashboard] Loading store management...');
         const container = document.querySelector('#store-section');
         if (container) {
             // Already has content in HTML
-            vdLog('Store section already has static content');
+            console.log('[Vendor Dashboard] Store section already has static content');
         }
     }
 
     async loadShippingData() {
-        vdLog('Loading shipping...');
+        console.log('[Vendor Dashboard] Loading shipping...');
         const container = document.querySelector('#shipping-section');
         if (!container) return;
 
@@ -1557,7 +1375,7 @@ class VendorDashboard {
      */
     async createShipmentForOrder(orderId) {
         try {
-            vdLog('Creating shipment for order:', orderId);
+            console.log('[Vendor Dashboard] Creating shipment for order:', orderId);
 
             // Get order details
             const orderResponse = await this.apiClient.get(`/orders/${orderId}`);
@@ -1726,7 +1544,7 @@ class VendorDashboard {
 
     async loadEarningsData() {
         try {
-            vdLog('Loading earnings...');
+            console.log('[Vendor Dashboard] Loading earnings...');
 
             const userStore = this.currentUser.store;
             if (!userStore || !userStore.id) {
@@ -1872,16 +1690,16 @@ class VendorDashboard {
     }
 
     async loadSeoData() {
-        vdLog('Loading SEO...');
+        console.log('[Vendor Dashboard] Loading SEO...');
         const container = document.querySelector('#seo-section');
         if (container) {
             // Already has content in HTML
-            vdLog('SEO section already has static content');
+            console.log('[Vendor Dashboard] SEO section already has static content');
         }
     }
 
     async loadMessagesData() {
-        vdLog('Loading messages...');
+        console.log('[Vendor Dashboard] Loading messages...');
         const container = document.querySelector('#messages-section');
         if (container) {
             container.innerHTML = `
@@ -1895,7 +1713,7 @@ class VendorDashboard {
     }
 
     async loadProfileData() {
-        vdLog('Loading profile...');
+        console.log('[Vendor Dashboard] Loading profile...');
         const container = document.querySelector('#profile-section');
         if (container) {
             const user = this.user || AuthManager.getUser();
@@ -2019,7 +1837,7 @@ class VendorDashboard {
     }
 
     switchSection(sectionName) {
-        vdLog(`Switching to section: ${sectionName}`);
+        console.log(`[Vendor Dashboard] Switching to section: ${sectionName}`);
 
         // Hide all sections
         document.querySelectorAll('.content-section').forEach(section => {
@@ -2068,12 +1886,12 @@ class VendorDashboard {
             el.textContent = user.email;
         });
 
-        vdLog('User info displayed');
+        console.log('[Vendor Dashboard] User info displayed');
     }
 
     setupNotifications() {
         // Notification system setup
-        vdLog('Notifications setup complete');
+        console.log('[Vendor Dashboard] Notifications setup complete');
     }
 
     setupTheme() {
@@ -2088,12 +1906,12 @@ class VendorDashboard {
             logoutBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
-                    vdLog('Logging out...');
+                    console.log('[Vendor Dashboard] Logging out...');
                     AuthManager.logout(false);
                     window.location.href = 'login.html';
                 }
             });
-            vdLog('Logout button configured');
+            console.log('[Vendor Dashboard] Logout button configured');
         }
     }
 
@@ -2118,7 +1936,11 @@ class VendorDashboard {
         // Close modal
         const closeModalFunc = () => {
             modal.style.display = 'none';
-            productForm.reset();
+            if (productForm) {
+                productForm.reset();
+            }
+            this.resetProductImageSelection();
+            this.renderVariantSelectors([]);
         };
 
         if (closeModal) {
@@ -2147,42 +1969,48 @@ class VendorDashboard {
         // SEO character counters
         this.setupSEOCounters();
 
+        // Image upload handlers
+        this.setupProductImageUpload();
+        this.renderVariantSelectors([]);
+
         const categorySelect = document.getElementById('productCategory');
         if (categorySelect) {
             categorySelect.addEventListener('change', async () => {
                 const categoryId = categorySelect.value;
                 if (categoryId) {
-                    vdVariantLog(`Fetching variants for category: ${categoryId}`);
+                    console.log(`[Variant] Fetching variants for category: ${categoryId}`);
                     const variants = await this.loadCategoryVariantsForForm(categoryId);
-                    vdVariantLog(`Loaded ${variants?.length || 0} variants for category: ${categoryId}`);
+                    console.log(`[Variant] Loaded ${variants?.length || 0} variants for category: ${categoryId}`);
                     this.renderVariantSelectors(variants || []);
                 } else {
-                    vdVariantLog('No category selected');
+                    console.log('[Variant] No category selected');
                     this.renderVariantSelectors([]);
                 }
             });
         }
 
-        vdLog('Product modal configured');
+        console.log('[Vendor Dashboard] Product modal configured');
     }
 
     openProductModal() {
         const modal = document.getElementById('productModal');
         if (modal) {
+            this.resetProductImageSelection();
+            this.renderVariantSelectors([]);
             modal.style.display = 'block';
         }
     }
 
     async loadCategories() {
         try {
-            vdLog('Loading categories...');
+            console.log('[Vendor Dashboard] Loading categories...');
 
             const response = await this.apiClient.getTopLevelCategories();
 
             if (response.success && response.data) {
                 this.categories = response.data;
                 this.populateCategoryDropdown();
-                vdLog('Categories loaded:', this.categories.length);
+                console.log('[Vendor Dashboard] Categories loaded:', this.categories.length);
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading categories:', error);
@@ -2207,11 +2035,11 @@ class VendorDashboard {
 
     async loadCategoryVariantsForForm(categoryId) {
         try {
-            vdVariantLog('Fetching variants for category:', categoryId);
+            console.log('[Variant] Fetching variants for category:', categoryId);
             const res = await this.apiClient.get(`/categories/${categoryId}/variants`);
-            vdVariantLog('API response:', res);
+            console.log('[Variant] API response:', res);
             if (res && res.success) {
-                vdVariantLog('Returning', res.data?.length || 0, 'variants');
+                console.log('[Variant] Returning', res.data?.length || 0, 'variants');
                 return res.data;
             }
             console.warn('[Variant] API returned no success');
@@ -2223,66 +2051,95 @@ class VendorDashboard {
     }
 
     renderVariantSelectors(variants) {
-        vdVariantLog('Rendering', variants?.length || 0, 'variant selectors');
+        console.log('[Variant] Rendering', variants?.length || 0, 'variant selectors');
         const form = document.getElementById('productForm');
         if (!form) {
             console.error('[Variant] productForm not found!');
             return;
         }
+
         let container = document.getElementById('variantContainer');
         if (!container) {
-            vdVariantLog('Creating new variantContainer');
+            console.log('[Variant] Creating new variantContainer');
             container = document.createElement('div');
             container.id = 'variantContainer';
             container.style.marginTop = '1.5rem';
-            container.style.padding = '1rem';
-            container.style.border = '1px solid #ddd';
-            container.style.borderRadius = '8px';
-            container.style.background = '#f9f9f9';
             form.appendChild(container);
         }
-        container.innerHTML = '';
-        
+
         if (!variants || variants.length === 0) {
-            vdVariantLog('No variants to render');
+            container.innerHTML = `
+                <div class="variant-empty-state">
+                    <strong>Varyant Bilgisi</strong>
+                    Kategori seçtiğinizde ürününüze uygun seçenekler burada listelenecek.
+                </div>
+            `;
             return;
         }
-        variants.forEach(v => {
+
+        container.innerHTML = '';
+
+        variants.forEach((variant) => {
             const group = document.createElement('div');
             group.className = 'variant-group';
-            group.dataset.variantId = v.id;
-            group.dataset.variantName = v.name;
+            group.dataset.variantId = variant.id;
+            group.dataset.variantName = variant.name;
 
-            const labelEl = document.createElement('div');
-            labelEl.style.margin = '0.5rem 0';
-            labelEl.textContent = v.name + (v.is_required ? ' *' : '');
-            group.appendChild(labelEl);
+            const header = document.createElement('div');
+            header.className = 'variant-header';
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'variant-name';
+            const variantTitle = `${variant.icon || ''} ${variant.name}${variant.is_required ? ' *' : ''}`.trim();
+            nameEl.textContent = variantTitle;
+
+            const allowMultiple = Boolean(variant.allow_multiple || variant.is_multi || variant.selection_type === 'multiple');
+            const hint = document.createElement('span');
+            hint.className = 'variant-hint';
+            if (variant.type === 'color') {
+                hint.textContent = 'Renk seçeneklerinden bir veya birden fazlasını seçin.';
+            } else if (allowMultiple) {
+                hint.textContent = 'Birden fazla seçenek seçebilirsiniz.';
+            } else {
+                hint.textContent = 'Uygun seçenekleri işaretleyin.';
+            }
+
+            header.appendChild(nameEl);
+            header.appendChild(hint);
+            group.appendChild(header);
 
             const optionsWrap = document.createElement('div');
-            (v.options || []).forEach(opt => {
-                const lbl = document.createElement('label');
-                lbl.style.marginRight = '0.75rem';
-                const input = document.createElement('input');
-                input.type = 'checkbox';
-                input.name = `variant_${v.id}`;
-                input.value = opt.value;
-                lbl.appendChild(input);
-                const span = document.createElement('span');
-                span.textContent = opt.label || opt.value;
-                if (v.type === 'color' && opt.value) {
-                    span.style.display = 'inline-block';
-                    span.style.width = '14px';
-                    span.style.height = '14px';
-                    span.style.borderRadius = '50%';
-                    span.style.background = opt.value;
-                    span.style.marginLeft = '6px';
-                    span.title = opt.label || opt.value;
-                } else {
-                    span.style.marginLeft = '6px';
+            optionsWrap.className = 'variant-options';
+
+            (variant.options || []).forEach((option) => {
+                const optionLabel = document.createElement('label');
+                optionLabel.className = 'variant-option';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = `variant_${variant.id}`;
+                checkbox.value = option.value;
+                optionLabel.appendChild(checkbox);
+
+                if (variant.type === 'color' && option.value) {
+                    const colorDot = document.createElement('span');
+                    colorDot.className = 'variant-color-dot';
+                    colorDot.style.background = option.value;
+                    optionLabel.appendChild(colorDot);
                 }
-                lbl.appendChild(span);
-                optionsWrap.appendChild(lbl);
+
+                const chip = document.createElement('span');
+                chip.className = 'variant-chip';
+                chip.textContent = option.label || option.value;
+                optionLabel.appendChild(chip);
+
+                checkbox.addEventListener('change', () => {
+                    optionLabel.classList.toggle('selected', checkbox.checked);
+                });
+
+                optionsWrap.appendChild(optionLabel);
             });
+
             group.appendChild(optionsWrap);
             container.appendChild(group);
         });
@@ -2302,16 +2159,18 @@ class VendorDashboard {
             const categoryId = document.getElementById('productCategory').value;
             const priceInput = document.getElementById('productPrice').value;
             const stockInput = document.getElementById('productStock').value;
-            const imageUrl = document.getElementById('productImage').value.trim();
+            const imageUrlInput = document.getElementById('productImageUrl');
+            const imageUrl = imageUrlInput ? imageUrlInput.value.trim() : '';
 
-            vdLog('Form values:', {
+            console.log('[Vendor Dashboard] Form values:', {
                 title,
                 shortDesc,
                 description,
                 categoryId,
                 priceInput,
                 stockInput,
-                imageUrl
+                imageUrl,
+                hasLocalFile: !!this.selectedProductImageFile
             });
 
             // Validate required fields (only title, category, price are required by backend)
@@ -2364,8 +2223,36 @@ class VendorDashboard {
                 productData.description = description;
             }
 
-            if (imageUrl) {
-                productData.images = [imageUrl];
+            const submitBtn = document.querySelector('#productForm button[type="submit"]');
+            const originalText = submitBtn && submitBtn.textContent ? submitBtn.textContent : '✓ Create Product';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            let finalImageUrl = '';
+
+            if (this.selectedProductImageFile) {
+                if (submitBtn) {
+                    submitBtn.textContent = '⏳ Görsel yükleniyor...';
+                }
+
+                const uploadResponse = await this.apiClient.uploadProductImage(this.selectedProductImageFile);
+                if (!uploadResponse?.success || !uploadResponse.data?.url) {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                    this.showError(uploadResponse?.message || 'Görsel yüklenirken hata oluştu.');
+                    return;
+                }
+
+                finalImageUrl = uploadResponse.data.url;
+            } else if (imageUrl) {
+                finalImageUrl = imageUrl;
+            }
+
+            if (finalImageUrl) {
+                productData.images = [finalImageUrl];
             }
 
             const selectedVariants = this.collectSelectedVariants();
@@ -2390,10 +2277,17 @@ class VendorDashboard {
 
             if (seoTitle) {
                 productData.seo_title = seoTitle;
+            } else if (title) {
+                productData.seo_title = title.substring(0, 200);
             }
 
             if (seoDescription) {
                 productData.seo_description = seoDescription;
+            } else {
+                const fallbackSeoDesc = shortDesc || description;
+                if (fallbackSeoDesc) {
+                    productData.seo_description = fallbackSeoDesc.substring(0, 160);
+                }
             }
 
             if (metaKeywords) {
@@ -2401,21 +2295,22 @@ class VendorDashboard {
                 productData.meta_keywords = metaKeywords.split(',').map(k => k.trim()).filter(k => k);
             }
 
-            vdLog('Creating product with data:', productData);
+            console.log('[Vendor Dashboard] Creating product with data:', productData);
 
             // Show loading
-            const submitBtn = document.querySelector('#productForm button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Oluşturuluyor...';
+            if (submitBtn) {
+                submitBtn.textContent = '⏳ Oluşturuluyor...';
+            }
 
             // Call API
             const response = await this.apiClient.post('/products', productData);
 
-            vdLog('API response:', response);
+            console.log('[Vendor Dashboard] API response:', response);
 
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
 
             if (response.success) {
                 this.showSuccess('✅ Ürün başarıyla oluşturuldu! Admin onayı bekleniyor.');
@@ -2423,6 +2318,7 @@ class VendorDashboard {
                 // Close modal
                 document.getElementById('productModal').style.display = 'none';
                 document.getElementById('productForm').reset();
+                this.resetProductImageSelection();
 
                 // Reload products
                 if (this.currentSection === 'products') {
@@ -2460,7 +2356,7 @@ class VendorDashboard {
     // ==========================================
 
     attachProductActionListeners() {
-        vdLog('Attaching product action listeners');
+        console.log('[Vendor Dashboard] Attaching product action listeners');
 
         // Save product buttons
         document.querySelectorAll('.save-product-btn').forEach(btn => {
@@ -2492,7 +2388,7 @@ class VendorDashboard {
 
     async updateProduct(productId) {
         try {
-            vdLog('Updating product:', productId);
+            console.log('[Vendor Dashboard] Updating product:', productId);
 
             // Get the product row
             const productRow = document.querySelector(`.product-row[data-product-id="${productId}"]`);
@@ -2519,7 +2415,7 @@ class VendorDashboard {
                 updateData[fieldName] = value;
             });
 
-            vdLog('Update data:', updateData);
+            console.log('[Vendor Dashboard] Update data:', updateData);
 
             // Validate
             if (!updateData.title || updateData.title.length < 5) {
@@ -2574,7 +2470,7 @@ class VendorDashboard {
 
     async deleteProduct(productId) {
         try {
-            vdLog('Deleting product:', productId);
+            console.log('[Vendor Dashboard] Deleting product:', productId);
 
             const response = await this.apiClient.delete(`/products/${productId}`);
 
@@ -2593,7 +2489,7 @@ class VendorDashboard {
 
     async toggleProductActive(productId, newActiveState) {
         try {
-            vdLog('Toggling product active state:', productId, newActiveState);
+            console.log('[Vendor Dashboard] Toggling product active state:', productId, newActiveState);
 
             const response = await this.apiClient.put(`/products/${productId}`, {
                 is_active: newActiveState
@@ -2634,7 +2530,7 @@ class VendorDashboard {
      * Attach event listeners to order status selects
      */
     attachOrderStatusListeners() {
-        vdLog('Attaching order status listeners');
+        console.log('[Vendor Dashboard] Attaching order status listeners');
 
         document.querySelectorAll('.order-status-select').forEach(select => {
             select.addEventListener('change', async (e) => {
@@ -2662,7 +2558,7 @@ class VendorDashboard {
      */
     async updateOrderStatus(orderId, newStatus) {
         try {
-            vdLog('Updating order status:', orderId, newStatus);
+            console.log('[Vendor Dashboard] Updating order status:', orderId, newStatus);
 
             // Prepare update data
             const updateData = {
@@ -2718,15 +2614,15 @@ class VendorDashboard {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    vdLog('DOM loaded, initializing dashboard');
+    console.log('[Vendor Dashboard] DOM loaded, initializing dashboard');
 
     // Debug: Log all sections
     const sections = document.querySelectorAll('.content-section');
-    vdLog('Found sections:', Array.from(sections).map(s => s.id));
+    console.log('[Vendor Dashboard] Found sections:', Array.from(sections).map(s => s.id));
 
     // Debug: Log all menu items
     const menuItems = document.querySelectorAll('.menu-item');
-    vdLog('Found menu items:', Array.from(menuItems).map(m => m.dataset.section));
+    console.log('[Vendor Dashboard] Found menu items:', Array.from(menuItems).map(m => m.dataset.section));
 
     // Check if API client is available
     if (typeof ApiClient === 'undefined') {
@@ -2739,9 +2635,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboard = new VendorDashboard();
     window.vendorDashboard = dashboard;
 
-    vdLog('Dashboard initialized successfully');
-    vdLog('Current section:', dashboard.currentSection);
-    vdLog('Store ID:', dashboard.storeId);
+    console.log('[Vendor Dashboard] Dashboard initialized successfully');
+    console.log('[Vendor Dashboard] Current section:', dashboard.currentSection);
+    console.log('[Vendor Dashboard] Store ID:', dashboard.storeId);
 });
 
 // Add setupSEOCounters method to VendorDashboard class
@@ -2750,50 +2646,139 @@ VendorDashboard.prototype.setupSEOCounters = function() {
     const seoDescInput = document.getElementById('productSeoDescription');
     const seoTitleCounter = document.getElementById('seoTitleCounter');
     const seoDescCounter = document.getElementById('seoDescCounter');
+    const productTitleInput = document.getElementById('productTitle');
+    const productShortDescInput = document.getElementById('productShortDesc');
+    const productDescriptionInput = document.getElementById('productDescription');
+    const productForm = document.getElementById('productForm');
 
-    if (seoTitleInput && seoTitleCounter) {
+    if (!this._seoSyncState) {
+        this._seoSyncState = {
+            titleEdited: false,
+            descriptionEdited: false,
+            isSyncing: false,
+            syncTimeout: null,
+        };
+    }
+
+    const syncState = this._seoSyncState;
+
+    const updateCounter = (inputEl, counterEl, optimalMin, optimalMax, displayMax) => {
+        if (!inputEl || !counterEl) return;
+        const length = inputEl.value.length;
+        counterEl.textContent = `Characters: ${length}/${displayMax}`;
+
+        if (length >= optimalMin && length <= optimalMax) {
+            counterEl.style.color = '#10b981';
+        } else if (length > optimalMax) {
+            counterEl.style.color = '#ef4444';
+        } else {
+            counterEl.style.color = '#666';
+        }
+    };
+
+    const autoSyncSeoFields = () => {
+        if ((!seoTitleInput && !seoDescInput) || syncState.isSyncing) {
+            return;
+        }
+
+        const titleSource = (productTitleInput?.value || '').trim();
+        const shortDescSource = (productShortDescInput?.value || '').trim();
+        const longDescSource = (productDescriptionInput?.value || '').trim();
+        const descriptionSource = shortDescSource || longDescSource;
+
+        if (seoTitleInput && !syncState.titleEdited) {
+            syncState.isSyncing = true;
+            seoTitleInput.value = titleSource.substring(0, 200);
+            syncState.isSyncing = false;
+            updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
+        }
+
+        if (seoDescInput && !syncState.descriptionEdited) {
+            const nextDescription = (descriptionSource || '').substring(0, 160);
+            syncState.isSyncing = true;
+            seoDescInput.value = nextDescription;
+            syncState.isSyncing = false;
+            updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
+        }
+    };
+
+    const scheduleAutoSync = () => {
+        if (syncState.syncTimeout) {
+            clearTimeout(syncState.syncTimeout);
+        }
+        syncState.syncTimeout = setTimeout(() => {
+            syncState.syncTimeout = null;
+            autoSyncSeoFields();
+        }, 150);
+    };
+
+    if (seoTitleInput) {
+        if (seoTitleInput.value.trim()) {
+            syncState.titleEdited = true;
+        }
+
         seoTitleInput.addEventListener('input', () => {
-            const length = seoTitleInput.value.length;
-            seoTitleCounter.textContent = `Characters: ${length}/60`;
-            
-            // Color coding
-            if (length >= 50 && length <= 60) {
-                seoTitleCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 60) {
-                seoTitleCounter.style.color = '#ef4444'; // Red - too long
-            } else {
-                seoTitleCounter.style.color = '#666'; // Gray - default
+            if (!syncState.isSyncing) {
+                syncState.titleEdited = seoTitleInput.value.trim().length > 0;
+            }
+            updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
+        });
+
+        seoTitleInput.addEventListener('blur', () => {
+            if (seoTitleInput.value.trim().length === 0) {
+                syncState.titleEdited = false;
+                autoSyncSeoFields();
             }
         });
+
+        updateCounter(seoTitleInput, seoTitleCounter, 50, 60, 60);
     }
 
-    if (seoDescInput && seoDescCounter) {
+    if (seoDescInput) {
+        if (seoDescInput.value.trim()) {
+            syncState.descriptionEdited = true;
+        }
+
         seoDescInput.addEventListener('input', () => {
-            const length = seoDescInput.value.length;
-            seoDescCounter.textContent = `Characters: ${length}/160`;
-            
-            // Color coding
-            if (length >= 150 && length <= 160) {
-                seoDescCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 160) {
-                seoDescCounter.style.color = '#ef4444'; // Red - too long
-            } else {
-                seoDescCounter.style.color = '#666'; // Gray - default
+            if (!syncState.isSyncing) {
+                syncState.descriptionEdited = seoDescInput.value.trim().length > 0;
             }
+            updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
+        });
+
+        seoDescInput.addEventListener('blur', () => {
+            if (seoDescInput.value.trim().length === 0) {
+                syncState.descriptionEdited = false;
+                autoSyncSeoFields();
+            }
+        });
+
+        updateCounter(seoDescInput, seoDescCounter, 150, 160, 160);
+    }
+
+    [productTitleInput, productShortDescInput, productDescriptionInput].forEach((inputEl) => {
+        if (!inputEl) return;
+        inputEl.addEventListener('input', scheduleAutoSync);
+    });
+
+    if (productForm) {
+        productForm.addEventListener('reset', () => {
+            syncState.titleEdited = false;
+            syncState.descriptionEdited = false;
+            scheduleAutoSync();
         });
     }
 
-    // ==========================================
-    // CAMPAIGNS MANAGEMENT
-    // ==========================================
+    autoSyncSeoFields();
+};
+
+// ==========================================
+// CAMPAIGNS MANAGEMENT
+// ==========================================
 
     async loadCampaignsData() {
         try {
-            if (!this.storeId) {
-                console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
-                return;
-            }
-            vdLog('Loading campaigns...');
+            console.log('[Vendor Dashboard] Loading campaigns...');
 
             const container = document.getElementById('campaigns-list');
             if (!container) {
@@ -2810,8 +2795,8 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             `;
 
             // Fetch campaigns for this store
-            const response = await this.apiClient.getStoreCampaigns(this.storeId);
-            vdLog('Campaigns response:', response);
+            const response = await this.apiClient.get(`/stores/${this.storeId}/campaigns`);
+            console.log('[Vendor Dashboard] Campaigns response:', response);
 
             const campaigns = response.success ? response.data : [];
 
@@ -3018,10 +3003,6 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async createCampaign() {
         try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
-                return;
-            }
             const campaignData = {
                 name: document.getElementById('campaignName').value,
                 description: document.getElementById('campaignDescription').value,
@@ -3035,7 +3016,8 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 badge_color: document.getElementById('campaignBadgeColor').value,
                 min_order_amount: parseFloat(document.getElementById('campaignMinAmount').value) || 0,
                 usage_limit: parseInt(document.getElementById('campaignUsageLimit').value) || null,
-                show_countdown: document.getElementById('campaignShowCountdown').checked
+                show_countdown: document.getElementById('campaignShowCountdown').checked,
+                store_id: this.storeId
             };
 
             // Add BUY_X_GET_Y specific fields
@@ -3050,9 +3032,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 campaignData.product_ids = Array.from(checkboxes).map(cb => cb.value);
             }
 
-            vdLog('Creating campaign:', campaignData);
+            console.log('[Vendor Dashboard] Creating campaign:', campaignData);
 
-            const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
+            const response = await this.apiClient.post(`/stores/${this.storeId}/campaigns`, campaignData);
 
             if (response.success) {
                 this.showSuccess('Campaign created successfully! It will be activated after admin approval.');
@@ -3070,11 +3052,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async toggleCampaignStatus(campaignId, newStatus) {
         try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.updateStoreCampaign(this.storeId, campaignId, {
+            const response = await this.apiClient.patch(`/stores/${this.storeId}/campaigns/${campaignId}`, {
                 is_active: newStatus
             });
 
@@ -3097,11 +3075,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
         }
 
         try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.deleteStoreCampaign(this.storeId, campaignId);
+            const response = await this.apiClient.delete(`/stores/${this.storeId}/campaigns/${campaignId}`);
 
             if (response.success) {
                 this.showSuccess('Campaign deleted successfully');
@@ -3118,11 +3092,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
     async viewCampaignStats(campaignId) {
         try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.getStoreCampaignStats(this.storeId, campaignId);
+            const response = await this.apiClient.get(`/stores/${this.storeId}/campaigns/${campaignId}/stats`);
 
             if (response.success) {
                 const stats = response.data;
