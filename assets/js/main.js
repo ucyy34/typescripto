@@ -10,6 +10,12 @@ class DostanWebApp {
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
         this.wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
         this.isLoading = false;
+        this.searchState = {
+            debounceId: null,
+            lastQuery: '',
+        };
+        this.searchDropdown = null;
+        this.searchApiClient = null;
 
         this.init();
     }
@@ -454,67 +460,402 @@ class DostanWebApp {
         const searchInput = document.querySelector('.search-input');
         if (!searchInput) return;
 
-        let searchTimeout;
+        if (!this.searchApiClient) {
+            try {
+                this.searchApiClient = new ApiClient();
+            } catch (error) {
+                console.error('[DostanWebApp] Failed to initialize search API client', error);
+                return;
+            }
+        }
 
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                this.performSearch(e.target.value);
-            }, 300);
+        this.searchDropdown = this.ensureSearchDropdown(searchInput);
+
+        searchInput.addEventListener('input', (event) => {
+            const query = event.target.value;
+            this.filterLocalProducts(query);
+
+            clearTimeout(this.searchState.debounceId);
+            if (!query.trim()) {
+                this.searchState.lastQuery = '';
+                this.clearSearchDropdown(true);
+                return;
+            }
+
+            this.searchState.debounceId = setTimeout(() => {
+                this.fetchSearchResults(query);
+            }, 250);
         });
+
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.trim()) {
+                this.filterLocalProducts(searchInput.value);
+                this.fetchSearchResults(searchInput.value);
+            }
+        });
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.navigateToSearchPage(searchInput.value);
+            } else if (event.key === 'Escape') {
+                this.clearSearchDropdown(true);
+                searchInput.blur();
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.nav-search')) {
+                this.clearSearchDropdown(true);
+            }
+        });
+
+        if (this.searchDropdown) {
+            this.searchDropdown.addEventListener('click', (event) => this.handleSearchDropdownClick(event, searchInput));
+        }
     }
 
-    performSearch(query) {
-        if (!query) {
-            this.showAllProducts();
+    ensureSearchDropdown(searchInput) {
+        const container = searchInput.closest('.search-container');
+        if (!container) return null;
+
+        let dropdown = container.querySelector('.search-dropdown');
+        if (!dropdown) {
+            dropdown = document.createElement('div');
+            dropdown.className = 'search-dropdown';
+            dropdown.setAttribute('role', 'listbox');
+            dropdown.setAttribute('aria-live', 'polite');
+            container.appendChild(dropdown);
+        }
+
+        return dropdown;
+    }
+
+    async fetchSearchResults(query) {
+        const trimmedQuery = (query || '').trim();
+        if (!trimmedQuery) {
+            this.clearSearchDropdown(true);
             return;
         }
 
-        const products = document.querySelectorAll('.product-card');
+        if (this.searchState.lastQuery === trimmedQuery) {
+            return;
+        }
+
+        this.searchState.lastQuery = trimmedQuery;
+        this.showSearchLoading(trimmedQuery);
+
+        try {
+            const response = await this.searchApiClient.searchProducts(trimmedQuery, { limit: 6 });
+
+            if (!response || response.success === false) {
+                this.showSearchError(trimmedQuery, response?.message);
+                return;
+            }
+
+            this.renderSearchResultsDropdown(trimmedQuery, response.data || {});
+        } catch (error) {
+            console.error('[DostanWebApp] Search request failed', error);
+            this.showSearchError(trimmedQuery);
+        }
+    }
+
+    showSearchLoading(query) {
+        if (!this.searchDropdown) return;
+
+        this.searchDropdown.innerHTML = `
+            <div class="search-loading">
+                <span class="search-spinner" aria-hidden="true"></span>
+                <span>"${this.escapeHtml(query)}" için sonuçlar aranıyor...</span>
+            </div>
+        `;
+        this.searchDropdown.classList.add('visible');
+    }
+
+    showSearchError(query, message) {
+        if (!this.searchDropdown) return;
+
+        const errorMessage = message || 'Arama yapılırken bir hata oluştu. Lütfen tekrar deneyin.';
+        this.searchDropdown.innerHTML = `
+            <div class="search-empty">
+                <p>${this.escapeHtml(errorMessage)}</p>
+                <button type="button" class="search-pill" data-search-text="${this.escapeAttr(query)}">
+                    \"${this.escapeHtml(query)}\" aramasını yeniden dene
+                </button>
+            </div>
+        `;
+        this.searchDropdown.classList.add('visible');
+    }
+
+    clearSearchDropdown(hide = false) {
+        if (!this.searchDropdown) return;
+        if (hide) {
+            this.searchDropdown.classList.remove('visible');
+        }
+        this.searchDropdown.innerHTML = '';
+    }
+
+    filterLocalProducts(query) {
+        const productCards = document.querySelectorAll('.products-container .product-card');
+        if (!productCards.length) return;
+
+        const normalizedQuery = (query || '').trim().toLowerCase();
         let visibleCount = 0;
 
-        products.forEach(card => {
+        productCards.forEach((card) => {
+            if (!normalizedQuery) {
+                card.style.display = '';
+                card.classList.remove('fade-in');
+                visibleCount += 1;
+                return;
+            }
+
             const title = card.querySelector('.product-title')?.textContent.toLowerCase() || '';
             const artisan = card.querySelector('.product-artisan')?.textContent.toLowerCase() || '';
             const description = card.querySelector('.product-description')?.textContent.toLowerCase() || '';
 
-            const matches = title.includes(query.toLowerCase()) ||
-                          artisan.includes(query.toLowerCase()) ||
-                          description.includes(query.toLowerCase());
+            const matches = title.includes(normalizedQuery) ||
+                artisan.includes(normalizedQuery) ||
+                description.includes(normalizedQuery);
 
             if (matches) {
-                card.style.display = 'block';
+                card.style.display = '';
                 card.classList.add('fade-in');
-                visibleCount++;
+                visibleCount += 1;
             } else {
                 card.style.display = 'none';
+                card.classList.remove('fade-in');
             }
         });
 
-        // Show search results count
-        this.updateSearchResults(visibleCount, query);
+        this.updateLocalSearchResults(visibleCount, query);
     }
 
-    showAllProducts() {
-        document.querySelectorAll('.product-card').forEach(card => {
-            card.style.display = 'block';
-        });
-    }
+    updateLocalSearchResults(count, query) {
+        const container = document.querySelector('.products-container');
+        if (!container) return;
 
-    updateSearchResults(count, query) {
         let resultsElement = document.querySelector('.search-results');
         if (!resultsElement) {
             resultsElement = document.createElement('div');
             resultsElement.className = 'search-results';
-            const container = document.querySelector('.products-container');
-            if (container) {
-                container.parentNode.insertBefore(resultsElement, container);
-            }
+            container.parentNode.insertBefore(resultsElement, container);
         }
 
-        resultsElement.textContent = count > 0
-            ? `Found ${count} treasures for "${query}"`
-            : `No treasures found for "${query}". Try a different search.`;
+        if (!query || !query.trim()) {
+            resultsElement.textContent = '';
+            resultsElement.classList.add('hidden');
+            return;
+        }
+
+        resultsElement.classList.remove('hidden');
+        const safeQuery = this.escapeHtml(query.trim());
+        resultsElement.innerHTML = count > 0
+            ? `\"${safeQuery}\" için ${count} ürün bulundu.`
+            : `\"${safeQuery}\" için sonuç bulunamadı. Başka anahtar kelimeler deneyin.`;
+    }
+
+    renderSearchResultsDropdown(query, data = {}) {
+        if (!this.searchDropdown) return;
+
+        const { products = [], suggestions = {}, recommended = [] } = data;
+        const primaryResults = (products && products.length ? products : recommended).slice(0, 6);
+        const safeQuery = this.escapeHtml(query);
+
+        if (!primaryResults.length) {
+            this.searchDropdown.innerHTML = `
+                <div class="search-empty">
+                    <p>\"${safeQuery}\" için ürün bulunamadı.</p>
+                    <button type="button" class="search-view-all" data-search-action="view-all" data-query="${this.escapeAttr(query)}">
+                        Tüm ürünlerde ara
+                    </button>
+                </div>
+                ${this.renderSearchSuggestions(suggestions, query)}
+            `;
+            this.searchDropdown.classList.add('visible');
+            return;
+        }
+
+        const productsMarkup = primaryResults.map((product) => this.renderSearchResultItem(product)).join('');
+        const suggestionsMarkup = this.renderSearchSuggestions(suggestions, query);
+
+        this.searchDropdown.innerHTML = `
+            <div class="search-results-header">
+                <span>Öne çıkan sonuçlar</span>
+                <button type="button" class="search-view-all" data-search-action="view-all" data-query="${this.escapeAttr(query)}">
+                    Tümünü gör
+                </button>
+            </div>
+            <div class="search-results-list">
+                ${productsMarkup}
+            </div>
+            ${suggestionsMarkup}
+        `;
+
+        this.searchDropdown.classList.add('visible');
+    }
+
+    renderSearchSuggestions(suggestions = {}, query = '') {
+        const { categories = [], stores = [], tags = [], queries = [] } = suggestions || {};
+        const hasSuggestions = categories.length || stores.length || tags.length || queries.length;
+
+        if (!hasSuggestions) {
+            return '';
+        }
+
+        const queryButtons = queries.slice(0, 6)
+            .map((item) => `<button type="button" class="search-pill" data-search-text="${this.escapeAttr(item)}">${this.escapeHtml(item)}</button>`)
+            .join('');
+
+        const categoryButtons = categories
+            .map((category) => `<button type="button" class="search-pill" data-search-text="${this.escapeAttr(category.name)}" data-category-slug="${this.escapeAttr(category.slug || '')}">${this.escapeHtml(category.name)}</button>`)
+            .join('');
+
+        const storeButtons = stores
+            .map((store) => `<button type="button" class="search-pill" data-search-text="${this.escapeAttr(store.name)}" data-store-slug="${this.escapeAttr(store.slug || '')}">${this.escapeHtml(store.name)}</button>`)
+            .join('');
+
+        const tagButtons = tags
+            .map((tag) => `<button type="button" class="search-pill" data-search-text="${this.escapeAttr(tag)}">${this.escapeHtml(tag)}</button>`)
+            .join('');
+
+        return `
+            <div class="search-suggestions">
+                ${queries.length ? `
+                    <div class="search-suggestion-group">
+                        <span class="search-suggestion-label">Önerilen aramalar</span>
+                        <div class="search-pill-group">${queryButtons}</div>
+                    </div>
+                ` : ''}
+                ${categories.length ? `
+                    <div class="search-suggestion-group">
+                        <span class="search-suggestion-label">Kategoriler</span>
+                        <div class="search-pill-group">${categoryButtons}</div>
+                    </div>
+                ` : ''}
+                ${stores.length ? `
+                    <div class="search-suggestion-group">
+                        <span class="search-suggestion-label">Mağazalar</span>
+                        <div class="search-pill-group">${storeButtons}</div>
+                    </div>
+                ` : ''}
+                ${tags.length ? `
+                    <div class="search-suggestion-group">
+                        <span class="search-suggestion-label">Etiketler</span>
+                        <div class="search-pill-group">${tagButtons}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    renderSearchResultItem(product) {
+        const detailPath = this.getProductDetailPath();
+        const url = `${detailPath}?slug=${encodeURIComponent(product.slug)}`;
+        const thumbnail = product.thumbnail
+            ? `<img src="${this.escapeAttr(product.thumbnail)}" alt="${this.escapeHtml(product.title)}" loading="lazy">`
+            : '<div class="search-result-placeholder" aria-hidden="true">🛍️</div>';
+
+        const price = this.formatPrice(product.price);
+        const comparePrice = this.formatPrice(product.compare_price);
+        const storeName = product.store?.name ? `<span class="search-result-store">${this.escapeHtml(product.store.name)}</span>` : '';
+        const ratingValue = Number(product.rating) || 0;
+        const rating = ratingValue > 0 ? `<span class="search-result-rating">★ ${ratingValue.toFixed(1)}</span>` : '';
+
+        const badges = Array.isArray(product.badges) ? product.badges.slice(0, 2) : [];
+        const badgesMarkup = badges.length
+            ? `<div class="search-result-badges">${badges.map((badge) => `<span class="search-badge">${this.escapeHtml(badge)}</span>`).join('')}</div>`
+            : '';
+
+        return `
+            <a href="${url}" class="search-result-item" data-search-result="${this.escapeAttr(product.id)}">
+                <div class="search-result-thumbnail">${thumbnail}</div>
+                <div class="search-result-content">
+                    <div class="search-result-title">${this.escapeHtml(product.title)}</div>
+                    <div class="search-result-meta">
+                        ${storeName}
+                        ${rating}
+                    </div>
+                    <div class="search-result-pricing">
+                        <span class="search-result-price">${price}</span>
+                        ${comparePrice ? `<span class="search-result-compare">${comparePrice}</span>` : ''}
+                    </div>
+                    ${badgesMarkup}
+                </div>
+            </a>
+        `;
+    }
+
+    handleSearchDropdownClick(event, searchInput) {
+        const viewAllBtn = event.target.closest('[data-search-action="view-all"]');
+        if (viewAllBtn) {
+            const query = viewAllBtn.dataset.query || searchInput.value;
+            this.navigateToSearchPage(query);
+            return;
+        }
+
+        const textButton = event.target.closest('[data-search-text]');
+        if (textButton) {
+            const suggestion = textButton.dataset.searchText;
+            if (suggestion) {
+                searchInput.value = suggestion;
+                this.filterLocalProducts(suggestion);
+                this.fetchSearchResults(suggestion);
+                searchInput.focus();
+            }
+            return;
+        }
+    }
+
+    navigateToSearchPage(query) {
+        const trimmed = (query || '').trim();
+        if (!trimmed) return;
+
+        const productsPath = this.getProductsPath();
+        window.location.href = `${productsPath}?search=${encodeURIComponent(trimmed)}`;
+    }
+
+    getProductsPath() {
+        return window.location.pathname.includes('/pages/') ? 'products.html' : 'pages/products.html';
+    }
+
+    getProductDetailPath() {
+        return window.location.pathname.includes('/pages/') ? 'product-detail.html' : 'pages/product-detail.html';
+    }
+
+    escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    escapeAttr(value) {
+        return this.escapeHtml(value);
+    }
+
+    formatPrice(value) {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+
+        const numberValue = Number(value);
+        if (Number.isNaN(numberValue)) {
+            return '';
+        }
+
+        try {
+            return new Intl.NumberFormat('tr-TR', {
+                style: 'currency',
+                currency: 'TRY',
+                minimumFractionDigits: 2,
+            }).format(numberValue);
+        } catch (error) {
+            return `₺${numberValue.toFixed(2)}`;
+        }
     }
 
     // Cart System - DEPRECATED: Now using CartManager from cart-manager.js

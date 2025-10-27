@@ -51,6 +51,17 @@ class ProductController {
   });
 
   /**
+   * Search products by keyword
+   * GET /api/v1/products/search
+   */
+  searchProducts = asyncHandler(async (req, res) => {
+    const { q, limit, includeSuggestions } = req.query;
+    const result = await productService.searchProducts(q, { limit, includeSuggestions });
+
+    return success(res, result, 'Product search results');
+  });
+
+  /**
    * Get products by store
    * GET /api/v1/stores/:storeId/products
    */

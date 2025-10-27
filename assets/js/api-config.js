@@ -72,6 +72,7 @@ const API_CONFIG = {
     // Product endpoints
     PRODUCTS: {
       BASE: '/products',
+      SEARCH: '/products/search',
       BY_ID: (id) => `/products/${id}`,
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,

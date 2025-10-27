@@ -357,6 +357,37 @@ class ApiClient {
   }
 
   /**
+   * Search products with suggestions
+   */
+  async searchProducts(query, options = {}) {
+    const trimmedQuery = (query || '').trim();
+
+    if (!trimmedQuery) {
+      return {
+        success: true,
+        message: 'Empty query',
+        data: {
+          products: [],
+          suggestions: { categories: [], stores: [], tags: [], queries: [] },
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const params = { q: trimmedQuery };
+
+    if (options.limit) {
+      params.limit = options.limit;
+    }
+
+    if (typeof options.includeSuggestions === 'boolean') {
+      params.includeSuggestions = options.includeSuggestions;
+    }
+
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
+  }
+
+  /**
    * Get product by ID
    */
   async getProduct(productId) {
