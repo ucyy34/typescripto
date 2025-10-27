@@ -30,6 +30,17 @@ class ProductController {
   });
 
   /**
+   * Get product by slug
+   * GET /api/v1/products/slug/:slug
+   */
+  getProductBySlug = asyncHandler(async (req, res) => {
+    const includeInactive = req.user?.role === 'admin';
+    const product = await productService.getProductBySlug(req.params.slug, includeInactive);
+
+    return success(res, product, 'Product retrieved successfully');
+  });
+
+  /**
    * Get all products with filters
    * GET /api/v1/products
    */
@@ -37,6 +48,21 @@ class ProductController {
     const result = await productService.getProducts(req.query);
 
     return paginated(res, result.products, result.pagination);
+  });
+
+  /**
+   * Search products for storefront
+   * GET /api/v1/products/search
+   */
+  searchProducts = asyncHandler(async (req, res) => {
+    const { q, limit, includeSuggestions } = req.query;
+    const result = await productService.searchProducts({
+      query: q,
+      limit,
+      includeSuggestions,
+    });
+
+    return success(res, result, 'Product search completed successfully');
   });
 
   /**

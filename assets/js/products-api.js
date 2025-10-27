@@ -12,13 +12,22 @@ class ProductsPageAPI {
         this.currentView = 'grid';
         this.currentPage = 1;
         this.totalPages = 1;
+        this.urlParams = new URLSearchParams(window.location.search);
         this.filters = {
             categories: [],
             priceRange: 1000,
             rating: '',
             search: '',
-            sort: 'featured'
+            sort: 'featured',
+            storeId: this.urlParams.get('store') || null,
         };
+        const initialSearch = this.urlParams.get('search');
+        if (initialSearch) {
+            this.filters.search = initialSearch.trim();
+        }
+        this.storeName = this.urlParams.get('storeName')
+            ? decodeURIComponent(this.urlParams.get('storeName'))
+            : null;
 
         console.log('[Products Page API] Initializing...');
         this.init();
@@ -71,6 +80,11 @@ class ProductsPageAPI {
                 sort: this.getSortParam()
             };
 
+            if (this.filters.storeId) {
+                params.store_id = this.filters.storeId;
+                params.includeAllStatuses = false;
+            }
+
             // Add category filter
             if (this.filters.categories.length > 0) {
                 params.category_id = this.filters.categories[0]; // Backend expects single category for now
@@ -82,8 +96,9 @@ class ProductsPageAPI {
             }
 
             // Add search
-            if (this.filters.search) {
-                params.search = this.filters.search;
+            const searchTerm = this.filters.search ? this.filters.search.trim() : '';
+            if (searchTerm) {
+                params.search = searchTerm;
             }
 
             // Add rating filter (only approved products shown by default)
@@ -105,6 +120,7 @@ class ProductsPageAPI {
 
                 this.renderProducts();
                 this.updateResultsCount();
+                this.updateStoreContext();
             } else {
                 this.showError('No products found');
             }
@@ -168,20 +184,41 @@ class ProductsPageAPI {
                 this.filters.sort = e.target.value;
                 this.loadProducts();
             });
+            if (this.filters.storeId) {
+                sortSelect.value = 'newest';
+            }
         }
 
         // Search (use globalSearch from header)
         const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
         if (searchInput) {
+            if (this.filters.search) {
+                searchInput.value = this.filters.search;
+            }
+
             let searchTimeout;
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filters.search = e.target.value.toLowerCase();
+                    const nextValue = e.target.value.trim();
+                    this.filters.search = nextValue;
+                    this.currentPage = 1;
+                    this.updateSearchQueryParam(nextValue);
                     this.loadProducts();
-                }, 500); // Debounce
+                }, 400); // Debounce
             });
         }
+
+        document.addEventListener('dostan:search', (event) => {
+            const nextQuery = (event.detail?.query || '').trim();
+            this.filters.search = nextQuery;
+            this.currentPage = 1;
+            this.updateSearchQueryParam(nextQuery);
+            if (searchInput && searchInput.value !== nextQuery) {
+                searchInput.value = nextQuery;
+            }
+            this.loadProducts();
+        });
 
         // Price range slider
         const priceRange = document.getElementById('priceRange');
@@ -223,6 +260,20 @@ class ProductsPageAPI {
         });
     }
 
+    updateSearchQueryParam(value) {
+        try {
+            const url = new URL(window.location.href);
+            if (value) {
+                url.searchParams.set('search', value);
+            } else {
+                url.searchParams.delete('search');
+            }
+            window.history.replaceState({}, '', url.toString());
+        } catch (error) {
+            console.warn('[Products Page API] Unable to update search param', error);
+        }
+    }
+
     renderProducts() {
         const container = document.getElementById('productsContainer');
         if (!container) {
@@ -251,6 +302,22 @@ class ProductsPageAPI {
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {
             setTimeout(() => window.dostikAI.initializeProductBubbles(), 100);
+        }
+    }
+
+    updateStoreContext() {
+        if (!this.filters.storeId) return;
+
+        const resultsInfo = document.getElementById('resultsCount');
+        if (resultsInfo) {
+            const storeLabel = this.storeName || (this.filteredProducts[0]?.store?.name ?? 'selected artisan');
+            const count = this.filteredProducts.length;
+            resultsInfo.textContent = `Showing ${count} treasures from ${storeLabel}`;
+        }
+
+        const pageTitle = document.querySelector('.page-title') || document.querySelector('.section-title h2');
+        if (pageTitle && this.storeName) {
+            pageTitle.textContent = `${this.storeName} Treasures`;
         }
     }
 
