@@ -4,6 +4,7 @@
  */
 
 const { StatusCodes } = require('http-status-codes');
+const logger = require('../utils/logger');
 
 /**
  * Custom API Error class
@@ -117,8 +118,12 @@ const errorHandler = (err, req, res, next) => {
   // Log error in development
   if (process.env.NODE_ENV === 'development') {
     response.stack = err.stack;
-    console.error('Error:', err);
   }
+
+  logger.error('API error on %s %s -> %s', req.method, req.originalUrl, message, {
+    statusCode,
+    errors,
+  });
 
   // Send response
   res.status(statusCode).json(response);

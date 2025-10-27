@@ -6,34 +6,7 @@
 // ==========================================
 // AUTH CHECK - MUST BE FIRST
 // ==========================================
-
-const vendorDebugEnabled = (() => {
-    try {
-        if (typeof window !== 'undefined') {
-            if (window.VENDOR_DEBUG === true) {
-                return true;
-            }
-            if (window.localStorage) {
-                return window.localStorage.getItem('VENDOR_DEBUG') === 'true';
-            }
-        }
-    } catch (_) {
-        return false;
-    }
-    return false;
-})();
-
-const vdLog = (...args) => {
-    if (vendorDebugEnabled) {
-        console.log('[Vendor Dashboard]', ...args);
-    }
-};
-
-const vdVariantLog = (...args) => {
-    if (vendorDebugEnabled) {
-        console.log('[Variant]', ...args);
-    }
-};
+console.log('[Vendor Dashboard] Checking authentication...');
 
 // Check if user is logged in
 if (!AuthManager.isLoggedIn()) {
@@ -43,7 +16,7 @@ if (!AuthManager.isLoggedIn()) {
 
 // Check if user has seller or admin role
 const currentUser = AuthManager.getUser();
-vdLog('Current user:', currentUser);
+console.log('[Vendor Dashboard] Current user:', currentUser);
 
 if (currentUser.role !== 'seller' && currentUser.role !== 'admin') {
     console.warn('[Vendor Dashboard] User is not seller or admin:', currentUser.role);
@@ -63,34 +36,26 @@ class VendorDashboard {
         this.storeId = null;
         this.storeName = null;
         this.storeInfo = null;
-        this.storeStatus = null;
         this.user = currentUser;
         this.userId = currentUser.id;
         this.categories = [];
 
-        vdLog('Initializing for user:', this.userId);
+        console.log('[Vendor Dashboard] Initializing for user:', this.userId);
         this.init();
     }
 
     async init() {
-        vdLog('Starting initialization...');
+        console.log('[Vendor Dashboard] Starting initialization...');
 
-        // Global UI that should always be available
+        // Load store information first
+        await this.loadStoreInfo();
+
+        // Setup UI components
+        this.setupNavigation();
+        this.setupNotifications();
         this.setupTheme();
         this.setupLogout();
         this.displayUserInfo();
-
-        // Load store information and gate the dashboard if approval is pending
-        const storeState = await this.loadStoreInfo();
-
-        if (storeState !== 'approved') {
-            vdLog('Store is not approved yet, halting dashboard boot.', storeState);
-            return;
-        }
-
-        // Setup UI components that require an approved store
-        this.setupNavigation();
-        this.setupNotifications();
         this.setupProductModal();
         this.setupCampaignModal();
 
@@ -105,7 +70,7 @@ class VendorDashboard {
         // Setup return policy form if elements exist
         this.setupReturnPolicyUI();
 
-        vdLog('Initialization complete');
+        console.log('[Vendor Dashboard] Initialization complete');
     }
 
     // ==========================================
@@ -114,48 +79,36 @@ class VendorDashboard {
 
     async loadStoreInfo() {
         try {
-            vdLog('Loading store info for user:', this.userId);
+            console.log('[Vendor Dashboard] Loading store info for user:', this.userId);
 
-            // Fetch the authenticated seller's store using the dedicated endpoint
-            const response = await this.apiClient.getMyStore();
-            vdLog('My store API response:', response);
+            // Get stores for this user
+            const response = await this.apiClient.get('/stores', { userId: this.userId });
+            console.log('[Vendor Dashboard] Stores API response:', response);
 
-            let store = null;
-
-            if (response?.success && response.data) {
-                store = response.data;
-            } else if (Array.isArray(response?.data) && response.data.length > 0) {
-                // Fallback for older API responses that still return an array
-                store = response.data[0];
-            }
-
-            if (store) {
+            if (response.success && response.data && response.data.length > 0) {
+                const store = response.data[0]; // Get first store
                 this.storeId = store.id;
                 this.storeName = store.name;
                 this.storeInfo = store;
-                this.storeStatus = (store.status || 'pending').toLowerCase();
 
-                vdLog('Store loaded:', this.storeName, this.storeId, 'status:', this.storeStatus);
+                console.log('[Vendor Dashboard] Store loaded:', this.storeName, this.storeId);
 
                 // Update UI with store name
                 this.updateStoreNameInUI();
 
-                if (this.storeStatus !== 'approved') {
-                    this.showStoreStatusGate(store);
-                    return this.storeStatus;
-                }
+                // Prefill return policy inputs if already mounted
+                this.prefillReturnPolicy();
 
-                return 'approved';
+                return true;
             } else {
                 console.warn('[Vendor Dashboard] No store found for user');
-                this.storeStatus = null;
                 this.showNoStoreMessage();
-                return 'none';
+                return false;
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading store:', error);
             this.showError('Mağaza bilgileri yüklenemedi: ' + error.message);
-            return 'error';
+            return false;
         }
     }
 
@@ -253,202 +206,16 @@ class VendorDashboard {
         const mainContent = document.querySelector('.vendor-main');
         if (mainContent) {
             mainContent.innerHTML = `
-                <section style="max-width: 720px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 16px; padding: 2.5rem; box-shadow: 0 12px 40px rgba(0,0,0,0.08);">
-                    <div style="text-align: center; margin-bottom: 2rem;">
-                        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🏪</div>
-                        <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">İlk Mağazanızı Oluşturun</h2>
-                        <p style="margin: 0; opacity: 0.7;">Nordik pazarında satışa başlamak için mağaza bilgilerinizi doldurun.</p>
-                    </div>
-
-                    <form id="createStoreForm" style="display: grid; gap: 1.25rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Adı *</label>
-                            <input type="text" name="storeName" required placeholder="Örn: Erik'in Ahşap Atölyesi"
-                                   style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem;">
-                        </div>
-
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza Açıklaması</label>
-                            <textarea name="storeDescription" rows="4" placeholder="Kısa bir mağaza açıklaması..."
-                                      style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px; font-size: 1rem; resize: vertical;"></textarea>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Şehir</label>
-                                <input type="text" name="storeCity" placeholder="İstanbul"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Telefon</label>
-                                <input type="tel" name="storePhone" placeholder="+90 555 123 45 67"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Mağaza E-postası</label>
-                                <input type="email" name="storeEmail" placeholder="magaza@ornek.com"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Vergi / Kimlik No</label>
-                                <input type="text" name="taxNumber" placeholder="Opsiyonel"
-                                       style="width: 100%; padding: 0.9rem; border: 1px solid var(--vendor-border); border-radius: 10px;">
-                            </div>
-                        </div>
-
-                        <div id="createStoreStatus" style="display: none; font-weight: 600; border-radius: 10px; padding: 0.85rem 1rem;"></div>
-
-                        <button id="createStoreBtn" type="submit"
-                                style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;">
-                            Mağaza Oluştur
-                        </button>
-                        <p style="margin: 0; font-size: 0.9rem; opacity: 0.7; text-align: center;">Mağazanız oluşturulduktan sonra admin onayına gönderilecektir.</p>
-                    </form>
-                </section>
-            `;
-
-            const form = document.getElementById('createStoreForm');
-            const statusEl = document.getElementById('createStoreStatus');
-            const submitBtn = document.getElementById('createStoreBtn');
-
-            const setStatus = (message, type = 'info') => {
-                if (!statusEl) return;
-                statusEl.textContent = message;
-                statusEl.style.display = message ? 'block' : 'none';
-                if (type === 'error') {
-                    statusEl.style.background = '#fef2f2';
-                    statusEl.style.color = '#b91c1c';
-                    statusEl.style.border = '1px solid #fecaca';
-                } else {
-                    statusEl.style.background = '#ecfdf5';
-                    statusEl.style.color = '#047857';
-                    statusEl.style.border = '1px solid #bbf7d0';
-                }
-            };
-
-            if (form && submitBtn) {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-
-                    const formData = new FormData(form);
-                    const name = (formData.get('storeName') || '').toString().trim();
-                    const description = (formData.get('storeDescription') || '').toString().trim();
-                    const city = (formData.get('storeCity') || '').toString().trim();
-                    const phone = (formData.get('storePhone') || '').toString().trim();
-                    const email = (formData.get('storeEmail') || '').toString().trim();
-                    const taxNumber = (formData.get('taxNumber') || '').toString().trim();
-
-                    if (!name || name.length < 3) {
-                        setStatus('Lütfen en az 3 karakterden oluşan bir mağaza adı girin.', 'error');
-                        return;
-                    }
-
-                    const payload = { name };
-                    if (description) payload.description = description;
-                    if (city) payload.city = city;
-                    if (phone) payload.phone = phone;
-                    if (email) payload.email = email;
-                    if (taxNumber) payload.tax_number = taxNumber;
-
-                    try {
-                        submitBtn.disabled = true;
-                        submitBtn.textContent = 'Mağaza Oluşturuluyor...';
-                        setStatus('Mağazanız oluşturuluyor, lütfen bekleyin...', 'info');
-
-                        const response = await this.apiClient.createStore(payload);
-
-                        if (!response.success) {
-                            throw new Error(response.message || 'Mağaza oluşturulamadı.');
-                        }
-
-                        const store = response.data || {};
-                        this.storeInfo = store;
-                        this.storeId = store.id;
-                        this.storeName = store.name;
-
-                        setStatus('Mağazanız oluşturuldu! Panel yenileniyor...', 'info');
-
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1200);
-                    } catch (error) {
-                        console.error('[Vendor Dashboard] Store creation failed:', error);
-                        setStatus(error.message || 'Mağaza oluşturulamadı. Lütfen tekrar deneyin.', 'error');
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Mağaza Oluştur';
-                    }
-                });
-            }
-        }
-    }
-
-    showStoreStatusGate(store) {
-        const mainContent = document.querySelector('.vendor-main');
-        if (!mainContent) return;
-
-        const status = (store.status || 'pending').toLowerCase();
-        const statusLabels = {
-            pending: '⏳ Onay Bekliyor',
-            rejected: '❌ Reddedildi',
-            suspended: '⚠️ Askıya Alındı',
-        };
-
-        let headline = 'Mağaza Başvurunuz Alındı';
-        let description = 'Mağaza bilgileriniz admin ekibimize iletildi. Onaylandığında tüm panel özellikleri otomatik olarak açılacaktır.';
-        let footerNote = 'Onay süreci genellikle 1-2 iş günü sürer. Herhangi bir sorunuz varsa destek ekibimizle iletişime geçebilirsiniz.';
-        let extra = '';
-
-        if (status === 'rejected') {
-            headline = 'Mağaza Başvurunuz Reddedildi';
-            description = store.rejection_reason
-                ? `Başvurunuz şu nedenle reddedildi: <strong>${store.rejection_reason}</strong>`
-                : 'Başvurunuz şu anda onaylanmadı. Lütfen bilgilerinizi gözden geçirip tekrar deneyin.';
-            footerNote = 'Yeni bir başvuru göndermek için destek ekibimizle iletişime geçebilirsiniz.';
-        } else if (status === 'suspended') {
-            headline = 'Mağazanız Askıya Alındı';
-            description = 'Mağazanız geçici olarak devre dışı bırakıldı. Detaylar için yönetim ekibiyle iletişime geçiniz.';
-            footerNote = 'Durumu netleştirmek için lütfen destek kanalımızla irtibata geçin.';
-        }
-
-        const createdTimestamp = store.created_at || store.createdAt;
-        if (createdTimestamp) {
-            const createdAt = new Date(createdTimestamp).toLocaleString('tr-TR');
-            extra = `<p style="margin: 0; opacity: 0.65;">Başvuru tarihi: ${createdAt}</p>`;
-        }
-
-        const statusBadge = statusLabels[status] || '⏳ Onay Bekliyor';
-
-        mainContent.innerHTML = `
-            <section style="max-width: 760px; margin: 4rem auto; background: white; border: 1px solid var(--vendor-border); border-radius: 18px; padding: 3rem; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12); text-align: center;">
-                <div style="font-size: 3.75rem; margin-bottom: 1.5rem;">${status === 'pending' ? '📮' : status === 'rejected' ? '🚫' : '🛑'}</div>
-                <h2 style="margin: 0 0 0.75rem 0; color: var(--vendor-primary);">${headline}</h2>
-                <p style="margin: 0 0 1rem 0; font-size: 0.95rem; opacity: 0.8;">${description}</p>
-                <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 1.5rem auto; padding: 0.75rem 1.25rem; border-radius: 999px; background: #f1f5f9; color: #0f172a; font-weight: 600;">
-                    <span>${statusBadge}</span>
-                    <span style="opacity: 0.75;">•</span>
-                    <span>${store.name || 'Mağaza'}</span>
+                <div style="text-align: center; padding: 4rem 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">🏪</div>
+                    <h2 style="margin-bottom: 1rem;">Henüz Mağazanız Yok</h2>
+                    <p style="opacity: 0.7; margin-bottom: 2rem;">Satış yapmaya başlamak için önce bir mağaza oluşturmanız gerekiyor.</p>
+                    <button onclick="alert('Mağaza oluşturma özelliği yakında eklenecek!')"
+                            style="background: var(--vendor-primary); color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        Mağaza Oluştur
+                    </button>
                 </div>
-                ${extra}
-                <p style="margin: 1.5rem 0 0 0; font-size: 0.9rem; opacity: 0.7;">${footerNote}</p>
-            </section>
-        `;
-
-        this.disableNavigationForPending();
-    }
-
-    disableNavigationForPending() {
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.classList.add('disabled');
-            item.style.pointerEvents = 'none';
-            item.style.opacity = '0.45';
-        });
-
-        const headerBadge = document.querySelector('.vendor-header .store-status-pill');
-        if (headerBadge) {
-            headerBadge.textContent = 'Onay Bekleniyor';
+            `;
         }
     }
 
@@ -458,7 +225,7 @@ class VendorDashboard {
 
     async loadDashboardData() {
         try {
-            vdLog('Loading dashboard data...');
+            console.log('[Vendor Dashboard] Loading dashboard data...');
 
             // Load stats and recent orders in parallel
             await Promise.all([
@@ -466,7 +233,7 @@ class VendorDashboard {
                 this.loadRecentOrders()
             ]);
 
-            vdLog('Dashboard data loaded');
+            console.log('[Vendor Dashboard] Dashboard data loaded');
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading dashboard:', error);
             this.showError('Dashboard verileri yüklenemedi');
@@ -475,7 +242,7 @@ class VendorDashboard {
 
     async loadDashboardStats() {
         try {
-            vdLog('Loading stats for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading stats for store:', this.storeId);
 
             // Get products count
             const productsResponse = await this.apiClient.get('/products', {
@@ -488,7 +255,7 @@ class VendorDashboard {
                 limit: 1
             });
 
-            vdLog('Stats loaded:', {
+            console.log('[Vendor Dashboard] Stats loaded:', {
                 products: productsResponse.pagination?.total || 0,
                 orders: ordersResponse.pagination?.total || 0
             });
@@ -507,14 +274,14 @@ class VendorDashboard {
     }
 
     updateStatsUI(stats) {
-        vdLog('Updating stats UI:', stats);
+        console.log('[Vendor Dashboard] Updating stats UI:', stats);
         // Update stat cards if they exist
         // This is a placeholder - you can enhance based on your HTML structure
     }
 
     async loadRecentOrders() {
         try {
-            vdLog('Loading recent orders...');
+            console.log('[Vendor Dashboard] Loading recent orders...');
 
             const response = await this.apiClient.get(`/stores/${this.storeId}/orders`, {
                 limit: 5,
@@ -522,7 +289,7 @@ class VendorDashboard {
             });
 
             if (response.success && response.data) {
-                vdLog('Recent orders loaded:', response.data.length);
+                console.log('[Vendor Dashboard] Recent orders loaded:', response.data.length);
                 this.renderRecentOrders(response.data);
             }
         } catch (error) {
@@ -568,7 +335,7 @@ class VendorDashboard {
     // ==========================================
 
     loadSectionData(sectionName) {
-        vdLog(`Loading section data: ${sectionName}`);
+        console.log(`[Vendor Dashboard] Loading section data: ${sectionName}`);
 
         switch(sectionName) {
             case 'dashboard':
@@ -611,7 +378,7 @@ class VendorDashboard {
                 this.loadProfileData();
                 break;
             default:
-                vdLog(`No loader for section: ${sectionName}`);
+                console.log(`[Vendor Dashboard] No loader for section: ${sectionName}`);
         }
     }
 
@@ -635,7 +402,7 @@ class VendorDashboard {
         container.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="spinner"></div><p>Ürünler yükleniyor...</p></div>';
 
         try {
-            vdLog('Loading products for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading products for store:', this.storeId);
 
             // For vendors, fetch ALL products (pending, approved, rejected, active, inactive)
             // We explicitly fetch all statuses for the vendor's own store
@@ -645,7 +412,7 @@ class VendorDashboard {
                 includeAllStatuses: 'true'  // Query param must be string
             });
 
-            vdLog('Products response:', response);
+            console.log('[Vendor Dashboard] Products response:', response);
 
             // Handle different response structures
             const products = response.data || response;
@@ -889,7 +656,7 @@ class VendorDashboard {
             // Attach event listeners for save, delete, and toggle buttons
             this.attachProductActionListeners();
 
-            vdLog('Products rendered successfully:', products.length);
+            console.log('[Vendor Dashboard] Products rendered successfully:', products.length);
 
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading products:', error);
@@ -923,13 +690,13 @@ class VendorDashboard {
         container.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="spinner"></div><p>Siparişler yükleniyor...</p></div>';
 
         try {
-            vdLog('Loading orders for store:', this.storeId);
+            console.log('[Vendor Dashboard] Loading orders for store:', this.storeId);
 
             const response = await this.apiClient.get(`/stores/${this.storeId}/orders`, {
                 limit: 50
             });
 
-            vdLog('Orders response:', response);
+            console.log('[Vendor Dashboard] Orders response:', response);
 
             // Handle different response structures
             const orders = response.data || response;
@@ -1016,7 +783,7 @@ class VendorDashboard {
             `;
 
             container.innerHTML = html;
-            vdLog('Orders rendered successfully:', orders.length);
+            console.log('[Vendor Dashboard] Orders rendered successfully:', orders.length);
 
             // Attach event listeners to status selects
             this.attachOrderStatusListeners();
@@ -1035,7 +802,7 @@ class VendorDashboard {
 
     // Other section loaders
     async loadInventoryData() {
-        vdLog('Loading inventory...');
+        console.log('[Vendor Dashboard] Loading inventory...');
         const container = document.querySelector('#inventory-section');
         if (container) {
             container.innerHTML = `
@@ -1049,7 +816,7 @@ class VendorDashboard {
     }
 
     async loadAnalyticsData() {
-        vdLog('Loading analytics...');
+        console.log('[Vendor Dashboard] Loading analytics...');
         const container = document.querySelector('#analytics-section');
         if (container) {
             container.innerHTML = `
@@ -1063,7 +830,7 @@ class VendorDashboard {
     }
 
     async loadReturnsData() {
-        vdLog('Loading returns...');
+        console.log('[Vendor Dashboard] Loading returns...');
         const container = document.querySelector('#returns-section');
         if (!container || !this.storeId) return;
 
@@ -1080,7 +847,7 @@ class VendorDashboard {
             const response = await this.apiClient.get(`/returns/stores/${this.storeId}`);
             const returns = response.data || [];
 
-            vdLog('Loaded', returns.length, 'returns');
+            console.log('[Vendor Dashboard] Loaded', returns.length, 'returns');
 
             // Render returns
             this.renderReturns(returns);
@@ -1363,16 +1130,16 @@ class VendorDashboard {
     }
 
     async loadStoreData() {
-        vdLog('Loading store management...');
+        console.log('[Vendor Dashboard] Loading store management...');
         const container = document.querySelector('#store-section');
         if (container) {
             // Already has content in HTML
-            vdLog('Store section already has static content');
+            console.log('[Vendor Dashboard] Store section already has static content');
         }
     }
 
     async loadShippingData() {
-        vdLog('Loading shipping...');
+        console.log('[Vendor Dashboard] Loading shipping...');
         const container = document.querySelector('#shipping-section');
         if (!container) return;
 
@@ -1481,7 +1248,7 @@ class VendorDashboard {
      */
     async createShipmentForOrder(orderId) {
         try {
-            vdLog('Creating shipment for order:', orderId);
+            console.log('[Vendor Dashboard] Creating shipment for order:', orderId);
 
             // Get order details
             const orderResponse = await this.apiClient.get(`/orders/${orderId}`);
@@ -1650,7 +1417,7 @@ class VendorDashboard {
 
     async loadEarningsData() {
         try {
-            vdLog('Loading earnings...');
+            console.log('[Vendor Dashboard] Loading earnings...');
 
             const userStore = this.currentUser.store;
             if (!userStore || !userStore.id) {
@@ -1796,16 +1563,16 @@ class VendorDashboard {
     }
 
     async loadSeoData() {
-        vdLog('Loading SEO...');
+        console.log('[Vendor Dashboard] Loading SEO...');
         const container = document.querySelector('#seo-section');
         if (container) {
             // Already has content in HTML
-            vdLog('SEO section already has static content');
+            console.log('[Vendor Dashboard] SEO section already has static content');
         }
     }
 
     async loadMessagesData() {
-        vdLog('Loading messages...');
+        console.log('[Vendor Dashboard] Loading messages...');
         const container = document.querySelector('#messages-section');
         if (container) {
             container.innerHTML = `
@@ -1819,7 +1586,7 @@ class VendorDashboard {
     }
 
     async loadProfileData() {
-        vdLog('Loading profile...');
+        console.log('[Vendor Dashboard] Loading profile...');
         const container = document.querySelector('#profile-section');
         if (container) {
             const user = this.user || AuthManager.getUser();
@@ -1943,7 +1710,7 @@ class VendorDashboard {
     }
 
     switchSection(sectionName) {
-        vdLog(`Switching to section: ${sectionName}`);
+        console.log(`[Vendor Dashboard] Switching to section: ${sectionName}`);
 
         // Hide all sections
         document.querySelectorAll('.content-section').forEach(section => {
@@ -1992,12 +1759,12 @@ class VendorDashboard {
             el.textContent = user.email;
         });
 
-        vdLog('User info displayed');
+        console.log('[Vendor Dashboard] User info displayed');
     }
 
     setupNotifications() {
         // Notification system setup
-        vdLog('Notifications setup complete');
+        console.log('[Vendor Dashboard] Notifications setup complete');
     }
 
     setupTheme() {
@@ -2012,12 +1779,12 @@ class VendorDashboard {
             logoutBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
-                    vdLog('Logging out...');
+                    console.log('[Vendor Dashboard] Logging out...');
                     AuthManager.logout(false);
                     window.location.href = 'login.html';
                 }
             });
-            vdLog('Logout button configured');
+            console.log('[Vendor Dashboard] Logout button configured');
         }
     }
 
@@ -2076,18 +1843,18 @@ class VendorDashboard {
             categorySelect.addEventListener('change', async () => {
                 const categoryId = categorySelect.value;
                 if (categoryId) {
-                    vdVariantLog(`Fetching variants for category: ${categoryId}`);
+                    console.log(`[Variant] Fetching variants for category: ${categoryId}`);
                     const variants = await this.loadCategoryVariantsForForm(categoryId);
-                    vdVariantLog(`Loaded ${variants?.length || 0} variants for category: ${categoryId}`);
+                    console.log(`[Variant] Loaded ${variants?.length || 0} variants for category: ${categoryId}`);
                     this.renderVariantSelectors(variants || []);
                 } else {
-                    vdVariantLog('No category selected');
+                    console.log('[Variant] No category selected');
                     this.renderVariantSelectors([]);
                 }
             });
         }
 
-        vdLog('Product modal configured');
+        console.log('[Vendor Dashboard] Product modal configured');
     }
 
     openProductModal() {
@@ -2099,14 +1866,14 @@ class VendorDashboard {
 
     async loadCategories() {
         try {
-            vdLog('Loading categories...');
+            console.log('[Vendor Dashboard] Loading categories...');
 
             const response = await this.apiClient.getTopLevelCategories();
 
             if (response.success && response.data) {
                 this.categories = response.data;
                 this.populateCategoryDropdown();
-                vdLog('Categories loaded:', this.categories.length);
+                console.log('[Vendor Dashboard] Categories loaded:', this.categories.length);
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading categories:', error);
@@ -2131,11 +1898,11 @@ class VendorDashboard {
 
     async loadCategoryVariantsForForm(categoryId) {
         try {
-            vdVariantLog('Fetching variants for category:', categoryId);
+            console.log('[Variant] Fetching variants for category:', categoryId);
             const res = await this.apiClient.get(`/categories/${categoryId}/variants`);
-            vdVariantLog('API response:', res);
+            console.log('[Variant] API response:', res);
             if (res && res.success) {
-                vdVariantLog('Returning', res.data?.length || 0, 'variants');
+                console.log('[Variant] Returning', res.data?.length || 0, 'variants');
                 return res.data;
             }
             console.warn('[Variant] API returned no success');
@@ -2147,7 +1914,7 @@ class VendorDashboard {
     }
 
     renderVariantSelectors(variants) {
-        vdVariantLog('Rendering', variants?.length || 0, 'variant selectors');
+        console.log('[Variant] Rendering', variants?.length || 0, 'variant selectors');
         const form = document.getElementById('productForm');
         if (!form) {
             console.error('[Variant] productForm not found!');
@@ -2155,7 +1922,7 @@ class VendorDashboard {
         }
         let container = document.getElementById('variantContainer');
         if (!container) {
-            vdVariantLog('Creating new variantContainer');
+            console.log('[Variant] Creating new variantContainer');
             container = document.createElement('div');
             container.id = 'variantContainer';
             container.style.marginTop = '1.5rem';
@@ -2168,7 +1935,7 @@ class VendorDashboard {
         container.innerHTML = '';
         
         if (!variants || variants.length === 0) {
-            vdVariantLog('No variants to render');
+            console.log('[Variant] No variants to render');
             return;
         }
         variants.forEach(v => {
@@ -2228,7 +1995,7 @@ class VendorDashboard {
             const stockInput = document.getElementById('productStock').value;
             const imageUrl = document.getElementById('productImage').value.trim();
 
-            vdLog('Form values:', {
+            console.log('[Vendor Dashboard] Form values:', {
                 title,
                 shortDesc,
                 description,
@@ -2325,7 +2092,7 @@ class VendorDashboard {
                 productData.meta_keywords = metaKeywords.split(',').map(k => k.trim()).filter(k => k);
             }
 
-            vdLog('Creating product with data:', productData);
+            console.log('[Vendor Dashboard] Creating product with data:', productData);
 
             // Show loading
             const submitBtn = document.querySelector('#productForm button[type="submit"]');
@@ -2336,7 +2103,7 @@ class VendorDashboard {
             // Call API
             const response = await this.apiClient.post('/products', productData);
 
-            vdLog('API response:', response);
+            console.log('[Vendor Dashboard] API response:', response);
 
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
@@ -2384,7 +2151,7 @@ class VendorDashboard {
     // ==========================================
 
     attachProductActionListeners() {
-        vdLog('Attaching product action listeners');
+        console.log('[Vendor Dashboard] Attaching product action listeners');
 
         // Save product buttons
         document.querySelectorAll('.save-product-btn').forEach(btn => {
@@ -2416,7 +2183,7 @@ class VendorDashboard {
 
     async updateProduct(productId) {
         try {
-            vdLog('Updating product:', productId);
+            console.log('[Vendor Dashboard] Updating product:', productId);
 
             // Get the product row
             const productRow = document.querySelector(`.product-row[data-product-id="${productId}"]`);
@@ -2443,7 +2210,7 @@ class VendorDashboard {
                 updateData[fieldName] = value;
             });
 
-            vdLog('Update data:', updateData);
+            console.log('[Vendor Dashboard] Update data:', updateData);
 
             // Validate
             if (!updateData.title || updateData.title.length < 5) {
@@ -2498,7 +2265,7 @@ class VendorDashboard {
 
     async deleteProduct(productId) {
         try {
-            vdLog('Deleting product:', productId);
+            console.log('[Vendor Dashboard] Deleting product:', productId);
 
             const response = await this.apiClient.delete(`/products/${productId}`);
 
@@ -2517,7 +2284,7 @@ class VendorDashboard {
 
     async toggleProductActive(productId, newActiveState) {
         try {
-            vdLog('Toggling product active state:', productId, newActiveState);
+            console.log('[Vendor Dashboard] Toggling product active state:', productId, newActiveState);
 
             const response = await this.apiClient.put(`/products/${productId}`, {
                 is_active: newActiveState
@@ -2558,7 +2325,7 @@ class VendorDashboard {
      * Attach event listeners to order status selects
      */
     attachOrderStatusListeners() {
-        vdLog('Attaching order status listeners');
+        console.log('[Vendor Dashboard] Attaching order status listeners');
 
         document.querySelectorAll('.order-status-select').forEach(select => {
             select.addEventListener('change', async (e) => {
@@ -2586,7 +2353,7 @@ class VendorDashboard {
      */
     async updateOrderStatus(orderId, newStatus) {
         try {
-            vdLog('Updating order status:', orderId, newStatus);
+            console.log('[Vendor Dashboard] Updating order status:', orderId, newStatus);
 
             // Prepare update data
             const updateData = {
@@ -2642,15 +2409,15 @@ class VendorDashboard {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    vdLog('DOM loaded, initializing dashboard');
+    console.log('[Vendor Dashboard] DOM loaded, initializing dashboard');
 
     // Debug: Log all sections
     const sections = document.querySelectorAll('.content-section');
-    vdLog('Found sections:', Array.from(sections).map(s => s.id));
+    console.log('[Vendor Dashboard] Found sections:', Array.from(sections).map(s => s.id));
 
     // Debug: Log all menu items
     const menuItems = document.querySelectorAll('.menu-item');
-    vdLog('Found menu items:', Array.from(menuItems).map(m => m.dataset.section));
+    console.log('[Vendor Dashboard] Found menu items:', Array.from(menuItems).map(m => m.dataset.section));
 
     // Check if API client is available
     if (typeof ApiClient === 'undefined') {
@@ -2663,9 +2430,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboard = new VendorDashboard();
     window.vendorDashboard = dashboard;
 
-    vdLog('Dashboard initialized successfully');
-    vdLog('Current section:', dashboard.currentSection);
-    vdLog('Store ID:', dashboard.storeId);
+    console.log('[Vendor Dashboard] Dashboard initialized successfully');
+    console.log('[Vendor Dashboard] Current section:', dashboard.currentSection);
+    console.log('[Vendor Dashboard] Store ID:', dashboard.storeId);
 });
 
 // Add setupSEOCounters method to VendorDashboard class
@@ -2717,7 +2484,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
                 return;
             }
-            vdLog('Loading campaigns...');
+            console.log('[Vendor Dashboard] Loading campaigns...');
 
             const container = document.getElementById('campaigns-list');
             if (!container) {
@@ -2735,7 +2502,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 
             // Fetch campaigns for this store
             const response = await this.apiClient.getStoreCampaigns(this.storeId);
-            vdLog('Campaigns response:', response);
+            console.log('[Vendor Dashboard] Campaigns response:', response);
 
             const campaigns = response.success ? response.data : [];
 
@@ -2974,7 +2741,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 campaignData.product_ids = Array.from(checkboxes).map(cb => cb.value);
             }
 
-            vdLog('Creating campaign:', campaignData);
+            console.log('[Vendor Dashboard] Creating campaign:', campaignData);
 
             const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
 

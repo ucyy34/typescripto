@@ -5,6 +5,7 @@
 
 const { Sequelize } = require('sequelize');
 const config = require('./database');
+const logger = require('../utils/logger');
 
 const env = process.env.NODE_ENV || 'development';
 const dbConfig = config[env];
@@ -31,10 +32,10 @@ const sequelize = new Sequelize(
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ Database: Connection established successfully');
+    logger.info('Database connection established successfully');
     return true;
   } catch (error) {
-    console.error('❌ Database: Unable to connect:', error.message);
+    logger.error('Database connection failed: %s', error.message);
     return false;
   }
 };
@@ -45,10 +46,10 @@ const testConnection = async () => {
 const syncDatabase = async (options = {}) => {
   try {
     await sequelize.sync(options);
-    console.log('✅ Database: Models synchronized');
+    logger.info('Database models synchronized');
     return true;
   } catch (error) {
-    console.error('❌ Database: Sync failed:', error.message);
+    logger.error('Database sync failed: %s', error.message);
     return false;
   }
 };
@@ -59,9 +60,9 @@ const syncDatabase = async (options = {}) => {
 const closeConnection = async () => {
   try {
     await sequelize.close();
-    console.log('✅ Database: Connection closed');
+    logger.info('Database connection closed');
   } catch (error) {
-    console.error('❌ Database: Error closing connection:', error.message);
+    logger.error('Database close failed: %s', error.message);
   }
 };
 

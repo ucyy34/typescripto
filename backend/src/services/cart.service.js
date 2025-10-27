@@ -7,6 +7,7 @@
 const { Cart, Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
+const logger = require('../utils/logger');
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
@@ -20,7 +21,6 @@ class CartService {
       negativeTtl: DEFAULT_MISSING_PRODUCT_TTL,
       maxItems: DEFAULT_CACHE_MAX_ITEMS,
     };
-    this.debugEnabled = process.env.NODE_ENV !== 'production';
   }
   /**
    * Get user's cart with populated product details
@@ -30,13 +30,8 @@ class CartService {
   async getUserCart(userId) {
     // Find or create cart for user
     const cart = await Cart.findOrCreateForUser(userId);
-
     // Get cart with populated product details
     const cartWithDetails = await this.populateCartItems(cart.items);
-
-    if (cartWithDetails.missingProductIds.length > 0) {
-      await this._pruneMissingProductsFromUserCart(cart, cartWithDetails.missingProductIds);
-    }
 
     return {
       id: cart.id,
@@ -54,10 +49,6 @@ class CartService {
   async getGuestCart(session) {
     const guestCart = session.cart || { items: [] };
     const cartWithDetails = await this.populateCartItems(guestCart.items);
-
-    if (cartWithDetails.missingProductIds.length > 0) {
-      this._pruneMissingProductsFromSession(session, cartWithDetails.missingProductIds);
-    }
 
     return {
       items: cartWithDetails.items,
@@ -86,7 +77,7 @@ class CartService {
     if (existingItem) {
       // Update quantity
       const newQuantity = existingItem.quantity + quantity;
-      await this.validateProductAndStock(productId, newQuantity);
+      await this.validateProductAndStock(productId, newQuantity, { productHint: product });
       existingItem.quantity = newQuantity;
     } else {
       // Add new item
@@ -97,8 +88,7 @@ class CartService {
     cart.items = items;
     await cart.save({ fields: ['items'] });
 
-    const result = await this.getUserCart(userId);
-    return result;
+    return this.getUserCart(userId);
   }
 
   /**
@@ -302,10 +292,26 @@ class CartService {
    * @returns {Promise<Product>} Validated product
    * @private
    */
-  async validateProductAndStock(productId, quantity) {
-    const product = await Product.findByPk(productId, {
-      include: [{ model: Store, as: 'store', attributes: ['status'] }],
-    });
+  async validateProductAndStock(productId, quantity, options = {}) {
+    const { productHint = null } = options;
+    let product = productHint;
+
+    if (!product) {
+      product = await Product.findByPk(productId, {
+        attributes: [
+          'id',
+          'title',
+          'slug',
+          'price',
+          'compare_price',
+          'images',
+          'stock',
+          'is_active',
+          'status',
+        ],
+        include: [{ model: Store, as: 'store', attributes: ['status'] }],
+      });
+    }
 
     if (!product) {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
@@ -321,8 +327,11 @@ class CartService {
     
     if (product.stock < quantity) {
       // Log warning but don't throw error - allow adding to cart
-      console.warn(`[CartService] Low stock warning: Product ${productId} has ${product.stock} items, requested ${quantity}`);
-      // Still allow adding to cart, frontend will show "out of stock" message
+      logger.warn('Cart item requested beyond stock', {
+        productId,
+        available: product.stock,
+        requested: quantity,
+      });
     }
 
     return product;
@@ -339,7 +348,6 @@ class CartService {
       return {
         items: [],
         totals: { subtotal: 0, item_count: 0 },
-        missingProductIds: [],
       };
     }
 
@@ -348,15 +356,11 @@ class CartService {
 
     let subtotal = 0;
     let item_count = 0;
-    const missingProductIds = [];
 
     const populatedItems = items
       .map((item) => {
         const product = productMap.get(item.product_id);
-        if (!product) {
-          missingProductIds.push(item.product_id);
-          return null;
-        }
+        if (!product) return null;
 
         const itemTotal = parseFloat(product.price) * item.quantity;
         subtotal += itemTotal;
@@ -385,7 +389,6 @@ class CartService {
         subtotal: parseFloat(subtotal.toFixed(2)),
         item_count,
       },
-      missingProductIds,
     };
   }
 
@@ -421,6 +424,17 @@ class CartService {
         where: {
           id: missingIds,
         },
+        attributes: [
+          'id',
+          'title',
+          'slug',
+          'price',
+          'compare_price',
+          'images',
+          'stock',
+          'is_active',
+          'status',
+        ],
         include: [
           { model: Store, as: 'store', attributes: ['id', 'name', 'slug', 'status'] },
           { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
@@ -490,42 +504,6 @@ class CartService {
         break;
       }
       this.productCache.delete(oldestKey);
-    }
-  }
-
-  _debug(...args) {
-    if (this.debugEnabled) {
-      console.log('[CartService]', ...args);
-    }
-  }
-
-  async _pruneMissingProductsFromUserCart(cart, missingProductIds) {
-    if (!cart || !missingProductIds || missingProductIds.length === 0) {
-      return;
-    }
-
-    const items = cart.items || [];
-    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (filtered.length === items.length) {
-      return;
-    }
-
-    cart.items = filtered;
-    await cart.save({ fields: ['items'] });
-    this._debug(`Pruned ${items.length - filtered.length} missing products from user cart ${cart.id}`);
-  }
-
-  _pruneMissingProductsFromSession(session, missingProductIds) {
-    if (!session || !session.cart || !Array.isArray(session.cart.items)) {
-      return;
-    }
-
-    const before = session.cart.items.length;
-    session.cart.items = session.cart.items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (session.cart.items.length !== before) {
-      this._debug(`Pruned ${before - session.cart.items.length} missing products from guest cart`);
     }
   }
 }

@@ -5,92 +5,40 @@
 
 require('dotenv').config();
 const Redis = require('ioredis');
-const { Readable } = require('stream');
 
-const isTestOrDisabled =
-  process.env.NODE_ENV === 'test' || process.env.REDIS_DISABLED === 'true';
+const logger = require('../utils/logger');
 
-const createRedisClient = () => {
-  if (isTestOrDisabled) {
-    const emptyStream = () =>
-      new Readable({
-        objectMode: true,
-        read() {
-          this.push(null);
-        },
-      });
+// Redis client for general caching
+const redisClient = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+  password: process.env.REDIS_PASSWORD || undefined,
+  db: parseInt(process.env.REDIS_DB, 10) || 0,
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  lazyConnect: false,
+});
 
-    return {
-      async get() {
-        return null;
-      },
-      async setex() {
-        return 'OK';
-      },
-      async del() {
-        return 0;
-      },
-      async exists() {
-        return 0;
-      },
-      async incr() {
-        return 0;
-      },
-      async expire() {
-        return true;
-      },
-      scanStream() {
-        return emptyStream();
-      },
-      on() {
-        return this;
-      },
-      quit: async () => {},
-    };
-  }
+// Event listeners
+redisClient.on('connect', () => {
+  logger.info('Redis connection established');
+});
 
-  const client = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-    db: parseInt(process.env.REDIS_DB, 10) || 0,
-    retryStrategy: (times) => {
-      const delay = Math.min(times * 50, 2000);
-      return delay;
-    },
-    maxRetriesPerRequest: 3,
-    enableReadyCheck: true,
-    lazyConnect: false,
-  });
+redisClient.on('error', (err) => {
+  logger.error('Redis error: %s', err.message);
+});
 
-  client.on('connect', () => {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('✅ Redis: Connected successfully');
-    }
-  });
+redisClient.on('ready', () => {
+  logger.debug('Redis ready to accept commands');
+});
 
-  client.on('error', (err) => {
-    if (process.env.NODE_ENV !== 'test') {
-      console.error('❌ Redis Error:', err.message);
-    }
-  });
-
-  client.on('ready', () => {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('✅ Redis: Ready to accept commands');
-    }
-  });
-
-  client.on('close', () => {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('⚠️  Redis: Connection closed');
-    }
-  });
-
-  return client;
-};
-
-const redisClient = createRedisClient();
+redisClient.on('close', () => {
+  logger.warn('Redis connection closed');
+});
 
 // Helper functions for common caching operations
 const cache = {
@@ -104,7 +52,7 @@ const cache = {
       const data = await redisClient.get(key);
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error(`Cache GET error for key ${key}:`, error.message);
+      logger.warn('Cache GET error for key %s: %s', key, error.message);
       return null;
     }
   },
@@ -121,7 +69,7 @@ const cache = {
       await redisClient.setex(key, ttl, JSON.stringify(value));
       return true;
     } catch (error) {
-      console.error(`Cache SET error for key ${key}:`, error.message);
+      logger.warn('Cache SET error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -136,7 +84,7 @@ const cache = {
       await redisClient.del(key);
       return true;
     } catch (error) {
-      console.error(`Cache DEL error for key ${key}:`, error.message);
+      logger.warn('Cache DEL error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -148,34 +96,31 @@ const cache = {
    */
   async delPattern(pattern) {
     try {
-      const keys = [];
+      let deleted = 0;
       const stream = redisClient.scanStream({ match: pattern, count: 100 });
+      const pipeline = redisClient.pipeline();
 
       await new Promise((resolve, reject) => {
-        stream.on('data', (batch) => {
-          if (Array.isArray(batch) && batch.length > 0) {
-            keys.push(...batch);
+        stream.on('data', (keys) => {
+          if (keys.length) {
+            keys.forEach((key) => {
+              pipeline.del(key);
+              deleted += 1;
+            });
           }
         });
+
         stream.on('end', resolve);
         stream.on('error', reject);
       });
 
-      if (keys.length === 0) {
-        return 0;
-      }
-
-      let deleted = 0;
-      const batchSize = 500;
-      for (let i = 0; i < keys.length; i += batchSize) {
-        const chunk = keys.slice(i, i + batchSize);
-        const removed = await redisClient.del(...chunk);
-        deleted += removed;
+      if (deleted > 0) {
+        await pipeline.exec();
       }
 
       return deleted;
     } catch (error) {
-      console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
+      logger.warn('Cache DEL PATTERN error for %s: %s', pattern, error.message);
       return 0;
     }
   },
@@ -190,7 +135,7 @@ const cache = {
       const result = await redisClient.exists(key);
       return result === 1;
     } catch (error) {
-      console.error(`Cache EXISTS error for key ${key}:`, error.message);
+      logger.warn('Cache EXISTS error for key %s: %s', key, error.message);
       return false;
     }
   },
@@ -204,7 +149,7 @@ const cache = {
     try {
       return await redisClient.incr(key);
     } catch (error) {
-      console.error(`Cache INCR error for key ${key}:`, error.message);
+      logger.warn('Cache INCR error for key %s: %s', key, error.message);
       return 0;
     }
   },
@@ -220,7 +165,7 @@ const cache = {
       await redisClient.expire(key, ttl);
       return true;
     } catch (error) {
-      console.error(`Cache EXPIRE error for key ${key}:`, error.message);
+      logger.warn('Cache EXPIRE error for key %s: %s', key, error.message);
       return false;
     }
   },

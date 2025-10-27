@@ -2180,14 +2180,14 @@ async function approveCoupon(couponId) {
         try {
             const response = await apiClient.patch(`/coupons/${couponId}/approve`, {});
             if (response.success) {
-                alert('? Coupon approved successfully!');
+                alert('✅ Kupon başarıyla onaylandı!');
                 loadCouponsData();
             } else {
                 throw new Error(response.message || 'Failed to approve coupon');
             }
         } catch (error) {
             console.error('[Admin Dashboard] Error approving coupon:', error);
-            alert('?? Error: ' + error.message);
+            alert('⚠️ Hata: ' + error.message);
         }
 }
 
@@ -2343,14 +2343,14 @@ async function rejectCoupon(couponId) {
         try {
             const response = await apiClient.patch(`/coupons/${couponId}/reject`, { reason: reason || undefined });
             if (response.success) {
-                alert('? Coupon rejected successfully!');
+                alert('✅ Kupon reddedildi ve devre dışı bırakıldı.');
                 loadCouponsData();
             } else {
                 throw new Error(response.message || 'Failed to reject coupon');
             }
         } catch (error) {
             console.error('[Admin Dashboard] Error rejecting coupon:', error);
-            alert('?? Error: ' + error.message);
+            alert('⚠️ Hata: ' + error.message);
         }
 }
 
@@ -2367,14 +2367,14 @@ async function toggleCouponStatus(couponId, newStatus) {
             }
 
             if (response.success) {
-                alert(`? Coupon ${newStatus ? 'approved' : 'disabled'} successfully!`);
+                alert(`✅ Kupon ${newStatus ? 'aktifleştirildi' : 'devre dışı bırakıldı'}!`);
                 loadCouponsData();
             } else {
                 throw new Error(response.message || 'Failed to update coupon');
             }
         } catch (error) {
             console.error('[Admin Dashboard] Error toggling coupon status:', error);
-            alert('?? Error: ' + error.message);
+            alert('⚠️ Hata: ' + error.message);
         }
 }
 

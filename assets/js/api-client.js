@@ -7,19 +7,6 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
-    this.debug = false;
-
-    try {
-      if (typeof window !== 'undefined') {
-        if (window.API_DEBUG === true) {
-          this.debug = true;
-        } else if (window.localStorage) {
-          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
-        }
-      }
-    } catch (_) {
-      this.debug = false;
-    }
   }
 
   /**
@@ -135,49 +122,63 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      this._log(`${config.method || 'GET'} ${endpoint}`);
+      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      const responseText = await response.text();
-      let data;
+      const contentType = response.headers.get('content-type') || '';
+      let parsedBody = null;
+      let rawBody = null;
 
-      if (responseText) {
+      if (response.status !== 204) {
         try {
-          data = JSON.parse(responseText);
-        } catch (_) {
-          data = { success: response.ok, message: responseText };
+          rawBody = await response.text();
+          if (rawBody) {
+            if (contentType.includes('application/json')) {
+              parsedBody = JSON.parse(rawBody);
+            } else {
+              parsedBody = rawBody;
+            }
+          }
+        } catch (parseError) {
+          console.warn('[API] Failed to parse response body', parseError);
         }
-      } else {
-        data = { success: response.ok };
       }
 
-      if (typeof data.success !== 'boolean') {
-        data.success = response.ok;
-      }
-
-      if (!data.message && response.statusText) {
-        data.message = response.statusText;
-      }
-
+      // Check if request was successful
       if (!response.ok) {
-        this._log(`Error ${response.status} ${endpoint}`, data);
+        console.error(`[API] Error ${response.status}:`, parsedBody || rawBody);
 
-        if (data.message) {
+        // Return backend error message directly if available
+        if (parsedBody && typeof parsedBody === 'object' && parsedBody.message) {
           return {
             success: false,
-            message: data.message,
-            error: data.error || 'API_ERROR',
+            message: parsedBody.message,
+            error: parsedBody.error || 'API_ERROR',
             status: response.status,
           };
         }
 
-        return this.handleError(new Error('Request failed'), response);
+        const fallbackMessage =
+          (typeof parsedBody === 'string' && parsedBody) ||
+          (rawBody || response.statusText || 'Request failed');
+
+        return this.handleError(new Error(fallbackMessage), response);
       }
 
-      this._log(`Success ${endpoint}`, data);
-      return data;
+      const successPayload =
+        parsedBody && typeof parsedBody === 'object'
+          ? parsedBody
+          : {
+              success: true,
+              data: parsedBody ?? null,
+              message: response.statusText || 'Success',
+              status: response.status,
+            };
+
+      console.log(`[API] Success:`, successPayload);
+      return successPayload;
     } catch (error) {
       clearTimeout(timeoutId);
       return this.handleError(error);
@@ -250,12 +251,6 @@ class ApiClient {
     });
   }
 
-  _log(...args) {
-    if (this.debug) {
-      console.log('[API]', ...args);
-    }
-  }
-
   // ==========================================
   // AUTH METHODS
   // ==========================================
@@ -304,20 +299,6 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
-  }
-
-  /**
-   * Get current user's store
-   */
-  async getMyStore() {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
-  }
-
-  /**
-   * Create a new store for the authenticated seller
-   */
-  async createStore(storeData = {}) {
-    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
   }
 
   /**

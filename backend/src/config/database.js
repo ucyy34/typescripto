@@ -4,6 +4,7 @@
  */
 
 require('dotenv').config();
+const logger = require('../utils/logger');
 
 module.exports = {
   development: {
@@ -13,7 +14,7 @@ module.exports = {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 5432,
     dialect: 'postgres',
-    logging: console.log, // Enable SQL logging in development
+    logging: (msg) => logger.debug(msg), // Route SQL logs through central logger
     pool: {
       max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
       min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
