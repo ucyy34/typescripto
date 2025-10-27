@@ -8,10 +8,11 @@ class DostanWebApp {
     constructor() {
         this.currentTheme = localStorage.getItem('theme') || 'light';
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
-        this.wishlistIds = window.wishlistManager ? window.wishlistManager.getIds() : [];
+        this.wishlist = [];
+        this.wishlistUnsubscribe = null;
+        this.wishlistClickHandlerAttached = false;
+        this.boundWishlistButtonHandler = this.handleWishlistButtonClick.bind(this);
         this.isLoading = false;
-        this.apiClient = typeof ApiClient === 'function' ? new ApiClient() : null;
-        this.searchRequestId = 0;
 
         this.init();
     }
@@ -363,6 +364,9 @@ class DostanWebApp {
             </div>
         `;
 
+        const wishlistButton = card.querySelector('.btn-wishlist');
+        this.updateWishlistButton(wishlistButton);
+
         return card;
     }
 
@@ -406,8 +410,9 @@ class DostanWebApp {
 
         // Heart animation for wishlist
         document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-wishlist')) {
-                this.animateHeart(e.target);
+            const button = e.target.closest('.btn-wishlist');
+            if (button) {
+                this.animateHeart(button);
             }
         });
     }
@@ -453,273 +458,70 @@ class DostanWebApp {
 
     // Advanced Search System
     setupSearchSystem() {
-        if (!this.apiClient) return;
+        const searchInput = document.querySelector('.search-input');
+        if (!searchInput) return;
 
-        const inputs = this.getGlobalSearchInputs();
-        if (inputs.length === 0) return;
+        let searchTimeout;
 
-        const isProductsPage = this.isProductsPage();
-        const detachOnClickOutside = (event) => {
-            inputs.forEach((input) => {
-                const container = input.closest('.search-container')?.querySelector('.search-suggestions');
-                if (!container) return;
-                if (container.contains(event.target) || input.contains(event.target)) return;
-                this.hideSuggestions(container);
-            });
-        };
-
-        document.addEventListener('click', detachOnClickOutside);
-
-        inputs.forEach((input) => {
-            if (input.dataset.searchEnhanced === 'true') return;
-            input.dataset.searchEnhanced = 'true';
-            input.setAttribute('autocomplete', 'off');
-
-            const container = this.ensureSuggestionContainer(input);
-            if (!container) return;
-
-            let debounceTimer;
-
-            input.addEventListener('input', (event) => {
-                const value = event.target.value;
-                clearTimeout(debounceTimer);
-
-                if (value.trim().length < 2) {
-                    if (value.trim().length === 0) {
-                        this.hideSuggestions(container);
-                    } else {
-                        this.renderSuggestionMessage(container, 'En az 2 karakter yazın');
-                    }
-                    return;
-                }
-
-                debounceTimer = setTimeout(() => {
-                    this.fetchSearchSuggestions(value, input);
-                }, 250);
-            });
-
-            input.addEventListener('focus', () => {
-                if (input.value.trim().length >= 2) {
-                    this.fetchSearchSuggestions(input.value, input);
-                } else {
-                    this.renderSuggestionMessage(container, 'Nordik hazineleri keşfetmek için yazmaya başlayın');
-                }
-            });
-
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    const query = input.value.trim();
-                    if (!query) return;
-
-                    if (isProductsPage) {
-                        this.updateUrlSearchParam(query);
-                        this.emitGlobalSearch(query);
-                    } else {
-                        this.navigateToSearchResults(query);
-                    }
-
-                    this.hideSuggestions(container);
-                }
-
-                if (event.key === 'Escape') {
-                    this.hideSuggestions(container);
-                    input.blur();
-                }
-            });
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                this.performSearch(e.target.value);
+            }, 300);
         });
     }
 
-    getGlobalSearchInputs() {
-        const inputs = Array.from(document.querySelectorAll('#globalSearch'));
-        if (inputs.length > 0) {
-            return inputs;
-        }
-        return Array.from(document.querySelectorAll('.nav-search .search-input'));
-    }
-
-    isProductsPage() {
-        const path = window.location.pathname || '';
-        return /products\.html$/i.test(path);
-    }
-
-    resolvePagePath(relativePath) {
-        if (/^https?:/i.test(relativePath) || relativePath.startsWith('/')) {
-            return relativePath;
-        }
-
-        const inPagesDir = window.location.pathname.includes('/pages/');
-        return `${inPagesDir ? '' : 'pages/'}${relativePath}`.replace('//', '/');
-    }
-
-    updateUrlSearchParam(query) {
-        try {
-            const url = new URL(window.location.href);
-            url.searchParams.set('search', query);
-            window.history.replaceState({}, '', url.toString());
-        } catch (error) {
-            console.warn('[DostanWebApp] Unable to update search param', error);
-        }
-    }
-
-    emitGlobalSearch(query) {
-        document.dispatchEvent(new CustomEvent('dostan:search', { detail: { query } }));
-    }
-
-    navigateToSearchResults(query) {
-        const target = `${this.resolvePagePath('products.html')}?search=${encodeURIComponent(query)}`;
-        window.location.href = target;
-    }
-
-    ensureSuggestionContainer(input) {
-        const wrapper = input.closest('.search-container');
-        if (!wrapper) return null;
-
-        let container = wrapper.querySelector('.search-suggestions');
-        if (!container) {
-            container = document.createElement('div');
-            container.className = 'search-suggestions';
-            wrapper.appendChild(container);
-        }
-
-        return container;
-    }
-
-    hideSuggestions(container) {
-        if (!container) return;
-        container.classList.remove('active');
-        container.innerHTML = '';
-    }
-
-    renderSuggestionMessage(container, message) {
-        if (!container) return;
-        container.innerHTML = `<div class="search-suggestion-empty">${message}</div>`;
-        container.classList.add('active');
-    }
-
-    renderSuggestionError(container, message) {
-        if (!container) return;
-        container.innerHTML = `<div class="search-suggestion-error">${message}</div>`;
-        container.classList.add('active');
-    }
-
-    renderSuggestionLoading(container) {
-        if (!container) return;
-        container.innerHTML = '<div class="search-suggestion-loading">Aranıyor...</div>';
-        container.classList.add('active');
-    }
-
-    formatPrice(value) {
-        const numericValue = Number(value);
-        if (Number.isNaN(numericValue)) return '';
-        try {
-            return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(numericValue);
-        } catch (error) {
-            return `₺${numericValue.toFixed(2)}`;
-        }
-    }
-
-    buildProductMeta(product) {
-        const parts = [];
-        if (product.store?.name) parts.push(product.store.name);
-        if (product.category?.name) parts.push(product.category.name);
-        if (product.rating && Number(product.rating) > 0) {
-            const ratingValue = Number(product.rating).toFixed(1);
-            parts.push(`⭐ ${ratingValue}`);
-        }
-        return parts.join(' • ');
-    }
-
-    renderSearchSuggestions(input, data) {
-        const container = this.ensureSuggestionContainer(input);
-        if (!container) return;
-
-        const { results = [], suggestions = [] } = data || {};
-
-        if ((!results || results.length === 0) && (!suggestions || suggestions.length === 0)) {
-            this.renderSuggestionMessage(container, `"${input.value.trim()}" için sonuç bulunamadı`);
+    performSearch(query) {
+        if (!query) {
+            this.showAllProducts();
             return;
         }
 
-        container.innerHTML = '';
-        container.classList.add('active');
+        const products = document.querySelectorAll('.product-card');
+        let visibleCount = 0;
 
-        if (results && results.length > 0) {
-            const list = document.createElement('div');
-            list.className = 'search-suggestion-list';
+        products.forEach(card => {
+            const title = card.querySelector('.product-title')?.textContent.toLowerCase() || '';
+            const artisan = card.querySelector('.product-artisan')?.textContent.toLowerCase() || '';
+            const description = card.querySelector('.product-description')?.textContent.toLowerCase() || '';
 
-            results.slice(0, 6).forEach((product) => {
-                const item = document.createElement('a');
-                item.className = 'search-suggestion-item';
-                item.href = `${this.resolvePagePath('product-detail.html')}?slug=${encodeURIComponent(product.slug)}`;
-                item.innerHTML = `
-                    <div class="search-suggestion-main">
-                        <div class="search-suggestion-title">${product.title}</div>
-                        <div class="search-suggestion-meta">${this.buildProductMeta(product)}</div>
-                    </div>
-                    <div class="search-suggestion-price">${this.formatPrice(product.price)}</div>
-                `;
+            const matches = title.includes(query.toLowerCase()) ||
+                          artisan.includes(query.toLowerCase()) ||
+                          description.includes(query.toLowerCase());
 
-                item.addEventListener('click', () => {
-                    this.hideSuggestions(container);
-                });
+            if (matches) {
+                card.style.display = 'block';
+                card.classList.add('fade-in');
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
 
-                list.appendChild(item);
-            });
-
-            container.appendChild(list);
-        }
-
-        if (suggestions && suggestions.length > 0) {
-            const chips = document.createElement('div');
-            chips.className = 'search-suggestion-chips';
-
-            suggestions.slice(0, 8).forEach((suggestion) => {
-                const chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'search-suggestion-chip';
-                chip.textContent = suggestion.value;
-
-                chip.addEventListener('click', () => {
-                    input.value = suggestion.value;
-                    input.focus();
-                    if (this.isProductsPage()) {
-                        this.updateUrlSearchParam(suggestion.value);
-                        this.emitGlobalSearch(suggestion.value);
-                    } else {
-                        this.navigateToSearchResults(suggestion.value);
-                    }
-                    this.hideSuggestions(container);
-                });
-
-                chips.appendChild(chip);
-            });
-
-            container.appendChild(chips);
-        }
+        // Show search results count
+        this.updateSearchResults(visibleCount, query);
     }
 
-    async fetchSearchSuggestions(query, input) {
-        if (!this.apiClient) return;
-        const container = this.ensureSuggestionContainer(input);
-        if (!container) return;
+    showAllProducts() {
+        document.querySelectorAll('.product-card').forEach(card => {
+            card.style.display = 'block';
+        });
+    }
 
-        this.renderSuggestionLoading(container);
-        const requestId = ++this.searchRequestId;
-
-        try {
-            const response = await this.apiClient.searchProducts(query, { limit: 8 });
-            if (requestId !== this.searchRequestId) return;
-
-            if (response.success && response.data) {
-                this.renderSearchSuggestions(input, response.data);
-            } else {
-                this.renderSuggestionError(container, response.message || 'Arama yapılamadı');
+    updateSearchResults(count, query) {
+        let resultsElement = document.querySelector('.search-results');
+        if (!resultsElement) {
+            resultsElement = document.createElement('div');
+            resultsElement.className = 'search-results';
+            const container = document.querySelector('.products-container');
+            if (container) {
+                container.parentNode.insertBefore(resultsElement, container);
             }
-        } catch (error) {
-            if (requestId !== this.searchRequestId) return;
-            this.renderSuggestionError(container, 'Arama servisine ulaşılamıyor');
         }
+
+        resultsElement.textContent = count > 0
+            ? `Found ${count} treasures for "${query}"`
+            : `No treasures found for "${query}". Try a different search.`;
     }
 
     // Cart System - DEPRECATED: Now using CartManager from cart-manager.js
@@ -773,77 +575,177 @@ class DostanWebApp {
     }
 
     // Wishlist System
-    setupWishlistSystem() {
-        if (window.wishlistManager) {
-            window.wishlistManager.getWishlist().catch((error) => {
-                console.warn('[DostanWebApp] Unable to prefetch wishlist', error);
-            });
+    async setupWishlistSystem() {
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.ensureInitialized === 'function') {
+                await window.wishlistManager.ensureInitialized();
+                this.wishlist = window.wishlistManager.getWishlistIds();
 
-            window.addEventListener('wishlist:update', (event) => {
-                this.wishlistIds = event.detail?.ids || [];
-                this.refreshWishlistButtons();
-            });
+                if (this.wishlistUnsubscribe) {
+                    this.wishlistUnsubscribe();
+                    this.wishlistUnsubscribe = null;
+                }
+
+                if (typeof window.wishlistManager.onChange === 'function') {
+                    this.wishlistUnsubscribe = window.wishlistManager.onChange((items) => {
+                        this.wishlist = Array.isArray(items)
+                            ? items.map((item) => item.product_id).filter(Boolean)
+                            : [];
+                        this.updateAllWishlistButtons();
+                    });
+                }
+            } else {
+                this.wishlist = this.loadLegacyWishlist();
+            }
+        } catch (error) {
+            console.warn('[DostanWebApp] Wishlist system init failed, falling back to localStorage:', error);
+            this.wishlist = this.loadLegacyWishlist();
         }
 
-        document.addEventListener('click', async (e) => {
-            const button = e.target.closest('.btn-wishlist');
-            if (!button) return;
+        if (!this.wishlistClickHandlerAttached) {
+            document.addEventListener('click', this.boundWishlistButtonHandler);
+            this.wishlistClickHandlerAttached = true;
+        }
 
-            const productId = button.dataset.productId;
-            if (!productId) return;
+        this.updateAllWishlistButtons();
+    }
 
-            try {
-                if (window.wishlistManager) {
-                    await window.wishlistManager.toggle(productId);
-                    this.wishlistIds = window.wishlistManager.getIds();
-                } else {
-                    this.wishlistIds = this._fallbackToggleWishlist(productId);
-                }
-            } catch (error) {
-                console.error('[DostanWebApp] Failed to toggle wishlist', error);
+    async handleWishlistButtonClick(event) {
+        const button = event.target.closest('.btn-wishlist');
+        if (!button) return;
+
+        event.preventDefault();
+
+        const productId = button.dataset.productId;
+        if (!productId) {
+            return;
+        }
+
+        const metadata = this.buildWishlistMetadata(button);
+
+        try {
+            const added = await this.toggleWishlist(productId, metadata);
+            this.updateWishlistButton(button, added);
+            this.updateAllWishlistButtons();
+        } catch (error) {
+            console.error('[DostanWebApp] Failed to toggle wishlist:', error);
+        }
+    }
+
+    async toggleWishlist(productId, metadata = null) {
+        if (!productId) {
+            return false;
+        }
+
+        try {
+            if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                const added = await window.wishlistManager.toggle(productId, metadata || {});
+                this.wishlist = window.wishlistManager.getWishlistIds();
+                return added;
+            }
+        } catch (error) {
+            console.error('[DostanWebApp] Failed to toggle wishlist via manager:', error);
+        }
+
+        const index = this.wishlist.indexOf(productId);
+        if (index > -1) {
+            this.wishlist.splice(index, 1);
+            localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+            return false;
+        }
+
+        this.wishlist.push(productId);
+        localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+        return true;
+    }
+
+    buildWishlistMetadata(button) {
+        const card = button.closest('[data-product-id]') || button.closest('.product-card');
+        if (!card) {
+            return null;
+        }
+
+        const productId = button.dataset.productId || card.dataset.productId;
+        const title = card.querySelector('.product-title, .product-name')?.textContent?.trim() || 'Favori Ürün';
+        const priceText = card.querySelector('[data-product-price], .price-current, .product-price, .product-price span')?.textContent;
+        const price = this.parsePrice(priceText);
+        const image = card.querySelector('img')?.src || null;
+
+        let storeName = card.querySelector('.product-artisan')?.textContent || '';
+        if (storeName.toLowerCase().startsWith('by ')) {
+            storeName = storeName.slice(3).trim();
+        }
+        storeName = storeName || null;
+
+        return {
+            product: {
+                id: productId,
+                title,
+                price,
+                images: image ? [image] : [],
+                store: storeName ? { name: storeName } : null,
+            },
+        };
+    }
+
+    parsePrice(value) {
+        if (typeof value === 'number') {
+            return value;
+        }
+
+        if (!value) {
+            return null;
+        }
+
+        const normalized = String(value).replace(/[^0-9,.-]/g, '').replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    updateWishlistButton(button, forceState = null) {
+        if (!button) return;
+
+        const productId = button.dataset.productId;
+        const heart = button.querySelector('.heart-icon');
+        const inWishlist = typeof forceState === 'boolean'
+            ? forceState
+            : this.wishlist.includes(productId);
+
+        if (heart) {
+            heart.textContent = inWishlist ? '♥' : '♡';
+            heart.classList.toggle('liked', inWishlist);
+        }
+
+        button.classList.toggle('in-wishlist', inWishlist);
+        button.setAttribute('aria-pressed', inWishlist ? 'true' : 'false');
+    }
+
+    updateAllWishlistButtons() {
+        document.querySelectorAll('.btn-wishlist').forEach((button) => this.updateWishlistButton(button));
+    }
+
+    loadLegacyWishlist() {
+        try {
+            const detailedRaw = JSON.parse(localStorage.getItem('wishlist:detailed') || 'null');
+            if (Array.isArray(detailedRaw) && detailedRaw.length > 0) {
+                const ids = detailedRaw
+                    .map((item) => item?.product_id || item?.id || item?.title)
+                    .filter(Boolean);
+                return [...new Set(ids)];
             }
 
-            this.updateWishlistButton(button);
-        });
-
-        // Apply initial state when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.refreshWishlistButtons());
-        } else {
-            this.refreshWishlistButtons();
+            const raw = JSON.parse(localStorage.getItem('wishlist') || '[]');
+            if (Array.isArray(raw)) {
+                const ids = raw
+                    .map((item) => (typeof item === 'string' ? item : item?.product_id || item?.id || item?.title))
+                    .filter(Boolean);
+                return [...new Set(ids)];
+            }
+        } catch (error) {
+            console.warn('[DostanWebApp] Failed to load legacy wishlist:', error);
         }
-    }
 
-    _fallbackToggleWishlist(productId) {
-        const current = new Set(this.wishlistIds || []);
-        if (current.has(productId)) {
-            current.delete(productId);
-        } else {
-            current.add(productId);
-        }
-        const ids = Array.from(current);
-        localStorage.setItem('wishlist', JSON.stringify(ids));
-        return ids;
-    }
-
-    updateWishlistButton(button) {
-        const productId = button.dataset.productId;
-        const heart = button.querySelector('.heart-icon') || button;
-        const isLiked = window.wishlistManager
-            ? window.wishlistManager.isInWishlist(productId)
-            : (this.wishlistIds || []).includes(productId);
-
-        if (isLiked) {
-            heart.textContent = '♥';
-            heart.classList.add('liked');
-        } else {
-            heart.textContent = '♡';
-            heart.classList.remove('liked');
-        }
-    }
-
-    refreshWishlistButtons() {
-        document.querySelectorAll('.btn-wishlist').forEach((button) => this.updateWishlistButton(button));
+        return [];
     }
 
     // Smooth Scrolling

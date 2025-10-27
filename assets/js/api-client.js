@@ -527,6 +527,34 @@ class ApiClient {
   }
 
   // ==========================================
+  // CART & WISHLIST EXTENSIONS
+  // ==========================================
+
+  async getCartRecommendations(params = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.RECOMMENDATIONS.CART, params, { useCache: false });
+  }
+
+  async getWishlist() {
+    return this.get(API_CONFIG.ENDPOINTS.WISHLIST.BASE, {}, { useCache: false });
+  }
+
+  async addToWishlist(productId, metadata = null) {
+    const payload = { product_id: productId };
+    if (metadata && Object.keys(metadata).length > 0) {
+      payload.metadata = metadata;
+    }
+    return this.post(API_CONFIG.ENDPOINTS.WISHLIST.BASE, payload);
+  }
+
+  async removeFromWishlist(productId) {
+    return this.delete(API_CONFIG.ENDPOINTS.WISHLIST.ITEM(productId));
+  }
+
+  async syncWishlist(items = []) {
+    return this.post(API_CONFIG.ENDPOINTS.WISHLIST.SYNC, { items });
+  }
+
+  // ==========================================
   // CATEGORY METHODS
   // ==========================================
 

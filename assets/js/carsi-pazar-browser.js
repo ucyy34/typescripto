@@ -387,30 +387,31 @@
             const button = triggerButton || this.modal?.querySelector(`[data-marketplace-action="wishlist"][data-product-id="${productId}"]`);
             const actionLabel = button?.querySelector('.marketplace-action-label');
             const defaultLabel = button?.dataset.defaultLabel || 'Beğen';
-
-            const payload = {
-                id: product.id,
-                product_id: product.id,
-                product,
+            const metadata = {
+                product: {
+                    id: product.id,
+                    title: product.title,
+                    price: typeof product.price === 'number' ? product.price : null,
+                    images: product.images || [],
+                    store: product.store || null,
+                }
             };
 
             try {
-                const added = window.wishlistManager
-                    ? await window.wishlistManager.toggle(payload)
-                    : this._fallbackToggleWishlist(payload.id, product);
+                let added;
+                if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                    added = await window.wishlistManager.toggle(product.id, metadata);
+                } else {
+                    added = this.toggleLegacyWishlist(product, metadata.product);
+                }
 
                 if (button && actionLabel) {
-                    if (added) {
-                        button.classList.add('added');
-                        actionLabel.textContent = 'Favoride';
-                    } else {
-                        button.classList.remove('added');
-                        actionLabel.textContent = defaultLabel;
-                    }
+                    button.classList.toggle('added', added);
+                    actionLabel.textContent = added ? 'Favoride' : defaultLabel;
                 }
 
                 if (added) {
-                    this.notifyDostik(`${product.title} favorilere eklendi!`, false);
+                    this.notifyDostik(`${product.title} favorilere eklendi! 💖`, true);
                 } else {
                     this.notifyDostik(`${product.title} favorilerden çıkarıldı.`, false);
                 }
@@ -422,24 +423,35 @@
             }
         }
 
-        _fallbackToggleWishlist(productId, product) {
-            const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
-            const index = stored.findIndex((item) => item.product_id === productId || item.title === product.title);
-            if (index > -1) {
-                stored.splice(index, 1);
-                localStorage.setItem('wishlist', JSON.stringify(stored));
+        toggleLegacyWishlist(product, productData = {}) {
+            let wishlist = [];
+            try {
+                wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+            } catch (_) {
+                wishlist = [];
+            }
+
+            const existingIndex = wishlist.findIndex(item =>
+                item.product_id === product.id || item.title === product.title
+            );
+
+            if (existingIndex > -1) {
+                wishlist.splice(existingIndex, 1);
+                localStorage.setItem('wishlist', JSON.stringify(wishlist));
                 return false;
             }
 
-            stored.push({
-                product_id: productId,
+            const wishlistEntry = {
+                product_id: product.id,
                 title: product.title,
                 price: product.price,
                 images: product.images || [],
-                store: product.store || null,
-                source: 'marketplace',
-            });
-            localStorage.setItem('wishlist', JSON.stringify(stored));
+                store: product.store || productData.store || null,
+                source: 'marketplace'
+            };
+
+            wishlist.push(wishlistEntry);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
             return true;
         }
 

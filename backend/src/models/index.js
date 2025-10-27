@@ -14,7 +14,7 @@ const Order = require('./Order');
 const OrderItem = require('./OrderItem');
 const Cart = require('./Cart');
 const Review = require('./Review');
-const Wishlist = require('./Wishlist');
+const WishlistItem = require('./WishlistItem');
 const CategoryVariant = require('./CategoryVariant');
 const ProductVariant = require('./ProductVariant');
 const ReturnRequest = require('./ReturnRequest');
@@ -42,12 +42,6 @@ User.hasOne(Cart, {
   onDelete: 'CASCADE',
 });
 
-User.hasMany(Wishlist, {
-  foreignKey: 'user_id',
-  as: 'wishlistItems',
-  onDelete: 'CASCADE',
-});
-
 User.hasMany(Order, {
   foreignKey: 'user_id',
   as: 'orders',
@@ -57,6 +51,12 @@ User.hasMany(Order, {
 User.hasMany(Review, {
   foreignKey: 'user_id',
   as: 'reviews',
+  onDelete: 'CASCADE',
+});
+
+User.hasMany(WishlistItem, {
+  foreignKey: 'user_id',
+  as: 'wishlistItems',
   onDelete: 'CASCADE',
 });
 
@@ -150,9 +150,21 @@ Product.hasMany(ProductVariant, {
   onDelete: 'CASCADE',
 });
 
-Product.hasMany(Wishlist, {
+Product.hasMany(WishlistItem, {
   foreignKey: 'product_id',
-  as: 'wishlistedBy',
+  as: 'wishlistEntries',
+  onDelete: 'CASCADE',
+});
+
+WishlistItem.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+  onDelete: 'CASCADE',
+});
+
+WishlistItem.belongsTo(Product, {
+  foreignKey: 'product_id',
+  as: 'product',
   onDelete: 'CASCADE',
 });
 
@@ -260,18 +272,6 @@ OrderItem.belongsTo(Product, {
 Cart.belongsTo(User, {
   foreignKey: 'user_id',
   as: 'user',
-  onDelete: 'CASCADE',
-});
-
-Wishlist.belongsTo(User, {
-  foreignKey: 'user_id',
-  as: 'user',
-  onDelete: 'CASCADE',
-});
-
-Wishlist.belongsTo(Product, {
-  foreignKey: 'product_id',
-  as: 'product',
   onDelete: 'CASCADE',
 });
 
@@ -472,7 +472,6 @@ module.exports = {
   Order,
   OrderItem,
   Cart,
-  Wishlist,
   Review,
   CategoryVariant,
   ProductVariant,
@@ -485,4 +484,5 @@ module.exports = {
   ShipmentItem,
   ShipmentEvent,
   Campaign,
+  WishlistItem,
 };

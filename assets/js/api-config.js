@@ -115,6 +115,18 @@ const API_CONFIG = {
       MERGE: '/cart/merge',
     },
 
+    // Wishlist endpoints
+    WISHLIST: {
+      BASE: '/wishlist',
+      SYNC: '/wishlist/sync',
+      ITEM: (productId) => `/wishlist/${productId}`,
+    },
+
+    // Recommendation endpoints
+    RECOMMENDATIONS: {
+      CART: '/cart/recommendations',
+    },
+
     // Dashboard/Stats endpoints (might need to be created)
     DASHBOARD: {
       STATS: '/dashboard/stats',

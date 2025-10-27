@@ -1,143 +1,141 @@
 /**
  * Recommendation Service
- * Generates personalised product suggestions
+ * Generates product suggestions based on cart or wishlist context
  */
 
 const { Op } = require('sequelize');
-const { Wishlist, Cart, Product, OrderItem, Order, Category, Store } = require('../models');
+const { Product, Store, Category, WishlistItem } = require('../models');
+const { cache } = require('../config/redis');
+
+const CACHE_TTL_SECONDS = 60 * 3;
 
 class RecommendationService {
-  async getRecommendations({ userId, cartProductIds = [], wishlistProductIds = [], limit = 8 }) {
-    const interestIds = new Set();
-    const categories = new Set();
+  async getCartRecommendations({ cartItems = [], userId = null, limit = 6 }) {
+    const categories = [
+      ...new Set(
+        cartItems
+          .map((item) => item.category?.id || item.category_id)
+          .filter(Boolean)
+      ),
+    ];
+    const excludeIds = [
+      ...new Set(cartItems.map((item) => item.product_id || item.id).filter(Boolean)),
+    ];
 
-    const normalizedCartIds = Array.isArray(cartProductIds)
-      ? cartProductIds
-      : String(cartProductIds || '')
-          .split(',')
-          .map((id) => id.trim())
-          .filter(Boolean);
-
-    const normalizedWishlistIds = Array.isArray(wishlistProductIds)
-      ? wishlistProductIds
-      : String(wishlistProductIds || '')
-          .split(',')
-          .map((id) => id.trim())
-          .filter(Boolean);
-
-    normalizedCartIds.forEach((id) => interestIds.add(id));
-    normalizedWishlistIds.forEach((id) => interestIds.add(id));
-
-    if (userId) {
-      const wishlistItems = await Wishlist.findAll({
-        attributes: ['product_id'],
-        where: { user_id: userId },
-      });
-      wishlistItems.forEach((item) => interestIds.add(item.product_id));
-
-      const cart = await Cart.findOne({ where: { user_id: userId } });
-      (cart?.items || []).forEach((item) => interestIds.add(item.product_id));
-
-      const recentOrderItems = await OrderItem.findAll({
-        attributes: ['product_id'],
-        include: [
-          {
-            model: Order,
-            as: 'order',
-            attributes: [],
-            where: { user_id: userId },
-          },
-        ],
-        limit: 25,
-        order: [['createdAt', 'DESC']],
-      });
-      recentOrderItems.forEach((item) => interestIds.add(item.product_id));
+    const cacheKey = this._cartCacheKey(userId, categories, excludeIds, limit);
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    if (interestIds.size > 0) {
-      const interestProducts = await Product.findAll({
-        attributes: ['id', 'category_id'],
-        where: { id: { [Op.in]: Array.from(interestIds) } },
-      });
-      interestProducts.forEach((product) => {
-        if (product.category_id) {
-          categories.add(product.category_id);
-        }
-      });
-    }
-
-    const whereClause = {
+    const baseWhere = {
       status: 'approved',
       is_active: true,
+      stock: { [Op.gt]: 0 },
     };
 
-    if (categories.size > 0) {
-      whereClause.category_id = { [Op.in]: Array.from(categories) };
-    }
+    const include = [
+      { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },
+      { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+    ];
 
-    if (interestIds.size > 0) {
-      whereClause.id = { [Op.notIn]: Array.from(interestIds) };
-    }
+    let products = [];
 
-    let products = await Product.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Store,
-          as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo'],
+    if (categories.length > 0) {
+      products = await Product.findAll({
+        where: {
+          ...baseWhere,
+          category_id: { [Op.in]: categories },
+          ...(excludeIds.length > 0 ? { id: { [Op.notIn]: excludeIds } } : {}),
         },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug'],
-        },
-      ],
-      order: [
-        ['rating', 'DESC'],
-        ['createdAt', 'DESC'],
-      ],
-      limit,
-    });
+        include,
+        order: [
+          ['is_featured', 'DESC'],
+          ['total_sales', 'DESC'],
+          ['rating', 'DESC'],
+        ],
+        limit,
+      });
+    }
 
     if (products.length < limit) {
-      const fallback = await Product.findAll({
-        where: {
-          status: 'approved',
-          is_active: true,
-          id: interestIds.size > 0 ? { [Op.notIn]: Array.from(interestIds) } : { [Op.ne]: null },
-        },
-        include: [
-          {
-            model: Store,
-            as: 'store',
-            attributes: ['id', 'name', 'slug', 'logo'],
-          },
-          {
-            model: Category,
-            as: 'category',
-            attributes: ['id', 'name', 'slug'],
-          },
-        ],
-        order: [['createdAt', 'DESC']],
-        limit: limit - products.length,
-      });
+      const fallbackLimit = limit - products.length;
+      const alreadySelectedSet = new Set([...excludeIds, ...products.map((p) => p.id)]);
+      const alreadySelected = [...alreadySelectedSet];
+      const fallbackWhere = {
+        ...baseWhere,
+        ...(alreadySelected.length > 0 ? { id: { [Op.notIn]: alreadySelected } } : {}),
+      };
 
+      const fallback = await Product.findAll({
+        where: fallbackWhere,
+        include,
+        order: [
+          ['total_sales', 'DESC'],
+          ['rating', 'DESC'],
+          ['created_at', 'DESC'],
+        ],
+        limit: fallbackLimit,
+      });
       products = [...products, ...fallback];
     }
 
-    return products.map((product) => ({
+    const serialized = products.map((product) => this._serializeProduct(product));
+    await cache.set(cacheKey, serialized, CACHE_TTL_SECONDS);
+    return serialized;
+  }
+
+  async getWishlistContextRecommendations(userId, limit = 6) {
+    const cacheKey = `recommendations:wishlist:${userId}:${limit}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const wishlistItems = await WishlistItem.findAll({
+      where: { user_id: userId },
+      attributes: ['product_id'],
+    });
+
+    const wishlistIds = wishlistItems.map((item) => item.product_id);
+    const categories = await Product.findAll({
+      where: { id: wishlistIds },
+      attributes: ['category_id'],
+      group: ['category_id'],
+    });
+
+    const categoryIds = categories.map((c) => c.category_id).filter(Boolean);
+    const recommendations = await this.getCartRecommendations({
+      cartItems: categoryIds.map((id) => ({ category_id: id })),
+      userId,
+      limit,
+    });
+
+    await cache.set(cacheKey, recommendations, CACHE_TTL_SECONDS);
+    return recommendations;
+  }
+
+  _serializeProduct(product) {
+    return {
       id: product.id,
       title: product.title,
       slug: product.slug,
-      price: product.price,
-      compare_price: product.compare_price,
-      images: product.images,
+      price: parseFloat(product.price),
+      compare_price: product.compare_price ? parseFloat(product.compare_price) : null,
+      stock: product.stock,
+      rating: product.rating,
+      total_reviews: product.total_reviews,
+      images: product.images || [],
       store: product.store,
       category: product.category,
-      rating: product.rating,
-      stock: product.stock,
-    }));
+    };
+  }
+
+  _cartCacheKey(userId, categories, excludeIds, limit) {
+    const categoryKey = categories.sort().join(',') || 'none';
+    const excludeKey = excludeIds.sort().join(',') || 'none';
+    const userKey = userId || 'guest';
+    return `recommendations:cart:${userKey}:${categoryKey}:${excludeKey}:${limit}`;
   }
 }
 

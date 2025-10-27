@@ -1,209 +1,247 @@
 /**
  * Wishlist Manager
- * Keeps wishlist state in sync between backend and local storage fallback
+ * Keeps wishlist data in sync between backend and localStorage
  */
 
 class WishlistManager {
-    constructor() {
-        this.apiClient = typeof ApiClient !== 'undefined' ? new ApiClient() : null;
-        this.cacheKey = 'wishlist';
-        this.guestDetailsKey = 'wishlist_items';
-        this.ids = this._loadIdsFromStorage();
-        this.items = null;
-        this.lastFetchedAt = 0;
-        this.fetchPromise = null;
-        this.maxCacheAge = 60 * 1000; // 60 seconds
-        this.isLoggedIn = !!localStorage.getItem('accessToken');
+  constructor() {
+    this.localDetailedKey = 'wishlist:detailed';
+    this.localIdsKey = 'wishlist';
+    this.listeners = new Set();
+    this.items = [];
+    this.apiClient = null;
+    this.isLoggedIn = false;
+    this.readyPromise = null;
+    this.syncing = false;
 
-        window.addEventListener('storage', (event) => {
-            if (event.key === this.cacheKey) {
-                this.ids = this._loadIdsFromStorage();
-                this._broadcast();
-            }
-        });
+    this._bootstrap();
+  }
+
+  _bootstrap() {
+    this.items = this._loadLocalItems();
+    this._ensureApiClient();
+    this.readyPromise = this.isLoggedIn ? this.refreshFromBackend().catch(() => this.items) : Promise.resolve(this.items);
+  }
+
+  _ensureApiClient() {
+    try {
+      this.isLoggedIn = typeof AuthManager !== 'undefined' && AuthManager.isLoggedIn();
+    } catch (_) {
+      this.isLoggedIn = false;
     }
 
-    _updateLoginState() {
-        this.isLoggedIn = !!localStorage.getItem('accessToken');
-        if (this.isLoggedIn && !this.apiClient && typeof ApiClient !== 'undefined') {
-            this.apiClient = new ApiClient();
-        }
+    if (this.isLoggedIn && typeof ApiClient !== 'undefined') {
+      this.apiClient = new ApiClient();
+    } else {
+      this.apiClient = null;
+    }
+  }
+
+  async ensureInitialized() {
+    return this.readyPromise;
+  }
+
+  getItems() {
+    return this.items.map((item) => ({ ...item }));
+  }
+
+  getWishlistIds() {
+    return this.items.map((item) => item.product_id);
+  }
+
+  isInWishlist(productId) {
+    return this.getWishlistIds().includes(productId);
+  }
+
+  onChange(listener) {
+    if (typeof listener === 'function') {
+      this.listeners.add(listener);
+      listener(this.getItems());
+    }
+    return () => this.listeners.delete(listener);
+  }
+
+  async refreshFromBackend() {
+    if (!this.apiClient) {
+      return this.items;
     }
 
-    _loadIdsFromStorage() {
-        try {
-            const raw = localStorage.getItem(this.cacheKey);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                return parsed.filter((id) => typeof id === 'string');
-            }
-        } catch (error) {
-            console.warn('[WishlistManager] Failed to parse local ids, resetting', error);
-        }
-        localStorage.removeItem(this.cacheKey);
-        return [];
+    try {
+      const response = await this.apiClient.getWishlist();
+      const data = response?.data?.items || response?.items || [];
+      if (Array.isArray(data)) {
+        this.items = data;
+        this._persistLocal();
+        this._notify();
+      }
+    } catch (error) {
+      console.warn('[WishlistManager] Failed to refresh from backend:', error);
     }
 
-    _saveIdsToStorage(ids) {
-        try {
-            localStorage.setItem(this.cacheKey, JSON.stringify(ids));
-        } catch (error) {
-            console.error('[WishlistManager] Failed to persist ids', error);
-        }
+    return this.items;
+  }
+
+  async add(productId, metadata = {}) {
+    if (!productId) {
+      return this.items;
     }
 
-    _loadGuestDetails() {
-        try {
-            const raw = localStorage.getItem(this.guestDetailsKey);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                return parsed.filter((item) => item && item.product_id);
-            }
-        } catch (error) {
-            console.warn('[WishlistManager] Failed to parse guest wishlist details', error);
-        }
-        localStorage.removeItem(this.guestDetailsKey);
-        return [];
+    if (this.isLoggedIn && this.apiClient && this._isUuid(productId)) {
+      await this.apiClient.addToWishlist(productId, metadata.product ? { product: metadata.product } : null);
+      return this.refreshFromBackend();
     }
 
-    _saveGuestDetails(items) {
-        try {
-            localStorage.setItem(this.guestDetailsKey, JSON.stringify(items));
-        } catch (error) {
-            console.error('[WishlistManager] Failed to persist guest details', error);
-        }
+    this._addLocalItem(productId, metadata.product || null);
+    this._persistLocal();
+    this._notify();
+    return this.items;
+  }
+
+  async remove(productId) {
+    if (!productId) {
+      return this.items;
     }
 
-    _mergeGuestItem(productId, productData) {
-        const details = this._loadGuestDetails();
-        const existingIndex = details.findIndex((item) => item.product_id === productId);
-        const payload = {
-            product_id: productId,
-            product: productData?.product || productData,
-        };
-        if (existingIndex > -1) {
-            details[existingIndex] = payload;
-        } else {
-            details.unshift(payload);
-        }
-        this._saveGuestDetails(details.slice(0, 50));
-        this.items = details;
+    if (this.isLoggedIn && this.apiClient && this._isUuid(productId)) {
+      await this.apiClient.removeFromWishlist(productId);
+      return this.refreshFromBackend();
     }
 
-    _broadcast() {
-        window.dispatchEvent(
-            new CustomEvent('wishlist:update', {
-                detail: {
-                    ids: [...this.ids],
-                    items: this.items ? [...this.items] : null,
-                },
-            })
-        );
+    this.items = this.items.filter((item) => item.product_id !== productId);
+    this._persistLocal();
+    this._notify();
+    return this.items;
+  }
+
+  async toggle(productId, metadata = {}) {
+    if (this.isInWishlist(productId)) {
+      await this.remove(productId);
+      return false;
     }
 
-    getIds() {
-        return [...this.ids];
+    await this.add(productId, metadata);
+    return true;
+  }
+
+  async syncLocalToBackend() {
+    if (!this.isLoggedIn || !this.apiClient) {
+      return;
     }
 
-    isInWishlist(productId) {
-        return this.ids.includes(productId);
+    if (this.syncing) {
+      return;
     }
 
-    async getWishlist({ forceRefresh = false } = {}) {
-        this._updateLoginState();
+    this.syncing = true;
+    try {
+      const validIds = this.items
+        .map((item) => item.product_id)
+        .filter((id) => this._isUuid(id));
 
-        if (this.isLoggedIn && this.apiClient) {
-            if (!forceRefresh && this.items && Date.now() - this.lastFetchedAt < this.maxCacheAge) {
-                return this.items;
-            }
+      if (validIds.length > 0) {
+        await this.apiClient.syncWishlist(validIds.map((id) => ({ product_id: id })));
+      } else {
+        await this.apiClient.syncWishlist([]);
+      }
+    } catch (error) {
+      console.warn('[WishlistManager] Failed to sync local wishlist:', error);
+    } finally {
+      this.syncing = false;
+    }
+  }
 
-            if (!this.fetchPromise || forceRefresh) {
-                this.fetchPromise = this.apiClient
-                    .get('/wishlist', {}, { useCache: false })
-                    .then((response) => {
-                        const items = response?.data?.items || [];
-                        this.items = items;
-                        this.ids = items.map((item) => item.product_id);
-                        this._saveIdsToStorage(this.ids);
-                        this.lastFetchedAt = Date.now();
-                        this.fetchPromise = null;
-                        this._broadcast();
-                        return items;
-                    })
-                    .catch((error) => {
-                        console.error('[WishlistManager] Failed to load wishlist from API', error);
-                        this.fetchPromise = null;
-                        throw error;
-                    });
-            }
+  async handleAuthLogin() {
+    this._ensureApiClient();
+    await this.syncLocalToBackend();
+    await this.refreshFromBackend();
+  }
 
-            return this.fetchPromise;
-        }
+  async handleAuthLogout() {
+    this._ensureApiClient();
+    this._persistLocal();
+    this._notify();
+  }
 
-        // Guest fallback
-        this.items = this._loadGuestDetails();
-        this.ids = this._loadIdsFromStorage();
-        return this.items;
+  _notify() {
+    const snapshot = this.getItems();
+    this.listeners.forEach((listener) => {
+      try {
+        listener(snapshot);
+      } catch (error) {
+        console.error('[WishlistManager] Listener error:', error);
+      }
+    });
+  }
+
+  _loadLocalItems() {
+    const detailedRaw = this._safeParse(localStorage.getItem(this.localDetailedKey));
+    if (Array.isArray(detailedRaw) && detailedRaw.length > 0) {
+      return detailedRaw
+        .filter((item) => item && item.product_id)
+        .map((item) => ({
+          product_id: item.product_id,
+          product: item.product || null,
+          added_at: item.added_at || item.created_at || new Date().toISOString(),
+          id: item.id || item.product_id,
+        }));
     }
 
-    async add(product) {
-        const productId = typeof product === 'string' ? product : product?.id || product?.product_id;
-        if (!productId) {
-            throw new Error('Product id is required to add to wishlist');
-        }
-
-        this._updateLoginState();
-
-        if (this.isLoggedIn && this.apiClient) {
-            await this.apiClient.post('/wishlist', { product_id: productId });
-            return this.getWishlist({ forceRefresh: true });
-        }
-
-        if (!this.ids.includes(productId)) {
-            this.ids.push(productId);
-            this._saveIdsToStorage(this.ids);
-            if (product) {
-                this._mergeGuestItem(productId, product);
-            }
-            this._broadcast();
-        }
-        return this.getWishlist();
+    const rawIds = this._safeParse(localStorage.getItem(this.localIdsKey)) || [];
+    if (Array.isArray(rawIds)) {
+      const uniqueIds = [...new Set(rawIds.filter(Boolean))];
+      return uniqueIds.map((id) => ({
+        product_id: id,
+        product: null,
+        added_at: new Date().toISOString(),
+        id,
+      }));
     }
 
-    async remove(productId) {
-        if (!productId) return;
+    return [];
+  }
 
-        this._updateLoginState();
-
-        if (this.isLoggedIn && this.apiClient) {
-            await this.apiClient.delete(`/wishlist/${productId}`);
-            await this.getWishlist({ forceRefresh: true });
-            return;
-        }
-
-        this.ids = this.ids.filter((id) => id !== productId);
-        this._saveIdsToStorage(this.ids);
-
-        const details = this._loadGuestDetails().filter((item) => item.product_id !== productId);
-        this._saveGuestDetails(details);
-        this.items = details;
-        this._broadcast();
+  _addLocalItem(productId, productData) {
+    if (this.isInWishlist(productId)) {
+      return;
     }
 
-    async toggle(product) {
-        const productId = typeof product === 'string' ? product : product?.id || product?.product_id;
-        if (!productId) return;
+    const entry = {
+      product_id: productId,
+      product: productData || null,
+      added_at: new Date().toISOString(),
+      id: productId,
+    };
+    this.items = [entry, ...this.items];
+  }
 
-        if (this.isInWishlist(productId)) {
-            await this.remove(productId);
-            return false;
-        }
-
-        await this.add(product);
-        return true;
+  _persistLocal() {
+    try {
+      localStorage.setItem(this.localDetailedKey, JSON.stringify(this.items));
+      localStorage.setItem(this.localIdsKey, JSON.stringify(this.getWishlistIds()));
+    } catch (error) {
+      console.warn('[WishlistManager] Failed to persist wishlist locally:', error);
     }
+  }
+
+  _safeParse(value) {
+    if (!value) return null;
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      console.warn('[WishlistManager] Failed to parse local wishlist payload:', error);
+      return null;
+    }
+  }
+
+  _isUuid(value) {
+    return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  }
 }
 
-window.wishlistManager = new WishlistManager();
+if (typeof window !== 'undefined') {
+  window.wishlistManager = new WishlistManager();
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = WishlistManager;
+}

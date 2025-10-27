@@ -18,6 +18,8 @@ const { addItemSchema, updateItemSchema, productIdParamSchema } = require('../va
  */
 router.get('/', optionalAuth, cartController.getCart);
 
+router.get('/recommendations', optionalAuth, cartController.getRecommendations);
+
 /**
  * @route   POST /api/v1/cart/items
  * @desc    Add item to cart

@@ -26,7 +26,6 @@ const storeRoutes = require('./routes/store.routes');
 const productRoutes = require('./routes/product.routes');
 const categoryRoutes = require('./routes/category.routes');
 const cartRoutes = require('./routes/cart.routes');
-const wishlistRoutes = require('./routes/wishlist.routes');
 const orderRoutes = require('./routes/order.routes');
 const returnRoutes = require('./routes/return.routes');
 const commissionRoutes = require('./routes/commission.routes');
@@ -34,7 +33,7 @@ const couponRoutes = require('./routes/coupon.routes');
 const shippingRoutes = require('./routes/shipping.routes');
 const reviewRoutes = require('./routes/review.routes');
 const campaignRoutes = require('./routes/campaign.routes');
-const recommendationRoutes = require('./routes/recommendation.routes');
+const wishlistRoutes = require('./routes/wishlist.routes');
 
 // Create Express app
 const app = express();
@@ -144,14 +143,13 @@ app.use(`/api/${API_VERSION}/stores`, storeRoutes);
 app.use(`/api/${API_VERSION}/products`, productRoutes);
 app.use(`/api/${API_VERSION}/categories`, categoryRoutes);
 app.use(`/api/${API_VERSION}/cart`, cartRoutes);
-app.use(`/api/${API_VERSION}/wishlist`, wishlistRoutes);
 app.use(`/api/${API_VERSION}/orders`, orderRoutes);
 app.use(`/api/${API_VERSION}/returns`, returnRoutes);
 app.use(`/api/${API_VERSION}/commissions`, commissionRoutes);
 app.use(`/api/${API_VERSION}/coupons`, couponRoutes);
 app.use(`/api/${API_VERSION}/shipping`, shippingRoutes);
 app.use(`/api/${API_VERSION}/campaigns`, campaignRoutes);
-app.use(`/api/${API_VERSION}/recommendations`, recommendationRoutes);
+app.use(`/api/${API_VERSION}/wishlist`, wishlistRoutes);
 app.use(`/api/${API_VERSION}`, reviewRoutes);
 
 // Welcome route

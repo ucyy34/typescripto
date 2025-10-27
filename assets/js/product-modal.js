@@ -199,7 +199,6 @@ class ProductModal {
     }
 
     extractProductData(productCard) {
-        const id = productCard.dataset.productId || productCard.querySelector('.btn-wishlist')?.dataset.productId;
         const title = productCard.querySelector('.product-title')?.textContent || 'Product';
         const artisan = productCard.querySelector('.product-artisan')?.textContent || 'Unknown Artisan';
         const description = productCard.querySelector('.product-description')?.textContent || '';
@@ -211,7 +210,6 @@ class ProductModal {
         const badges = Array.from(productCard.querySelectorAll('.badge')).map(badge => badge.textContent);
 
         return {
-            id,
             title,
             artisan: artisan.replace('by ', ''),
             description,
@@ -492,8 +490,6 @@ class ProductModal {
 
         // Initialize with details tab
         this.switchTab('details');
-
-        this.syncWishlistHeartState();
     }
 
     generateThumbnails() {
@@ -860,24 +856,25 @@ class ProductModal {
         if (!heartBtn) return;
 
         const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
-        const payload = {
-            id: productId,
-            product_id: productId,
+        const metadata = {
             product: {
                 id: productId,
                 title: this.currentProduct.title,
-                price: this.currentProduct.price,
-                images: [this.currentProduct.image],
-                store: this.currentProduct.store || null
+                price: this.parsePrice(this.currentProduct.price),
+                images: this.currentProduct.image ? [this.currentProduct.image] : [],
+                store: this.currentProduct.artisan ? { name: this.currentProduct.artisan } : null,
             }
         };
 
         try {
-            const added = window.wishlistManager
-                ? await window.wishlistManager.toggle(payload)
-                : (this._fallbackToggleWishlist(payload) ?? false);
+            let added;
+            if (window.wishlistManager && typeof window.wishlistManager.toggle === 'function') {
+                added = await window.wishlistManager.toggle(productId, metadata);
+            } else {
+                added = this.toggleLegacyWishlist(productId, metadata.product);
+            }
 
-            heartBtn.classList.toggle('liked', added === true);
+            heartBtn.classList.toggle('liked', added);
             heartBtn.innerHTML = added ? '♥' : '♡';
 
             if (added) {
@@ -888,45 +885,45 @@ class ProductModal {
                 this.addDostikMessage(`${this.currentProduct.title} favorilerden çıkarıldı.`);
             }
         } catch (error) {
-            console.error('[ProductModal] Failed to toggle wishlist', error);
+            console.error('[ProductModal] Failed to toggle wishlist:', error);
             this.addDostikMessage('Favorilere eklenirken bir hata oluştu.');
         }
     }
 
-    _fallbackToggleWishlist(payload) {
-        const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        const ids = new Set(stored);
-        if (ids.has(payload.id)) {
-            ids.delete(payload.id);
-            localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
+    toggleLegacyWishlist(productId, productData) {
+        let wishlist = [];
+        try {
+            wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        } catch (_) {
+            wishlist = [];
+        }
+
+        const existingIndex = wishlist.findIndex(item =>
+            item.product_id === productId || item.title === productData?.title
+        );
+
+        if (existingIndex > -1) {
+            wishlist.splice(existingIndex, 1);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
             return false;
         }
-        ids.add(payload.id);
-        localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
+
+        wishlist.push({
+            product_id: productId,
+            title: productData?.title || this.currentProduct.title,
+            price: productData?.price || this.parsePrice(this.currentProduct.price),
+            image: productData?.images?.[0] || this.currentProduct.image,
+            artisan: productData?.store?.name || this.currentProduct.artisan
+        });
+        localStorage.setItem('wishlist', JSON.stringify(wishlist));
         return true;
     }
 
-    async syncWishlistHeartState() {
-        const heartBtn = document.querySelector('.modal-heart-btn');
-        if (!heartBtn || !this.currentProduct) return;
-
-        const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
-
-        try {
-            if (window.wishlistManager) {
-                await window.wishlistManager.getWishlist();
-                const liked = window.wishlistManager.isInWishlist(productId);
-                heartBtn.classList.toggle('liked', liked);
-                heartBtn.innerHTML = liked ? '♥' : '♡';
-            } else {
-                const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
-                const liked = stored.includes(productId);
-                heartBtn.classList.toggle('liked', liked);
-                heartBtn.innerHTML = liked ? '♥' : '♡';
-            }
-        } catch (error) {
-            console.warn('[ProductModal] Unable to sync wishlist heart', error);
-        }
+    parsePrice(value) {
+        if (typeof value === 'number') return value;
+        if (!value) return null;
+        const numeric = parseFloat(String(value).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+        return Number.isNaN(numeric) ? null : numeric;
     }
 
     async updateCartCounter() {
