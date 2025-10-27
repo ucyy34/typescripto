@@ -207,8 +207,13 @@ const HomeAPI = {
             this._delegatedEventsBound = true;
         }
 
-        if (window.dostanApp && typeof window.dostanApp.refreshWishlistButtons === 'function') {
-            window.dostanApp.refreshWishlistButtons();
+        if (window.wishlistManager) {
+            window.wishlistManager
+                .getWishlist()
+                .then(() => window.dostanApp?.refreshWishlistButtons())
+                .catch(() => window.dostanApp?.refreshWishlistButtons());
+        } else {
+            window.dostanApp?.refreshWishlistButtons();
         }
     },
 

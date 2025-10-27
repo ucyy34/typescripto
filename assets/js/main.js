@@ -8,7 +8,7 @@ class DostanWebApp {
     constructor() {
         this.currentTheme = localStorage.getItem('theme') || 'light';
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
-        this.wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+        this.wishlistIds = window.wishlistManager ? window.wishlistManager.getIds() : [];
         this.isLoading = false;
         this.apiClient = typeof ApiClient === 'function' ? new ApiClient() : null;
         this.searchRequestId = 0;
@@ -774,38 +774,76 @@ class DostanWebApp {
 
     // Wishlist System
     setupWishlistSystem() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-wishlist')) {
-                const productId = e.target.closest('.btn-wishlist').dataset.productId;
-                this.toggleWishlist(productId);
-                this.updateWishlistButton(e.target.closest('.btn-wishlist'));
-            }
-        });
-    }
+        if (window.wishlistManager) {
+            window.wishlistManager.getWishlist().catch((error) => {
+                console.warn('[DostanWebApp] Unable to prefetch wishlist', error);
+            });
 
-    toggleWishlist(productId) {
-        const index = this.wishlist.indexOf(productId);
-
-        if (index > -1) {
-            this.wishlist.splice(index, 1);
-        } else {
-            this.wishlist.push(productId);
+            window.addEventListener('wishlist:update', (event) => {
+                this.wishlistIds = event.detail?.ids || [];
+                this.refreshWishlistButtons();
+            });
         }
 
-        localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+        document.addEventListener('click', async (e) => {
+            const button = e.target.closest('.btn-wishlist');
+            if (!button) return;
+
+            const productId = button.dataset.productId;
+            if (!productId) return;
+
+            try {
+                if (window.wishlistManager) {
+                    await window.wishlistManager.toggle(productId);
+                    this.wishlistIds = window.wishlistManager.getIds();
+                } else {
+                    this.wishlistIds = this._fallbackToggleWishlist(productId);
+                }
+            } catch (error) {
+                console.error('[DostanWebApp] Failed to toggle wishlist', error);
+            }
+
+            this.updateWishlistButton(button);
+        });
+
+        // Apply initial state when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.refreshWishlistButtons());
+        } else {
+            this.refreshWishlistButtons();
+        }
+    }
+
+    _fallbackToggleWishlist(productId) {
+        const current = new Set(this.wishlistIds || []);
+        if (current.has(productId)) {
+            current.delete(productId);
+        } else {
+            current.add(productId);
+        }
+        const ids = Array.from(current);
+        localStorage.setItem('wishlist', JSON.stringify(ids));
+        return ids;
     }
 
     updateWishlistButton(button) {
         const productId = button.dataset.productId;
-        const heart = button.querySelector('.heart-icon');
+        const heart = button.querySelector('.heart-icon') || button;
+        const isLiked = window.wishlistManager
+            ? window.wishlistManager.isInWishlist(productId)
+            : (this.wishlistIds || []).includes(productId);
 
-        if (this.wishlist.includes(productId)) {
+        if (isLiked) {
             heart.textContent = '♥';
             heart.classList.add('liked');
         } else {
             heart.textContent = '♡';
             heart.classList.remove('liked');
         }
+    }
+
+    refreshWishlistButtons() {
+        document.querySelectorAll('.btn-wishlist').forEach((button) => this.updateWishlistButton(button));
     }
 
     // Smooth Scrolling

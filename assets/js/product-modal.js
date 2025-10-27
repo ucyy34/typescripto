@@ -199,7 +199,7 @@ class ProductModal {
     }
 
     extractProductData(productCard) {
-        const productId = productCard.dataset.productId || null;
+        const id = productCard.dataset.productId || productCard.querySelector('.btn-wishlist')?.dataset.productId;
         const title = productCard.querySelector('.product-title')?.textContent || 'Product';
         const artisan = productCard.querySelector('.product-artisan')?.textContent || 'Unknown Artisan';
         const description = productCard.querySelector('.product-description')?.textContent || '';
@@ -211,8 +211,7 @@ class ProductModal {
         const badges = Array.from(productCard.querySelectorAll('.badge')).map(badge => badge.textContent);
 
         return {
-            id: productId,
-            product_id: productId,
+            id,
             title,
             artisan: artisan.replace('by ', ''),
             description,
@@ -493,6 +492,8 @@ class ProductModal {
 
         // Initialize with details tab
         this.switchTab('details');
+
+        this.syncWishlistHeartState();
     }
 
     generateThumbnails() {
@@ -858,88 +859,74 @@ class ProductModal {
         const heartBtn = document.querySelector('.modal-heart-btn');
         if (!heartBtn) return;
 
-        const productId =
-            this.currentProduct.id ||
-            this.currentProduct.product_id ||
-            this.generateProductId(this.currentProduct);
-
+        const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
         const payload = {
+            id: productId,
             product_id: productId,
-            title: this.currentProduct.title,
-            price: this.parsePriceValue(this.currentProduct.price),
-            image: this.currentProduct.image,
-            artisan: this.currentProduct.artisan,
-            images: this.currentProduct.image ? [this.currentProduct.image] : undefined,
+            product: {
+                id: productId,
+                title: this.currentProduct.title,
+                price: this.currentProduct.price,
+                images: [this.currentProduct.image],
+                store: this.currentProduct.store || null
+            }
         };
 
         try {
-            let inWishlist;
-            if (window.wishlistManager) {
-                inWishlist = await window.wishlistManager.toggleItem(productId, payload);
-            } else {
-                inWishlist = this.toggleWishlistFallback(productId, payload);
-            }
+            const added = window.wishlistManager
+                ? await window.wishlistManager.toggle(payload)
+                : (this._fallbackToggleWishlist(payload) ?? false);
 
-            if (inWishlist) {
-                heartBtn.classList.add('liked');
-                heartBtn.innerHTML = '♥';
-                this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
+            heartBtn.classList.toggle('liked', added === true);
+            heartBtn.innerHTML = added ? '♥' : '♡';
+
+            if (added) {
+                setTimeout(() => {
+                    this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
+                }, 300);
             } else {
-                heartBtn.classList.remove('liked');
-                heartBtn.innerHTML = '♡';
-                this.addDostikMessage(`${this.currentProduct.title} favorilerinden çıkarıldı. 💔`);
+                this.addDostikMessage(`${this.currentProduct.title} favorilerden çıkarıldı.`);
             }
         } catch (error) {
             console.error('[ProductModal] Failed to toggle wishlist', error);
-            this.addDostikMessage('Favori işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+            this.addDostikMessage('Favorilere eklenirken bir hata oluştu.');
         }
     }
 
-    toggleWishlistFallback(productId, payload) {
-        let wishlist = [];
-        try {
-            wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        } catch (_) {
-            wishlist = [];
-        }
-
-        if (!Array.isArray(wishlist)) {
-            wishlist = [];
-        }
-
-        const existsIndex = wishlist.findIndex(
-            (item) => item.product_id === productId || item.title === payload.title
-        );
-
-        if (existsIndex > -1) {
-            wishlist.splice(existsIndex, 1);
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+    _fallbackToggleWishlist(payload) {
+        const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        const ids = new Set(stored);
+        if (ids.has(payload.id)) {
+            ids.delete(payload.id);
+            localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
             return false;
         }
-
-        wishlist.push({
-            product_id: productId,
-            title: payload.title,
-            price: payload.price,
-            image: payload.image,
-            artisan: payload.artisan,
-        });
-        localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        ids.add(payload.id);
+        localStorage.setItem('wishlist', JSON.stringify(Array.from(ids)));
         return true;
     }
 
-    parsePriceValue(price) {
-        if (typeof price === 'number') {
-            return price;
-        }
+    async syncWishlistHeartState() {
+        const heartBtn = document.querySelector('.modal-heart-btn');
+        if (!heartBtn || !this.currentProduct) return;
 
-        if (!price) {
-            return undefined;
-        }
+        const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
 
-        const normalized = `${price}`.replace(/[^0-9.,]/g, '').replace(',', '.');
-        const value = parseFloat(normalized);
-        return Number.isFinite(value) ? value : undefined;
+        try {
+            if (window.wishlistManager) {
+                await window.wishlistManager.getWishlist();
+                const liked = window.wishlistManager.isInWishlist(productId);
+                heartBtn.classList.toggle('liked', liked);
+                heartBtn.innerHTML = liked ? '♥' : '♡';
+            } else {
+                const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                const liked = stored.includes(productId);
+                heartBtn.classList.toggle('liked', liked);
+                heartBtn.innerHTML = liked ? '♥' : '♡';
+            }
+        } catch (error) {
+            console.warn('[ProductModal] Unable to sync wishlist heart', error);
+        }
     }
 
     async updateCartCounter() {

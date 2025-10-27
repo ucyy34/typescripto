@@ -9,6 +9,7 @@ class ProfileAPI {
         this.user = null;
         this.orders = [];
         this.addresses = [];
+        this.wishlist = [];
         this.currentSection = 'overview';
     }
 
@@ -30,11 +31,23 @@ class ProfileAPI {
             // Load user data
             await this.loadUser();
 
+            // Load wishlist
+            await this.loadWishlist(true);
+
             // Render profile UI
             this.renderProfile();
 
             // Setup event listeners
             this.setupEventListeners();
+
+            window.addEventListener('wishlist:update', (event) => {
+                this.wishlist = event.detail?.items || [];
+                if (this.currentSection === 'wishlist') {
+                    this.renderWishlistSection();
+                } else if (this.currentSection === 'overview') {
+                    this.renderOverview();
+                }
+            });
 
             // Load initial section
             this.loadSection('overview');
@@ -87,6 +100,22 @@ class ProfileAPI {
             return this.orders;
         } catch (error) {
             console.error('[Profile API] Failed to load orders:', error);
+            return [];
+        }
+    }
+
+    async loadWishlist(forceRefresh = false) {
+        try {
+            if (!window.wishlistManager) {
+                this.wishlist = [];
+                return this.wishlist;
+            }
+
+            this.wishlist = await window.wishlistManager.getWishlist({ forceRefresh });
+            return this.wishlist;
+        } catch (error) {
+            console.error('[Profile API] Failed to load wishlist:', error);
+            this.wishlist = [];
             return [];
         }
     }
@@ -164,6 +193,9 @@ class ProfileAPI {
                 case 'settings':
                     await this.renderSettings();
                     break;
+                case 'wishlist':
+                    await this.renderWishlistSection();
+                    break;
                 default:
                     contentEl.innerHTML = '<p>Section not found</p>';
             }
@@ -178,7 +210,9 @@ class ProfileAPI {
      */
     async renderOverview() {
         const orders = await this.loadOrders();
+        await this.loadWishlist();
         const recentOrders = orders.slice(0, 3);
+        const wishlistPreview = (this.wishlist || []).slice(0, 3);
 
         const contentEl = document.querySelector('.profile-content');
         contentEl.innerHTML = `
@@ -222,10 +256,33 @@ class ProfileAPI {
                             <div class="order-date">${new Date(order.created_at).toLocaleDateString()}</div>
                             <div class="order-total">$${order.total}</div>
                         </div>
-                    `).join('') : '<p>No orders yet</p>'}
+                    `).join('') : `
+                        <div class="empty-state">
+                            <p>You haven't placed any orders yet.</p>
+                            <a href="../index.html" class="btn btn-primary">Browse Products</a>
+                        </div>
+                    `}
                 </div>
 
                 <button class="btn btn-primary" onclick="profileAPI.loadSection('orders')">View All Orders</button>
+
+                <h3 style="margin-top: var(--space-xl);">Favorite Products</h3>
+                <div class="wishlist-preview">
+                    ${wishlistPreview.length > 0 ? wishlistPreview.map(item => `
+                        <div class="wishlist-card" data-product-id="${item.product?.id}">
+                            <img src="${item.product?.images?.[0] || 'https://via.placeholder.com/80x80?text=Nordic'}" alt="${item.product?.title || 'Product'}">
+                            <div>
+                                <div class="wishlist-title">${item.product?.title || 'Product'}</div>
+                                <div class="wishlist-price">₺${parseFloat(item.product?.price || 0).toFixed(2)}</div>
+                            </div>
+                        </div>
+                    `).join('') : `
+                        <div class="empty-state">
+                            <p>Favori listenizde ürün yok.</p>
+                            <a href="../index.html" class="btn btn-secondary">Discover products</a>
+                        </div>
+                    `}
+                </div>
             </div>
         `;
     }
@@ -290,6 +347,104 @@ class ProfileAPI {
                 ` : '<p class="empty-state">No orders yet. Start shopping to see your orders here!</p>'}
             </div>
         `;
+    }
+
+    async renderWishlistSection() {
+        await this.loadWishlist(true);
+        const contentEl = document.querySelector('.profile-content');
+        if (!contentEl) return;
+
+        if (!this.wishlist || this.wishlist.length === 0) {
+            contentEl.innerHTML = `
+                <div class="profile-wishlist empty">
+                    <h2>My Wishlist</h2>
+                    <div class="empty-state">
+                        <p>Favori listenizde ürün yok.</p>
+                        <a href="../index.html" class="btn btn-secondary">Ürünleri keşfet</a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        contentEl.innerHTML = `
+            <div class="profile-wishlist">
+                <h2>My Wishlist</h2>
+                <div class="wishlist-grid">
+                    ${this.wishlist.map(item => this.buildWishlistCard(item)).join('')}
+                </div>
+            </div>
+        `;
+
+        contentEl.querySelectorAll('[data-action="remove-wishlist"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.removeWishlistItem(btn.dataset.productId);
+            });
+        });
+
+        contentEl.querySelectorAll('[data-action="move-to-cart"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.moveWishlistItemToCart(btn.dataset.productId);
+            });
+        });
+    }
+
+    buildWishlistCard(item) {
+        const product = item.product || {};
+        const image = product.images?.[0] || 'https://via.placeholder.com/120x120?text=Nordic';
+        const price = parseFloat(product.price || 0).toFixed(2);
+
+        return `
+            <div class="wishlist-item" data-product-id="${product.id}">
+                <img src="${image}" alt="${product.title || 'Product'}">
+                <div class="wishlist-item-info">
+                    <h4>${product.title || 'Product'}</h4>
+                    <p class="wishlist-price">₺${price}</p>
+                    <div class="wishlist-actions">
+                        <button class="btn btn-secondary" data-action="move-to-cart" data-product-id="${product.id}">Sepete Taşı</button>
+                        <button class="btn btn-tertiary" data-action="remove-wishlist" data-product-id="${product.id}">Kaldır</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async removeWishlistItem(productId) {
+        try {
+            if (window.wishlistManager) {
+                await window.wishlistManager.remove(productId);
+            }
+            await this.loadWishlist(true);
+            this.renderWishlistSection();
+        } catch (error) {
+            console.error('[Profile API] Failed to remove wishlist item:', error);
+            alert('Favori kaldırılırken bir hata oluştu.');
+        }
+    }
+
+    async moveWishlistItemToCart(productId) {
+        try {
+            const item = (this.wishlist || []).find(entry => entry.product_id === productId);
+            if (!item || !item.product) {
+                alert('Ürün bilgisi bulunamadı.');
+                return;
+            }
+
+            if (window.cartManager) {
+                await window.cartManager.addItem(productId, item.product, 1);
+            }
+
+            if (window.wishlistManager) {
+                await window.wishlistManager.remove(productId);
+            }
+
+            alert('Ürün sepetinize eklendi!');
+            await this.loadWishlist(true);
+            this.renderWishlistSection();
+        } catch (error) {
+            console.error('[Profile API] Failed to move wishlist item to cart:', error);
+            alert('Ürün sepete taşınamadı.');
+        }
     }
 
     /**

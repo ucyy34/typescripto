@@ -3,13 +3,12 @@
  * Business logic for store management
  */
 
-const { Store, User, Product, Category } = require('../models');
+const { Store, User, Product } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const slugify = require('slugify');
 const { cache } = require('../config/redis');
-const { sequelize } = require('../config/sequelize');
 
 class StoreService {
   /**
@@ -62,18 +61,12 @@ class StoreService {
   /**
    * Get store by ID
    * @param {string} storeId
-   * @param {boolean} includeInactive - Include inactive stores
+   * @param {{id?: string, role?: string}|null} requester - Requesting user metadata
    * @returns {Promise<Store>}
    */
-  async getStoreById(storeId, includeInactive = false) {
-    const where = { id: storeId };
-
-    if (!includeInactive) {
-      where.status = 'approved';
-    }
-
+  async getStoreById(storeId, requester = null) {
     const store = await Store.findOne({
-      where,
+      where: { id: storeId },
       include: [
         {
           model: User,
@@ -87,40 +80,12 @@ class StoreService {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
 
-    await this.hydrateStoreSummaries(store);
+    const isAdmin = requester?.role === 'admin';
+    const isOwner = requester?.id && store.user_id === requester.id;
 
-    return store;
-  }
-
-  /**
-   * Get store by slug
-   * @param {string} slug
-   * @param {boolean} includeInactive
-   * @returns {Promise<Store>}
-   */
-  async getStoreBySlug(slug, includeInactive = false) {
-    const where = { slug };
-
-    if (!includeInactive) {
-      where.status = 'approved';
-    }
-
-    const store = await Store.findOne({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'owner',
-          attributes: ['id', 'first_name', 'last_name', 'email'],
-        },
-      ],
-    });
-
-    if (!store) {
+    if (store.status !== 'approved' && !isAdmin && !isOwner) {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
-
-    await this.hydrateStoreSummaries(store);
 
     return store;
   }
@@ -131,16 +96,23 @@ class StoreService {
    * @returns {Promise<Object>} Paginated stores
    */
   async getStores(filters) {
-    const { page = 1, limit = 20, status, search, city, is_featured, sort = '-created_at' } = filters;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      search,
+      city,
+      is_featured,
+      sort = '-created_at',
+    } = filters;
 
-    const offset = (page - 1) * limit;
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNumber - 1) * limitNumber;
     const where = {};
 
-    // Apply filters
-    if (status && status !== 'all') {
+    if (status) {
       where.status = status;
-    } else if (!status) {
-      where.status = 'approved';
     }
 
     if (search) {
@@ -152,19 +124,21 @@ class StoreService {
     }
 
     if (is_featured !== undefined) {
-      where.is_featured = is_featured;
+      const featuredValue =
+        typeof is_featured === 'string'
+          ? is_featured.toLowerCase() === 'true'
+          : Boolean(is_featured);
+      where.is_featured = featuredValue;
     }
 
-    // Parse sort parameter
-    let order = [];
+    const order = [];
     const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
     const sortDirection = sort.startsWith('-') ? 'DESC' : 'ASC';
     order.push([sortField, sortDirection]);
 
-    // Query stores
     const { rows: stores, count: total } = await Store.findAndCountAll({
       where,
-      limit,
+      limit: limitNumber,
       offset,
       order,
       include: [
@@ -176,17 +150,17 @@ class StoreService {
       ],
     });
 
-    await this.hydrateStoreSummaries(stores);
+    const totalPages = Math.max(1, Math.ceil(total / limitNumber));
 
     return {
       stores,
       pagination: {
-        page,
-        limit,
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+        totalPages,
+        hasNext: pageNumber < totalPages,
+        hasPrev: pageNumber > 1,
       },
     };
   }
@@ -258,6 +232,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
@@ -307,8 +283,10 @@ class StoreService {
     const lowStockProducts = await Product.count({
       where: {
         store_id: storeId,
-        stock: { [Op.lte]: sequelize.col('low_stock_threshold') },
-        stock: { [Op.gt]: 0 },
+        [Op.and]: [
+          { stock: { [Op.gt]: 0 } },
+          { stock: { [Op.lte]: Product.sequelize.col('low_stock_threshold') } },
+        ],
       },
     });
 
@@ -324,116 +302,6 @@ class StoreService {
       rating: parseFloat(store.rating),
       total_reviews: store.total_reviews,
     };
-  }
-
-  /**
-   * Attach product summaries (counts, categories) to store models
-   * @param {Array|Store} storeRecords
-   */
-  async hydrateStoreSummaries(storeRecords) {
-    if (!storeRecords) {
-      return;
-    }
-
-    const storesArray = Array.isArray(storeRecords) ? storeRecords : [storeRecords];
-
-    if (!storesArray.length) {
-      return;
-    }
-
-    const storeIds = storesArray.map((store) => store?.id).filter(Boolean);
-    if (!storeIds.length) {
-      return;
-    }
-
-    const baseWhere = {
-      store_id: storeIds,
-      status: 'approved',
-      is_active: true,
-      stock: { [Op.gt]: 0 },
-    };
-
-    const summaryRows = await Product.findAll({
-      attributes: [
-        'store_id',
-        [sequelize.fn('COUNT', sequelize.col('Product.id')), 'productCount'],
-        [sequelize.fn('SUM', sequelize.col('Product.total_sales')), 'totalSales'],
-        [sequelize.fn('AVG', sequelize.col('Product.rating')), 'avgRating'],
-        [sequelize.fn('AVG', sequelize.col('Product.price')), 'avgPrice'],
-        [sequelize.fn('MIN', sequelize.col('Product.price')), 'minPrice'],
-        [sequelize.fn('MAX', sequelize.col('Product.price')), 'maxPrice'],
-      ],
-      where: baseWhere,
-      group: ['Product.store_id'],
-      raw: true,
-    });
-
-    const summaryMap = new Map();
-    summaryRows.forEach((row) => {
-      summaryMap.set(row.store_id, {
-        totalProducts: row.productCount ? Number(row.productCount) : 0,
-        totalSales: row.totalSales ? Number(row.totalSales) : 0,
-        averageRating: row.avgRating ? Number(row.avgRating) : 0,
-        averagePrice: row.avgPrice ? Number(row.avgPrice) : 0,
-        minPrice: row.minPrice ? Number(row.minPrice) : 0,
-        maxPrice: row.maxPrice ? Number(row.maxPrice) : 0,
-      });
-    });
-
-    const categoryRows = await Product.findAll({
-      attributes: [
-        'store_id',
-        'category_id',
-        [sequelize.fn('COUNT', sequelize.col('Product.id')), 'productCount'],
-      ],
-      where: baseWhere,
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug'],
-          required: true,
-        },
-      ],
-      group: ['Product.store_id', 'Product.category_id', 'category.id'],
-      raw: true,
-    });
-
-    const categoryMap = new Map();
-    categoryRows.forEach((row) => {
-      const storeId = row.store_id;
-      if (!categoryMap.has(storeId)) {
-        categoryMap.set(storeId, []);
-      }
-      categoryMap.get(storeId).push({
-        id: row.category_id,
-        name: row['category.name'],
-        slug: row['category.slug'],
-        productCount: row.productCount ? Number(row.productCount) : 0,
-      });
-    });
-
-    categoryMap.forEach((list) => {
-      list.sort((a, b) => b.productCount - a.productCount);
-    });
-
-    storesArray.forEach((store) => {
-      if (!store) return;
-      const summary = summaryMap.get(store.id) || {};
-      const categories = categoryMap.get(store.id) || [];
-
-      store.setDataValue('productSummary', {
-        totalProducts: summary.totalProducts || 0,
-        totalSales: summary.totalSales || 0,
-        averageRating: summary.averageRating || 0,
-        averagePrice: summary.averagePrice || 0,
-        minPrice: summary.minPrice || 0,
-        maxPrice: summary.maxPrice || 0,
-        topCategories: categories.slice(0, 3),
-      });
-
-      store.setDataValue('primaryCategory', categories[0]?.slug || null);
-    });
   }
 }
 

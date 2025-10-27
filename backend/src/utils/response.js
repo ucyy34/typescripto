@@ -64,33 +64,45 @@ const noContent = (res) => {
  * @param {Array} data - Array of items
  * @param {Object} pagination - Pagination metadata
  */
-const paginated = (res, data, pagination = {}) => {
-  const safeLimit = Number.isFinite(pagination.limit) ? Number(pagination.limit) : 20;
-  const hasTotal = Number.isFinite(pagination.total);
-  const safeTotal = hasTotal ? Number(pagination.total) : null;
-  const safeTotalPages = Number.isFinite(pagination.totalPages)
-    ? Number(pagination.totalPages)
-    : hasTotal && safeTotal !== null
-      ? Math.max(1, Math.ceil(safeTotal / safeLimit))
-      : null;
+const paginated = (res, data, pagination = {}, message = 'Success', statusCode = 200) => {
+  const page = Number(pagination.page ?? pagination.currentPage ?? 1);
+  const limit = Number(pagination.limit ?? pagination.pageSize ?? data.length ?? 0);
+  const total = Number(
+    pagination.total ?? pagination.totalItems ?? pagination.count ?? data.length ?? 0
+  );
+  const calculatedTotalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+  const totalPages = Number(pagination.totalPages ?? pagination.pages ?? calculatedTotalPages);
+  const hasNext =
+    typeof pagination.hasNext !== 'undefined' ? pagination.hasNext : page < totalPages;
+  const hasPrev =
+    typeof pagination.hasPrev !== 'undefined' ? pagination.hasPrev : page > 1;
 
-  return res.status(200).json({
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPages,
+    hasNext,
+    hasPrev,
+  };
+
+  if (typeof pagination.cursor !== 'undefined') {
+    meta.cursor = pagination.cursor;
+  }
+
+  if (typeof pagination.sort !== 'undefined') {
+    meta.sort = pagination.sort;
+  }
+
+  if (typeof pagination.summary !== 'undefined') {
+    meta.summary = pagination.summary;
+  }
+
+  return res.status(statusCode).json({
     success: true,
-    message: 'Success',
+    message,
     data,
-    pagination: {
-      page: Number.isFinite(pagination.page) ? Number(pagination.page) : null,
-      limit: safeLimit,
-      total: safeTotal,
-      totalPages: safeTotalPages,
-      hasNext: Boolean(pagination.hasNext),
-      hasPrev: Boolean(pagination.hasPrev),
-      nextCursor: pagination.nextCursor || null,
-      previousCursor: pagination.previousCursor || null,
-      cursor: pagination.cursor || null,
-      sort: pagination.sort || null,
-      usingCursor: Boolean(pagination.usingCursor),
-    },
+    pagination: meta,
     timestamp: new Date().toISOString(),
   });
 };

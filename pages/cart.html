@@ -1151,10 +1151,11 @@
                         </div>
                     </div>
 
-                    <div class="recommendation-cards" id="recommendationCards"></div>
-                    <p data-recommendations-empty style="text-align: center; margin-top: var(--space-md); color: var(--warm-brown); display: none;">
-                        Şu anda öneri bulunamadı. Sepetinize ürün ekledikçe Dostik yeni öneriler getirecek.
-                    </p>
+                    <div class="recommendation-cards" id="recommendationsContainer">
+                        <div class="recommendation-empty" style="text-align: center; padding: var(--space-xl); color: rgba(255,255,255,0.8);">
+                            <p style="margin: 0;">🐉 Dostik, seçimlerinize göre öneriler hazırlıyor...</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1163,10 +1164,11 @@
                 <h3 style="margin-bottom: var(--space-md);">💝 Saved for Later</h3>
                 <p style="color: var(--warm-brown); margin-bottom: var(--space-lg);">Treasures waiting for the right moment</p>
 
-                <div class="saved-items-grid" id="savedItemsGrid"></div>
-                <p data-saved-empty style="text-align: center; margin-top: var(--space-md); color: var(--warm-brown); display: none;">
-                    Favorilerin boş. Beğendiğin ürünleri buraya ekleyip uygun zamanı bekleyebilirsin.
-                </p>
+                <div class="saved-items-grid" id="savedItemsGrid">
+                    <div class="saved-empty" style="grid-column: 1/-1; text-align: center; padding: var(--space-xl); color: var(--warm-brown);">
+                        <p style="margin: 0;">Favorilere eklediğiniz ürünler burada görünecek.</p>
+                    </div>
+                </div>
             </section>
         </div>
     </main>
@@ -1180,9 +1182,9 @@
     <!-- Page Scripts -->
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/wishlist-manager.js"></script>
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/cart-manager.js"></script>
-    <script src="../assets/js/wishlist-manager.js"></script>
     <script src="../assets/js/cart-api.js"></script>
 
     <!-- Old inline code - now replaced by cart-api.js

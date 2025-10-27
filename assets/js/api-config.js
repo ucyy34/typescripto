@@ -96,6 +96,17 @@ const API_CONFIG = {
       STORE_ORDERS: (storeId) => `/stores/${storeId}/orders`,
     },
 
+    // Campaign endpoints
+    CAMPAIGNS: {
+      BASE: '/campaigns',
+      BY_ID: (id) => `/campaigns/${id}`,
+      APPROVAL: (id) => `/campaigns/${id}/approval`,
+      STATS: (id) => `/campaigns/${id}/stats`,
+      STORE_BASE: (storeId) => `/stores/${storeId}/campaigns`,
+      STORE_BY_ID: (storeId, id) => `/stores/${storeId}/campaigns/${id}`,
+      STORE_STATS: (storeId, id) => `/stores/${storeId}/campaigns/${id}/stats`,
+    },
+
     // Cart endpoints
     CART: {
       BASE: '/cart',

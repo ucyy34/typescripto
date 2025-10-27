@@ -237,11 +237,7 @@
         }
     </style>
 </head>
-<body data-category-slug="glass-art"
-      data-category-name="Nordic Glass Art"
-      data-products-container="glass-art-products"
-      data-load-more-button="loadMoreGlassArt"
-      data-category-page-size="8">
+<body>
     <!-- Navigation Header -->
     <header class="header glass-card">
         <nav class="navbar container">
@@ -296,15 +292,15 @@
 
             <div class="category-stats">
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatTotal">—</span>
+                    <span class="stat-number">32</span>
                     <span class="stat-label">Crystal Pieces</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatArtisans">—</span>
+                    <span class="stat-number">8</span>
                     <span class="stat-label">Glass Artists</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatRating">—</span>
+                    <span class="stat-number">4.9</span>
                     <span class="stat-label">Average Rating</span>
                 </div>
             </div>
@@ -331,10 +327,6 @@
             <div class="section-title">
                 <h2>Crystalline Nordic Treasures</h2>
                 <p>Each piece captures light like the dancing Aurora Borealis</p>
-            </div>
-
-            <div class="results-info" id="resultsCount" style="margin-bottom: var(--space-md); color: var(--warm-brown);">
-                Loading Nordic treasures...
             </div>
 
             <!-- Mobile Filter Toggle -->
@@ -399,7 +391,7 @@
                     <!-- Price Range -->
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="200" data-default-value="200">
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="200">
                         <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
                             <span id="priceValue">$200</span>
@@ -439,7 +431,7 @@
                     </div>
 
                     <div class="text-center mt-xl">
-                    <button class="btn btn-primary" id="loadMoreGlassArt" style="display: none;">
+                        <button class="btn btn-primary" id="loadMoreGlassArt">
                             ✨ Load More Glass Art
                         </button>
                     </div>
@@ -498,12 +490,250 @@
         </div>
     </footer>
 
-    <!-- Scripts -->
-    <script src="../assets/js/auth-manager.js"></script>
-    <script src="../assets/js/api-config.js"></script>
-    <script src="../assets/js/api-client.js"></script>
-    <script src="../assets/js/main.js"></script>
-    <script src="../assets/js/category-page-api.js"></script>
+    <!-- Scripts - Optimized loading -->
+    <script defer src="../assets/js/wishlist-manager.js"></script>
+    <script defer src="../assets/js/main.js"></script>
+    <script defer src="../assets/js/product-modal.js"></script>
+    <script defer src="../assets/js/dostik-ai.js"></script>
+
+    <script>
+        // Glass Art specific functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const glassArtData = [
+                {
+                    id: 'ga_1',
+                    title: 'Aurora Glass Bowl',
+                    artisan: 'Astrid Björk',
+                    price: 124.99,
+                    originalPrice: 159.99,
+                    image: 'https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.9,
+                    sold: 89,
+                    category: 'bowls',
+                    badges: ['handblown', 'aurora'],
+                    description: 'Inspired by Northern Lights, captures ethereal beauty of aurora borealis.'
+                },
+                {
+                    id: 'ga_2',
+                    title: 'Nordic Crystal Vase',
+                    artisan: 'Magnus Glass',
+                    price: 189.99,
+                    originalPrice: 239.99,
+                    image: 'https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.8,
+                    sold: 67,
+                    category: 'vases',
+                    badges: ['crystal', 'premium'],
+                    description: 'Elegant crystal vase with Nordic frost patterns.'
+                },
+                {
+                    id: 'ga_3',
+                    title: 'Frost Ornament Set',
+                    artisan: 'Elena Crystal',
+                    price: 89.99,
+                    originalPrice: 119.99,
+                    image: 'https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.7,
+                    sold: 134,
+                    category: 'ornaments',
+                    badges: ['set', 'decorative'],
+                    description: 'Delicate glass ornaments inspired by Nordic frost patterns.'
+                },
+                {
+                    id: 'ga_4',
+                    title: 'Light Dancing Sculpture',
+                    artisan: 'Odin Lightforge',
+                    price: 299.99,
+                    originalPrice: 399.99,
+                    image: 'https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=400&h=300',
+                    rating: 4.9,
+                    sold: 45,
+                    category: 'lighting',
+                    badges: ['sculpture', 'lighting'],
+                    description: 'Interactive light sculpture that dances with Nordic magic.'
+                }
+            ];
+
+            const container = document.getElementById('glass-art-products');
+            let currentFilter = 'all';
+            let displayedProducts = 0;
+            const productsPerLoad = 4;
+
+            function generateProductHTML(product) {
+                return `
+                    <div class="product-card cold breathe"
+                         data-product-id="${product.id}"
+                         data-category="${product.category}">
+                        <div class="journey-indicator"></div>
+                        <div class="product-image">
+                            <img src="${product.image}"
+                                 alt="${product.title}"
+                                 loading="lazy"
+                                 decoding="async"
+                                 width="400"
+                                 height="300"
+                                 onload="this.style.opacity=1"
+                                 style="opacity:0;transition:opacity 0.3s ease">
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-title">${product.title}</h3>
+                            <p class="product-artisan">by ${product.artisan}</p>
+                            <p class="product-description">${product.description}</p>
+                            <div class="social-proof">
+                                <span class="rating-stars">★★★★★</span>
+                                <span class="rating-value">${product.rating}</span>
+                                <span class="purchases-count">${product.sold} sold</span>
+                            </div>
+                            <div class="product-badges">
+                                ${product.badges.map(badge => `<span class="badge ${badge}">${badge}</span>`).join('')}
+                            </div>
+                            <div class="product-price">
+                                <span class="price-current">$${product.price}</span>
+                                ${product.originalPrice ? `<span class="price-original">$${product.originalPrice}</span>` : ''}
+                            </div>
+                            <div class="product-actions">
+                                <button class="btn btn-card btn-add-cart" data-product-id="${product.id}">
+                                    Add to Cart
+                                </button>
+                                <button class="btn btn-card btn-wishlist" data-product-id="${product.id}">
+                                    <span class="heart-icon">♡</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function loadProducts() {
+                const filteredProducts = currentFilter === 'all'
+                    ? glassArtData
+                    : glassArtData.filter(p => p.category === currentFilter);
+
+                const productsToShow = filteredProducts.slice(displayedProducts, displayedProducts + productsPerLoad);
+
+                productsToShow.forEach(product => {
+                    container.insertAdjacentHTML('beforeend', generateProductHTML(product));
+                });
+
+                displayedProducts += productsToShow.length;
+
+                const loadMoreBtn = document.getElementById('loadMoreGlassArt');
+                if (displayedProducts >= filteredProducts.length) {
+                    loadMoreBtn.style.display = 'none';
+                } else {
+                    loadMoreBtn.style.display = 'block';
+                }
+            }
+
+            function resetProducts() {
+                container.innerHTML = '';
+                displayedProducts = 0;
+                loadProducts();
+            }
+
+            // Filter functionality
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    resetProducts();
+                });
+            });
+
+            // Load more functionality
+            document.getElementById('loadMoreGlassArt').addEventListener('click', loadProducts);
+
+            // Initial load
+            loadProducts();
+
+            // Filter System
+            setupFilterSystem();
+
+            function setupFilterSystem() {
+                const mobileToggle = document.getElementById('mobileFilterToggle');
+                const filterOverlay = document.getElementById('filterOverlay');
+                const sidebar = document.getElementById('filtersSidebar');
+                const closeMobile = document.getElementById('closeMobileFilters');
+                const clearFilters = document.getElementById('clearFilters');
+                const priceRange = document.getElementById('priceRange');
+                const priceValue = document.getElementById('priceValue');
+
+                // Mobile filter toggle
+                mobileToggle?.addEventListener('click', () => {
+                    sidebar.classList.add('open');
+                    filterOverlay.classList.add('active');
+                });
+
+                // Close mobile filters
+                closeMobile?.addEventListener('click', closeMobileFilters);
+                filterOverlay?.addEventListener('click', closeMobileFilters);
+
+                function closeMobileFilters() {
+                    sidebar.classList.remove('open');
+                    filterOverlay.classList.remove('active');
+                }
+
+                // Price range update
+                priceRange?.addEventListener('input', (e) => {
+                    priceValue.textContent = `$${e.target.value}`;
+                    applyFilters();
+                });
+
+                // Filter checkboxes
+                document.querySelectorAll('.filter-option input').forEach(input => {
+                    input.addEventListener('change', applyFilters);
+                });
+
+                // Clear filters
+                clearFilters?.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-option input').forEach(input => {
+                        input.checked = false;
+                    });
+                    if (priceRange) {
+                        priceRange.value = 200;
+                        priceValue.textContent = '$200';
+                    }
+                    applyFilters();
+                });
+
+                function applyFilters() {
+                    const products = document.querySelectorAll('.product-card');
+                    const checkedFilters = {
+                        'glass-type': Array.from(document.querySelectorAll('input[name="glass-type"]:checked')).map(el => el.value),
+                        'product-type': Array.from(document.querySelectorAll('input[name="product-type"]:checked')).map(el => el.value),
+                        'artisan': Array.from(document.querySelectorAll('input[name="artisan"]:checked')).map(el => el.value)
+                    };
+                    const maxPrice = priceRange ? parseInt(priceRange.value) : 400;
+
+                    products.forEach(product => {
+                        const productData = glassArtData.find(p => p.id === product.dataset.productId);
+                        if (!productData) return;
+
+                        let show = true;
+
+                        // Price filter
+                        if (productData.price > maxPrice) show = false;
+
+                        // Category filters
+                        if (checkedFilters['product-type'].length > 0) {
+                            if (!checkedFilters['product-type'].includes(productData.category)) show = false;
+                        }
+
+                        // Artisan filter
+                        if (checkedFilters['artisan'].length > 0) {
+                            const artisanKey = productData.artisan.toLowerCase().split(' ')[0];
+                            if (!checkedFilters['artisan'].includes(artisanKey)) show = false;
+                        }
+
+                        product.style.display = show ? 'flex' : 'none';
+                    });
+                }
+            }
+        });
+    </script>
+
+    <!-- Dostik AI System -->
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
 </body>

@@ -7,6 +7,19 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
+    this.debug = false;
+
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.API_DEBUG === true) {
+          this.debug = true;
+        } else if (window.localStorage) {
+          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
+        }
+      }
+    } catch (_) {
+      this.debug = false;
+    }
   }
 
   /**
@@ -19,12 +32,8 @@ class ApiClient {
   /**
    * Build headers with authorization
    */
-  buildHeaders(customHeaders = {}, isFormData = false) {
+  buildHeaders(customHeaders = {}) {
     const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
-
-    if (isFormData) {
-      delete headers['Content-Type'];
-    }
 
     const token = this.getToken();
     if (token) {
@@ -118,42 +127,56 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-    const { isFormData = false, ...fetchOptions } = options;
-
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config = {
-        ...fetchOptions,
-        headers: this.buildHeaders(fetchOptions.headers, isFormData),
+        ...options,
+        headers: this.buildHeaders(options.headers),
         signal: controller.signal,
       };
 
-      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
+      this._log(`${config.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      // Parse JSON response
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
 
-      // Check if request was successful
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (_) {
+          data = { success: response.ok, message: responseText };
+        }
+      } else {
+        data = { success: response.ok };
+      }
+
+      if (typeof data.success !== 'boolean') {
+        data.success = response.ok;
+      }
+
+      if (!data.message && response.statusText) {
+        data.message = response.statusText;
+      }
+
       if (!response.ok) {
-        console.error(`[API] Error ${response.status}:`, data);
+        this._log(`Error ${response.status} ${endpoint}`, data);
 
-        // Return backend error message directly if available
         if (data.message) {
           return {
             success: false,
             message: data.message,
             error: data.error || 'API_ERROR',
-            status: response.status
+            status: response.status,
           };
         }
 
-        return this.handleError(new Error(data.message || 'Request failed'), response);
+        return this.handleError(new Error('Request failed'), response);
       }
 
-      console.log(`[API] Success:`, data);
+      this._log(`Success ${endpoint}`, data);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -227,18 +250,10 @@ class ApiClient {
     });
   }
 
-  /**
-   * Upload product image (auto WebP conversion on backend)
-   */
-  async uploadProductImage(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
-      method: 'POST',
-      body: formData,
-      isFormData: true,
-    });
+  _log(...args) {
+    if (this.debug) {
+      console.log('[API]', ...args);
+    }
   }
 
   // ==========================================
@@ -289,6 +304,20 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
+  }
+
+  /**
+   * Get current user's store
+   */
+  async getMyStore() {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
+  }
+
+  /**
+   * Create a new store for the authenticated seller
+   */
+  async createStore(storeData = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
   }
 
   /**
@@ -410,6 +439,91 @@ class ApiClient {
    */
   async getStoreOrders(storeId, filters = {}) {
     return this.get(API_CONFIG.ENDPOINTS.ORDERS.STORE_ORDERS(storeId), filters);
+  }
+
+  // ==========================================
+  // CAMPAIGN METHODS
+  // ==========================================
+
+  /**
+   * Get all campaigns (admin)
+   */
+  async getCampaigns(filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BASE, filters);
+  }
+
+  /**
+   * Get campaign by ID
+   */
+  async getCampaign(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Update campaign (admin)
+   */
+  async updateCampaign(campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId), data);
+  }
+
+  /**
+   * Approve or reject campaign (admin)
+   */
+  async updateCampaignApproval(campaignId, approvalStatus, rejectionReason = '') {
+    const payload = { approval_status: approvalStatus };
+    if (approvalStatus === 'rejected' && rejectionReason) {
+      payload.rejection_reason = rejectionReason;
+    }
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.APPROVAL(campaignId), payload);
+  }
+
+  /**
+   * Delete campaign (admin)
+   */
+  async deleteCampaign(campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.BY_ID(campaignId));
+  }
+
+  /**
+   * Get campaign stats (admin)
+   */
+  async getCampaignStats(campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STATS(campaignId));
+  }
+
+  /**
+   * Get campaigns for a store (seller)
+   */
+  async getStoreCampaigns(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), filters);
+  }
+
+  /**
+   * Create campaign for a store (seller)
+   */
+  async createStoreCampaign(storeId, data = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BASE(storeId), data);
+  }
+
+  /**
+   * Update store campaign (seller)
+   */
+  async updateStoreCampaign(storeId, campaignId, data = {}) {
+    return this.patch(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId), data);
+  }
+
+  /**
+   * Delete store campaign (seller)
+   */
+  async deleteStoreCampaign(storeId, campaignId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_BY_ID(storeId, campaignId));
+  }
+
+  /**
+   * Get store campaign stats (seller)
+   */
+  async getStoreCampaignStats(storeId, campaignId) {
+    return this.get(API_CONFIG.ENDPOINTS.CAMPAIGNS.STORE_STATS(storeId, campaignId));
   }
 
   // ==========================================

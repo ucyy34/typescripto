@@ -1796,6 +1796,7 @@
     <!-- Page Scripts -->
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/wishlist-manager.js"></script>
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/checkout-api.js"></script>
 
@@ -2397,7 +2398,7 @@
 
                     AuthManager.login(tokens, user);
 
-                    let storeApplicationSubmitted = false;
+                    let storeCreated = false;
                     let storeError = null;
 
                     if (role === 'seller') {
@@ -2409,12 +2410,12 @@
                         try {
                             const storeResponse = await apiClient.createStore(storePayload);
                             if (storeResponse.success) {
-                                storeApplicationSubmitted = true;
+                                storeCreated = true;
                             } else {
-                                storeError = storeResponse.message || 'Store could not be created automatically.';
+                                storeError = storeResponse.message || 'Store application could not be submitted automatically.';
                             }
                         } catch (err) {
-                            storeError = err.message || 'Store creation failed. You can finish it from the vendor panel.';
+                            storeError = err.message || 'Store application failed. You can finish it from the vendor panel.';
                         }
 
                         if (storeError) {
@@ -2425,12 +2426,12 @@
                     registerCompleted = true;
 
                     if (role === 'seller') {
-                        if (storeApplicationSubmitted) {
-                            setStatusMessage(statusEl, 'Satıcı hesabınız oluşturuldu! Mağaza başvurunuz yönetici onayına gönderildi. Onaydan sonra panel özellikleri açılacaktır.', 'success');
+                        if (storeCreated) {
+                            setStatusMessage(statusEl, 'Seller account created and your store application was submitted for admin approval. You can continue checkout while approval is pending.', 'success');
                         } else if (storeError) {
-                            setStatusMessage(statusEl, `Satıcı hesabınız oluşturuldu ancak mağaza başvurusu tamamlanamadı: ${storeError}`, 'error');
+                            setStatusMessage(statusEl, 'Seller account created, but the store application could not be submitted automatically. You can send it later from the vendor panel.', 'error');
                         } else {
-                            setStatusMessage(statusEl, 'Satıcı hesabınız oluşturuldu. Mağaza başvurunuzu satıcı panelinden tamamlayabilirsiniz.', 'success');
+                            setStatusMessage(statusEl, 'Seller account created. Complete your store application from the vendor panel to start selling.', 'success');
                         }
                     } else {
                         setStatusMessage(statusEl, 'Account created! You can continue with checkout.', 'success');

@@ -388,22 +388,19 @@
             const actionLabel = button?.querySelector('.marketplace-action-label');
             const defaultLabel = button?.dataset.defaultLabel || 'Beğen';
 
+            const payload = {
+                id: product.id,
+                product_id: product.id,
+                product,
+            };
+
             try {
-                let inWishlist;
-                if (window.wishlistManager) {
-                    inWishlist = await window.wishlistManager.toggleItem(product.id, {
-                        product_id: product.id,
-                        title: product.title,
-                        price: product.price,
-                        images: product.images || [],
-                        store: product.store || null,
-                    });
-                } else {
-                    inWishlist = this.toggleWishlistFallback(product);
-                }
+                const added = window.wishlistManager
+                    ? await window.wishlistManager.toggle(payload)
+                    : this._fallbackToggleWishlist(payload.id, product);
 
                 if (button && actionLabel) {
-                    if (inWishlist) {
+                    if (added) {
                         button.classList.add('added');
                         actionLabel.textContent = 'Favoride';
                     } else {
@@ -412,48 +409,37 @@
                     }
                 }
 
-                const message = inWishlist
-                    ? `${product.title} favorilere eklendi!`
-                    : `${product.title} favorilerden çıkarıldı.`;
-                this.notifyDostik(message, false);
+                if (added) {
+                    this.notifyDostik(`${product.title} favorilere eklendi!`, false);
+                } else {
+                    this.notifyDostik(`${product.title} favorilerden çıkarıldı.`, false);
+                }
             } catch (error) {
-                console.error('[ÇarşıPazar] Wishlist toggle failed:', error);
-                this.notifyDostik('Favori işlemi sırasında hata oluştu.', false);
+                console.error('[ÇarşıPazar] Failed to toggle wishlist:', error);
+                if (button && actionLabel) {
+                    actionLabel.textContent = 'Tekrar dene';
+                }
             }
         }
 
-        toggleWishlistFallback(product) {
-            let wishlist = [];
-            try {
-                wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-            } catch (_) {
-                wishlist = [];
-            }
-
-            if (!Array.isArray(wishlist)) {
-                wishlist = [];
-            }
-
-            const existingIndex = wishlist.findIndex(
-                (item) => item.product_id === product.id || item.title === product.title
-            );
-
-            if (existingIndex > -1) {
-                wishlist.splice(existingIndex, 1);
-                localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        _fallbackToggleWishlist(productId, product) {
+            const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+            const index = stored.findIndex((item) => item.product_id === productId || item.title === product.title);
+            if (index > -1) {
+                stored.splice(index, 1);
+                localStorage.setItem('wishlist', JSON.stringify(stored));
                 return false;
             }
 
-            wishlist.push({
-                product_id: product.id,
+            stored.push({
+                product_id: productId,
                 title: product.title,
                 price: product.price,
                 images: product.images || [],
                 store: product.store || null,
                 source: 'marketplace',
             });
-
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            localStorage.setItem('wishlist', JSON.stringify(stored));
             return true;
         }
 

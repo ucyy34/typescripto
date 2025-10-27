@@ -397,7 +397,7 @@
 
                 AuthManager.login(tokens, user);
 
-                let storeApplicationSubmitted = false;
+                let storeCreated = false;
                 let storeError = null;
 
                 if (role === 'seller') {
@@ -418,28 +418,26 @@
                     try {
                         const storeResponse = await apiClient.createStore(storePayload);
                         if (storeResponse.success) {
-                            storeApplicationSubmitted = true;
+                            storeCreated = true;
                         } else {
-                            storeError = storeResponse.message || 'Store could not be created automatically.';
+                            storeError = storeResponse.message || 'Store application could not be submitted automatically.';
                         }
                     } catch (storeErr) {
-                        storeError = storeErr.message || 'Store creation failed. You can complete it later from the vendor panel.';
+                        storeError = storeErr.message || 'Store application failed. You can complete it later from the vendor panel.';
                     }
 
                     if (storeError) {
                         console.warn('Automatic store creation failed:', storeError);
-                        errorMessage.textContent = `Hesabınız oluşturuldu fakat mağaza başvurusu tamamlanamadı: ${storeError}`;
+                        errorMessage.textContent = `Account created but store application could not be submitted: ${storeError}`;
                         errorMessage.classList.add('show');
                     }
                 }
 
                 // Show success
                 if (role === 'seller') {
-                    if (storeApplicationSubmitted) {
-                        successMessage.textContent = 'Satıcı hesabınız oluşturuldu! Mağaza başvurunuz yönetici onayına gönderildi. Onay sonrası mağaza paneliniz otomatik olarak aktifleşecektir.';
-                    } else {
-                        successMessage.textContent = 'Satıcı hesabınız oluşturuldu. Mağaza başvurunuzu satıcı panelinden tamamlayabilirsiniz.';
-                    }
+                    successMessage.textContent = storeCreated
+                        ? 'Seller account created! Your store application was sent for admin approval. We will redirect you to the vendor panel to track the status.'
+                        : 'Seller account created. Complete your store application from the vendor panel to start selling.';
                 } else {
                     successMessage.textContent = 'Account created successfully! Redirecting...';
                 }
