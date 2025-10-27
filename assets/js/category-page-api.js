@@ -14,9 +14,6 @@ class CategoryPageAPI {
         this.pageSize = Number(document.body.dataset.categoryPageSize || 8);
         this.isLoading = false;
         this.totalAvailable = 0;
-        this.nextCursor = null;
-        this.hasMore = false;
-        this.pageFetches = 0;
         this.activeFilter = 'all';
         this.filters = {
             search: '',
@@ -60,7 +57,9 @@ class CategoryPageAPI {
     }
 
     async loadCategory() {
-        console.log('[Category Page API] Loading category details for', this.categorySlug);
+        if (API_CONFIG.DEBUG && console && console.debug) {
+            console.debug('[Category Page API] Loading category details for', this.categorySlug);
+        }
         const response = await this.apiClient.getCategoryBySlug(this.categorySlug);
 
         if (!response.success || !response.data) {
@@ -95,7 +94,7 @@ class CategoryPageAPI {
         // Load more button
         if (this.dom.loadMore) {
             this.dom.loadMore.addEventListener('click', () => {
-                if (!this.isLoading && this.hasMore) {
+                if (!this.isLoading) {
                     this.loadProducts({ reset: false });
                 }
             });
@@ -201,18 +200,14 @@ class CategoryPageAPI {
     }
 
     async loadProducts({ reset }) {
-        if (!this.category || this.isLoading) {
-            return;
-        }
+        if (!this.category) return;
 
+        if (this.isLoading) return;
         this.isLoading = true;
 
         if (reset) {
             this.currentPage = 1;
             this.products = [];
-            this.nextCursor = null;
-            this.hasMore = false;
-            this.pageFetches = 0;
             if (this.dom.container) {
                 this.dom.container.innerHTML = this.renderLoadingSkeletons();
             }
@@ -224,6 +219,7 @@ class CategoryPageAPI {
         try {
             const params = {
                 category_id: this.category.id,
+                page: this.currentPage,
                 limit: this.pageSize,
                 sort: '-created_at',
             };
@@ -236,13 +232,6 @@ class CategoryPageAPI {
                 params.max_price = this.filters.maxPrice;
             }
 
-            if (!reset && this.nextCursor) {
-                params.cursor = this.nextCursor;
-                params.skip_total = true;
-            } else {
-                params.page = this.currentPage;
-            }
-
             const response = await this.apiClient.getProducts(params);
 
             if (!response.success || !Array.isArray(response.data)) {
@@ -250,35 +239,18 @@ class CategoryPageAPI {
             }
 
             const fetchedProducts = response.data;
-            const pagination = response.pagination || {};
+            this.totalAvailable = response.pagination?.total || fetchedProducts.length;
 
             if (reset && this.dom.container) {
                 this.dom.container.innerHTML = '';
             }
 
             this.products = reset ? fetchedProducts : [...this.products, ...fetchedProducts];
-            this.pageFetches += 1;
-
-            if (Number.isFinite(pagination.total)) {
-                this.totalAvailable = pagination.total;
-            } else if (reset) {
-                this.totalAvailable = fetchedProducts.length;
-            } else {
-                this.totalAvailable += fetchedProducts.length;
-            }
-
-            if (Number.isFinite(pagination.page)) {
-                this.currentPage = pagination.page + 1;
-            } else {
-                this.currentPage = this.pageFetches + 1;
-            }
-
-            this.nextCursor = pagination.nextCursor || null;
-            this.hasMore = Boolean(pagination.hasNext);
+            this.currentPage = (response.pagination?.page || this.currentPage) + 1;
 
             this.renderProducts();
             this.updateStats();
-            this.toggleLoadMore();
+            this.toggleLoadMore(response.pagination?.hasNext || false);
         } catch (error) {
             console.error('[Category Page API] Error loading products:', error);
             this.showError('Ürünler yüklenirken bir sorun oluştu.');
@@ -333,11 +305,9 @@ class CategoryPageAPI {
         }
 
         this.dom.container.innerHTML = '';
-        const fragment = document.createDocumentFragment();
         filteredProducts.forEach((product) => {
-            fragment.appendChild(this.createProductCard(product));
+            this.dom.container.appendChild(this.createProductCard(product));
         });
-        this.dom.container.appendChild(fragment);
     }
 
     renderLoadingSkeletons(count = 6) {
@@ -362,18 +332,15 @@ class CategoryPageAPI {
         card.className = 'product-card breathe';
         card.dataset.productId = product.id;
 
-        const fallbackImage = 'https://via.placeholder.com/400x300?text=Nordic+Art';
-        const mainImage = product.primary_image
-            || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : fallbackImage);
+        const mainImage = Array.isArray(product.images) && product.images.length > 0
+            ? product.images[0]
+            : 'https://via.placeholder.com/400x300?text=Nordic+Art';
 
         const badges = [];
         if (Array.isArray(product.badges)) {
-            product.badges
-                .map((badge) => (typeof badge === 'string' ? badge.trim() : badge))
-                .filter(Boolean)
-                .forEach((badge) => {
-                    badges.push(`<span class="badge">${badge}</span>`);
-                });
+            product.badges.forEach((badge) => {
+                badges.push(`<span class="badge">${badge}</span>`);
+            });
         }
 
         const discount = product.compare_price && Number(product.compare_price) > Number(product.price)
@@ -474,7 +441,7 @@ class CategoryPageAPI {
         }
     }
 
-    toggleLoadMore(hasNext = this.hasMore) {
+    toggleLoadMore(hasNext) {
         if (!this.dom.loadMore) return;
 
         if (hasNext) {

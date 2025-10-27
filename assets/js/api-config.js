@@ -62,7 +62,6 @@ const API_CONFIG = {
     STORES: {
       BASE: '/stores',
       BY_ID: (id) => `/stores/${id}`,
-      BY_SLUG: (slug) => `/stores/slug/${slug}`,
       MY_STORE: '/stores/my-store',
       STATUS: (id) => `/stores/${id}/status`,
       STATS: (id) => `/stores/${id}/stats`,
@@ -73,16 +72,11 @@ const API_CONFIG = {
     // Product endpoints
     PRODUCTS: {
       BASE: '/products',
-      SEARCH: '/products/search',
       BY_ID: (id) => `/products/${id}`,
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
       SEARCH: '/products/search',
-    },
-
-    SEARCH: {
-      PRODUCTS: '/products/search',
     },
 
     // Category endpoints
@@ -103,32 +97,12 @@ const API_CONFIG = {
       STORE_ORDERS: (storeId) => `/stores/${storeId}/orders`,
     },
 
-    // Campaign endpoints
-    CAMPAIGNS: {
-      BASE: '/campaigns',
-      BY_ID: (id) => `/campaigns/${id}`,
-      APPROVAL: (id) => `/campaigns/${id}/approval`,
-      STATS: (id) => `/campaigns/${id}/stats`,
-      STORE_BASE: (storeId) => `/stores/${storeId}/campaigns`,
-      STORE_BY_ID: (storeId, id) => `/stores/${storeId}/campaigns/${id}`,
-      STORE_STATS: (storeId, id) => `/stores/${storeId}/campaigns/${id}/stats`,
-    },
-
     // Cart endpoints
     CART: {
       BASE: '/cart',
       ITEMS: '/cart/items',
       ITEM_BY_ID: (productId) => `/cart/items/${productId}`,
       MERGE: '/cart/merge',
-    },
-
-    // Wishlist endpoints
-    WISHLIST: {
-      BASE: '/wishlist',
-      ITEMS: '/wishlist/items',
-      ITEM_BY_ID: (productId) => `/wishlist/items/${productId}`,
-      MERGE: '/wishlist/merge',
-      RECOMMENDATIONS: '/wishlist/recommendations',
     },
 
     // Dashboard/Stats endpoints (might need to be created)
@@ -152,6 +126,25 @@ const API_CONFIG = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+
+  DEBUG: (() => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (typeof window.API_DEBUG === 'boolean') {
+          return window.API_DEBUG;
+        }
+        if (window.localStorage) {
+          const stored = window.localStorage.getItem('API_DEBUG');
+          if (stored !== null) {
+            return stored === 'true' || stored === '1';
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore access issues
+    }
+    return false;
+  })(),
 };
 
 // Export for use in other modules

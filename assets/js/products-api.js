@@ -21,6 +21,8 @@ class ProductsPageAPI {
             sort: 'featured',
             storeId: this.urlParams.get('store') || null,
         };
+        this.activeRequestController = null;
+        this.debug = Boolean(API_CONFIG.DEBUG);
         const initialSearch = this.urlParams.get('search');
         if (initialSearch) {
             this.filters.search = initialSearch.trim();
@@ -29,8 +31,14 @@ class ProductsPageAPI {
             ? decodeURIComponent(this.urlParams.get('storeName'))
             : null;
 
-        console.log('[Products Page API] Initializing...');
+        this.log('Initializing products page API');
         this.init();
+    }
+
+    log(...args) {
+        if (this.debug && typeof console !== 'undefined' && console.debug) {
+            console.debug('[Products Page]', ...args);
+        }
     }
 
     async init() {
@@ -44,7 +52,7 @@ class ProductsPageAPI {
             // Setup event listeners
             this.setupEventListeners();
 
-            console.log('[Products Page API] Initialization complete');
+            this.log('Initialization complete');
         } catch (error) {
             console.error('[Products Page API] Initialization error:', error);
             this.showError('Failed to initialize products page');
@@ -53,12 +61,12 @@ class ProductsPageAPI {
 
     async loadCategories() {
         try {
-            console.log('[Products Page API] Loading categories...');
+            this.log('Loading categories...');
             const response = await this.apiClient.getTopLevelCategories();
 
             if (response.success && response.data) {
                 this.categories = response.data;
-                console.log('[Products Page API] Categories loaded:', this.categories.length);
+                this.log('Loaded categories', this.categories.length);
                 this.renderCategoryFilters();
             }
         } catch (error) {
@@ -67,8 +75,9 @@ class ProductsPageAPI {
     }
 
     async loadProducts() {
+        let controller = null;
         try {
-            console.log('[Products Page API] Loading products...');
+            this.log('Loading products...');
 
             // Show loading state
             this.showLoading();
@@ -103,7 +112,22 @@ class ProductsPageAPI {
             // Add rating filter (only approved products shown by default)
             // Backend returns only approved & active products by default
 
-            const response = await this.apiClient.getProducts(params);
+            if (this.activeRequestController) {
+                this.activeRequestController.abort();
+            }
+
+            controller = new AbortController();
+            this.activeRequestController = controller;
+
+            const response = await this.apiClient.getProducts(params, { signal: controller.signal });
+
+            if (controller !== this.activeRequestController) {
+                return;
+            }
+
+            if (!response) {
+                return;
+            }
 
             if (response.success && response.data) {
                 this.allProducts = response.data;
@@ -111,40 +135,37 @@ class ProductsPageAPI {
 
                 // Update pagination
                 if (response.pagination) {
-                    if (Number.isFinite(response.pagination.page)) {
-                        this.currentPage = response.pagination.page;
-                    } else {
-                        this.currentPage = 1;
-                    }
-
-                    if (Number.isFinite(response.pagination.totalPages)) {
-                        this.totalPages = response.pagination.totalPages;
-                    } else if (
-                        Number.isFinite(response.pagination.total) &&
-                        Number.isFinite(response.pagination.limit)
-                    ) {
-                        const total = Number(response.pagination.total);
-                        const limit = Number(response.pagination.limit) || 20;
-                        this.totalPages = Math.max(1, Math.ceil(total / limit));
-                    } else {
-                        this.totalPages = 1;
-                    }
+                    this.currentPage = response.pagination.page;
+                    this.totalPages = response.pagination.totalPages || 1;
                 }
 
-                console.log('[Products Page API] Products loaded:', this.allProducts.length);
+                this.log('Products loaded', this.allProducts.length);
 
                 this.renderProducts();
                 this.updateResultsCount();
                 this.updateStoreContext();
                 this.syncSearchInput();
             } else {
+                if (response.error === 'ABORTED') {
+                    return;
+                }
                 this.showError('No products found');
             }
         } catch (error) {
+            if (error?.error === 'ABORTED') {
+                return;
+            }
             console.error('[Products Page API] Error loading products:', error);
             this.showError('Failed to load products');
         } finally {
-            this.hideLoading();
+            const isLatest = controller && this.activeRequestController === controller;
+            if (isLatest && this.activeRequestController.signal.aborted) {
+                this.log('Latest product request aborted');
+            }
+            if (isLatest) {
+                this.hideLoading();
+                this.activeRequestController = null;
+            }
         }
     }
 
@@ -333,14 +354,11 @@ class ProductsPageAPI {
         }
 
         container.innerHTML = '';
-        const fragment = document.createDocumentFragment();
 
         this.filteredProducts.forEach(product => {
             const productElement = this.createProductCard(product);
-            fragment.appendChild(productElement);
+            container.appendChild(productElement);
         });
-
-        container.appendChild(fragment);
 
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {
@@ -375,9 +393,9 @@ class ProductsPageAPI {
         const categoryIcon = category ? category.icon : '';
 
         // Product images
-        const fallbackImage = 'https://via.placeholder.com/400x300?text=No+Image';
-        const mainImage = product.primary_image
-            || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : fallbackImage);
+        const mainImage = product.images && product.images.length > 0
+            ? product.images[0]
+            : 'https://via.placeholder.com/400x300?text=No+Image';
 
         // Format price
         const price = parseFloat(product.price);
@@ -403,22 +421,19 @@ class ProductsPageAPI {
 
         // Product badges (handmade, eco-friendly, etc.)
         if (product.badges && Array.isArray(product.badges)) {
-            product.badges
-                .map(badge => (typeof badge === 'string' ? badge.trim() : badge))
-                .filter(Boolean)
-                .forEach(badge => {
-                    const badgeLabels = {
-                        'handmade': '✋ Handmade',
-                        'limited': '⭐ Limited',
-                        'eco-friendly': '🌱 Eco',
-                        'spiritual': '🕉️ Spiritual',
-                        'traditional': '🏛️ Traditional',
-                        'artisan': '👨‍🎨 Artisan'
-                    };
-                    if (badgeLabels[badge]) {
-                        badges.push(`<span class="badge ${badge}">${badgeLabels[badge]}</span>`);
-                    }
-                });
+            product.badges.forEach(badge => {
+                const badgeLabels = {
+                    'handmade': '✋ Handmade',
+                    'limited': '⭐ Limited',
+                    'eco-friendly': '🌱 Eco',
+                    'spiritual': '🕉️ Spiritual',
+                    'traditional': '🏛️ Traditional',
+                    'artisan': '👨‍🎨 Artisan'
+                };
+                if (badgeLabels[badge]) {
+                    badges.push(`<span class="badge ${badge}">${badgeLabels[badge]}</span>`);
+                }
+            });
         }
 
         // Stock status

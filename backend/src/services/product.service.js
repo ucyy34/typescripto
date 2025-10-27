@@ -3,57 +3,112 @@
  * Business logic for product management
  */
 
-const { Product, Store, Category, ProductVariant } = require('../models');
+const { Product, Store, Category, User, ProductVariant } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
-const {
-  parsePagination,
-  parseBoolean,
-  encodeCursor,
-  buildCursorClause,
-} = require('../utils/pagination');
 
 const MAX_SEO_DESCRIPTION_LENGTH = 160;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 60;
 
-const PRODUCT_LIST_ATTRIBUTES = [
-  'id',
-  'title',
-  'slug',
-  'price',
-  'compare_price',
-  'short_description',
-  'images',
-  'badges',
-  'rating',
-  'total_reviews',
-  'total_sales',
-  'stock',
-  'is_active',
-  'status',
-  'created_at',
-  'updated_at',
-  'store_id',
-  'category_id',
-];
+const serializeForCache = (value) => {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'symbol') {
+      return value.description || value.toString();
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return value;
+  }
 
-const buildProductIncludes = () => [
-  {
-    model: Store,
-    as: 'store',
-    attributes: ['id', 'name', 'slug', 'logo', 'rating'],
-    where: { status: 'approved' },
-    required: true,
-  },
-  {
-    model: Category,
-    as: 'category',
-    attributes: ['id', 'name', 'slug', 'icon'],
-    required: false,
-  },
-];
+  if (Array.isArray(value)) {
+    return value.map((item) => serializeForCache(item));
+  }
+
+  const serialized = {};
+
+  for (const key of Object.keys(value)) {
+    serialized[key] = serializeForCache(value[key]);
+  }
+
+  for (const symbolKey of Object.getOwnPropertySymbols(value)) {
+    const serializedKey = symbolKey.description || symbolKey.toString();
+    serialized[`$symbol:${serializedKey}`] = serializeForCache(value[symbolKey]);
+  }
+
+  return serialized;
+};
+
+const buildCacheKey = (prefix, payload) => {
+  return `${prefix}:${JSON.stringify(serializeForCache(payload))}`;
+};
+
+const transformProductSummary = (product) => {
+  if (!product) return null;
+
+  const safeImages = Array.isArray(product.images) ? product.images : [];
+  const safeBadges = Array.isArray(product.badges) ? product.badges : [];
+  const safeTags = Array.isArray(product.tags) ? product.tags : [];
+  const safeMetaKeywords = Array.isArray(product.meta_keywords) ? product.meta_keywords : [];
+
+  return {
+    id: product.id,
+    store_id: product.store_id,
+    category_id: product.category_id,
+    title: product.title,
+    slug: product.slug,
+    description: product.description,
+    short_description: product.short_description,
+    sku: product.sku,
+    price: product.price,
+    compare_price: product.compare_price,
+    cost_price: product.cost_price,
+    stock: product.stock,
+    low_stock_threshold: product.low_stock_threshold,
+    images: safeImages,
+    thumbnail: safeImages.length > 0 ? safeImages[0] : null,
+    status: product.status,
+    rejection_reason: product.rejection_reason,
+    is_active: product.is_active,
+    is_featured: product.is_featured,
+    weight: product.weight,
+    dimensions: product.dimensions,
+    attributes: product.attributes,
+    seo_title: product.seo_title,
+    seo_description: product.seo_description,
+    meta_keywords: safeMetaKeywords,
+    tags: safeTags,
+    badges: safeBadges,
+    rating: product.rating,
+    total_reviews: product.total_reviews,
+    total_sales: product.total_sales,
+    views_count: product.views_count,
+    approved_at: product.approved_at,
+    approved_by: product.approved_by,
+    created_at: product.created_at,
+    updated_at: product.updated_at,
+    store: product.store
+      ? {
+          id: product.store.id,
+          name: product.store.name,
+          slug: product.store.slug,
+          logo: product.store.logo,
+          rating: product.store.rating,
+        }
+      : null,
+    category: product.category
+      ? {
+          id: product.category.id,
+          name: product.category.name,
+          slug: product.category.slug,
+        }
+      : null,
+  };
+};
 
 const sanitizeSeoText = (text, limit) => {
   if (!text) return undefined;
@@ -277,6 +332,8 @@ class ProductService {
    */
   async getProducts(filters) {
     const {
+      page = 1,
+      limit = DEFAULT_LIMIT,
       store_id,
       category_id,
       status,
@@ -285,208 +342,142 @@ class ProductService {
       max_price,
       in_stock,
       is_featured,
-      includeAllStatuses,
-      skip_total,
+      sort = '-created_at',
+      includeAllStatuses, // Flag to include all statuses (for vendor's own products)
     } = filters;
 
-    const pagination = parsePagination(filters);
-    const shouldIncludeAll = parseBoolean(includeAllStatuses);
-    const shouldFilterInStock = parseBoolean(in_stock);
-    const requestedFeatured =
-      is_featured !== undefined && is_featured !== null ? parseBoolean(is_featured) : undefined;
+    const shouldIncludeAll = includeAllStatuses === 'true' || includeAllStatuses === true;
 
-    const andConditions = [];
+    const parsedPage = Number(page) || 1;
+    const pageNumber = parsedPage > 0 ? Math.floor(parsedPage) : 1;
+    const parsedLimit = Number(limit);
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(Math.floor(parsedLimit), 1), MAX_LIMIT)
+      : DEFAULT_LIMIT;
+    const offset = (pageNumber - 1) * safeLimit;
 
-    if (store_id) {
-      andConditions.push({ store_id });
-    }
+    const where = {};
 
-    if (category_id) {
-      andConditions.push({ category_id });
-    }
+    if (store_id) where.store_id = store_id;
+    if (category_id) where.category_id = category_id;
+    if (status) where.status = status;
+    if (is_featured !== undefined) where.is_featured = is_featured;
 
-    if (status) {
-      andConditions.push({ status });
-    } else if (!shouldIncludeAll) {
-      andConditions.push({ status: 'approved' });
-    }
-
-    if (!shouldIncludeAll && (!status || status === 'approved')) {
-      andConditions.push({ is_active: true });
-    }
-
-    if (requestedFeatured !== undefined) {
-      andConditions.push({ is_featured: requestedFeatured });
-    }
-
-    const priceFilters = {};
-    const minPrice = Number.parseFloat(min_price);
-    const maxPrice = Number.parseFloat(max_price);
-
-    if (Number.isFinite(minPrice)) {
-      priceFilters[Op.gte] = minPrice;
-    }
-
-    if (Number.isFinite(maxPrice)) {
-      priceFilters[Op.lte] = maxPrice;
-    }
-
-    if (Object.keys(priceFilters).length > 0) {
-      andConditions.push({ price: priceFilters });
-    }
-
-    if (shouldFilterInStock || (!shouldIncludeAll && (!status || status === 'approved'))) {
-      andConditions.push({ stock: { [Op.gt]: 0 } });
-    }
-
-    const searchTerm = typeof search === 'string' ? search.trim() : '';
-    if (searchTerm) {
-      const normalizedSearch = searchTerm.replace(/\s+/g, ' ');
-      const wildcard = `%${normalizedSearch}%`;
-      const tokens = normalizedSearch.split(' ').filter(Boolean);
-
-      const orConditions = [
-        { title: { [Op.iLike]: wildcard } },
-        { short_description: { [Op.iLike]: wildcard } },
-        { description: { [Op.iLike]: wildcard } },
-        { seo_title: { [Op.iLike]: wildcard } },
-        { seo_description: { [Op.iLike]: wildcard } },
-        { slug: { [Op.iLike]: wildcard } },
-        { '$store.name$': { [Op.iLike]: wildcard } },
-        { '$store.slug$': { [Op.iLike]: wildcard } },
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+        { tags: { [Op.contains]: [search] } },
       ];
+    }
 
-      if (tokens.length > 0) {
-        orConditions.push({ tags: { [Op.overlap]: tokens } });
-        orConditions.push({ meta_keywords: { [Op.overlap]: tokens } });
+    if (min_price !== undefined || max_price !== undefined) {
+      where.price = {};
+      if (min_price !== undefined) where.price[Op.gte] = min_price;
+      if (max_price !== undefined) where.price[Op.lte] = max_price;
+    }
+
+    if (in_stock) {
+      where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
+    }
+
+    if (!shouldIncludeAll) {
+      if (!status) {
+        where.status = 'approved';
       }
 
-      andConditions.push({ [Op.or]: orConditions });
-    }
-
-    const cursorClause = buildCursorClause({
-      cursor: pagination.cursor,
-      sortField: pagination.sortField,
-      sortDirection: pagination.sortDirection,
-    });
-
-    const baseConditions = [...andConditions];
-
-    if (cursorClause) {
-      andConditions.push(cursorClause);
-    }
-
-    const where = andConditions.length > 0 ? { [Op.and]: andConditions } : {};
-    const countWhere = cursorClause
-      ? baseConditions.length > 0
-        ? { [Op.and]: baseConditions }
-        : {}
-      : where;
-
-    let cacheKey = null;
-    if (!pagination.usingCursor && !searchTerm) {
-      cacheKey = `products:${JSON.stringify({
-        store_id,
-        category_id,
-        status: status || (shouldIncludeAll ? null : 'approved'),
-        in_stock: shouldFilterInStock,
-        is_featured: requestedFeatured,
-        min_price: Number.isFinite(minPrice) ? minPrice : null,
-        max_price: Number.isFinite(maxPrice) ? maxPrice : null,
-        offset: pagination.offset,
-        limit: pagination.limit,
-        order: pagination.order,
-      })}`;
-
-      const cached = await cache.get(cacheKey);
-      if (cached) {
-        return cached;
+      if (!status || status === 'approved') {
+        where.is_active = true;
+        where.stock = { ...(where.stock || {}), [Op.gt]: 0 };
       }
     }
 
-    const fetchLimit = pagination.limit + 1;
-    const include = buildProductIncludes();
+    const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
+    const sortDirection = sort.startsWith('-') ? 'DESC' : 'ASC';
+    const order = [[sortField, sortDirection]];
 
-    const queryOptions = {
+    const cacheKey = buildCacheKey('products', { where, offset, limit: safeLimit, order });
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const { rows: products, count: total } = await Product.findAndCountAll({
       where,
-      include,
-      order: pagination.order,
-      limit: fetchLimit,
+      limit: safeLimit,
+      offset,
+      order,
       subQuery: false,
-      attributes: PRODUCT_LIST_ATTRIBUTES,
-    };
-
-    if (!pagination.usingCursor) {
-      queryOptions.offset = pagination.offset;
-    }
-
-    const products = await Product.findAll(queryOptions);
-
-    let hasMore = false;
-    let visibleProducts = products;
-
-    if (products.length > pagination.limit) {
-      hasMore = true;
-      visibleProducts = products.slice(0, pagination.limit);
-    }
-
-    const serializedProducts = visibleProducts.map((product) => {
-      const plain = product.get({ plain: true });
-      plain.primary_image = Array.isArray(plain.images) && plain.images.length > 0 ? plain.images[0] : null;
-      plain.badges = Array.isArray(plain.badges) ? plain.badges.filter(Boolean) : [];
-      return plain;
+      distinct: true,
+      attributes: [
+        'id',
+        'store_id',
+        'category_id',
+        'title',
+        'slug',
+        'description',
+        'short_description',
+        'sku',
+        'price',
+        'compare_price',
+        'cost_price',
+        'stock',
+        'low_stock_threshold',
+        'images',
+        'status',
+        'rejection_reason',
+        'is_active',
+        'is_featured',
+        'weight',
+        'dimensions',
+        'attributes',
+        'seo_title',
+        'seo_description',
+        'meta_keywords',
+        'tags',
+        'badges',
+        'rating',
+        'total_reviews',
+        'total_sales',
+        'views_count',
+        'approved_at',
+        'approved_by',
+        'created_at',
+        'updated_at',
+      ],
+      include: [
+        {
+          model: Store,
+          as: 'store',
+          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+          where: { status: 'approved' },
+          required: true,
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug'],
+        },
+      ],
     });
 
-    const shouldSkipTotal = parseBoolean(skip_total) || pagination.usingCursor;
-    let total = null;
-    let totalPages = null;
-
-    if (!shouldSkipTotal) {
-      const countInclude = buildProductIncludes();
-      total = await Product.count({
-        where: countWhere,
-        include: countInclude,
-        distinct: true,
-        col: 'Product.id',
-      });
-      totalPages = Math.ceil(total / pagination.limit) || 1;
-    }
-
-    const nextCursor = hasMore && serializedProducts.length > 0
-      ? encodeCursor(pagination.sortField, serializedProducts[serializedProducts.length - 1])
-      : null;
-
-    const previousCursor = pagination.usingCursor && serializedProducts.length > 0
-      ? encodeCursor(pagination.sortField, serializedProducts[0])
-      : null;
-
-    const computedHasNext = pagination.usingCursor
-      ? hasMore
-      : total !== null
-        ? pagination.page < totalPages
-        : hasMore;
+    const plainProducts = products.map((product) =>
+      transformProductSummary(product.get ? product.get({ plain: true }) : product)
+    );
 
     const result = {
-      products: serializedProducts,
+      products: plainProducts,
       pagination: {
-        page: pagination.usingCursor ? null : pagination.page,
-        limit: pagination.limit,
-        total: total !== null ? total : undefined,
-        totalPages: totalPages !== null ? totalPages : undefined,
-        hasNext: computedHasNext,
-        hasPrev: pagination.usingCursor ? Boolean(pagination.cursor) : pagination.page > 1,
-        nextCursor,
-        previousCursor,
-        cursor: pagination.usingCursor ? pagination.rawCursor : null,
-        sort: `${pagination.sortDirection === 'DESC' ? '-' : ''}${pagination.sortField}`,
-        usingCursor: pagination.usingCursor,
+        page: pageNumber,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
+        hasNext: pageNumber < Math.ceil(total / safeLimit),
+        hasPrev: pageNumber > 1,
       },
     };
 
-    // Cache only page-based requests with simple filters to avoid key explosion
-    if (cacheKey) {
-      await cache.set(cacheKey, result, 300);
-    }
+    await cache.set(cacheKey, result, 300);
 
     return result;
   }
@@ -511,10 +502,14 @@ class ProductService {
     const normalizedQuery = trimmedQuery.replace(/\s+/g, ' ');
     const lowerQuery = normalizedQuery.toLowerCase();
     const requestedLimit = Number(options.limit) || 8;
-    const limit = Math.min(Math.max(requestedLimit, 1), 20);
+    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 20);
     const includeSuggestions = options.includeSuggestions !== false;
 
-    const cacheKey = `product:search:${lowerQuery}:${limit}:${includeSuggestions ? 1 : 0}`;
+    const cacheKey = buildCacheKey('product:search', {
+      query: lowerQuery,
+      limit,
+      includeSuggestions: includeSuggestions ? 1 : 0,
+    });
     const cached = await cache.get(cacheKey);
     if (cached) {
       return cached;
@@ -569,51 +564,58 @@ class ProductService {
         ['created_at', 'DESC'],
       ],
       limit,
+      attributes: [
+        'id',
+        'store_id',
+        'category_id',
+        'title',
+        'slug',
+        'short_description',
+        'price',
+        'compare_price',
+        'stock',
+        'low_stock_threshold',
+        'images',
+        'badges',
+        'tags',
+        'meta_keywords',
+        'seo_title',
+        'seo_description',
+        'rating',
+        'total_reviews',
+        'total_sales',
+        'created_at',
+        'updated_at',
+      ],
     });
 
-    const transformedProducts = products.map((product) => ({
-      id: product.id,
-      title: product.title,
-      slug: product.slug,
-      price: product.price,
-      compare_price: product.compare_price,
-      short_description: product.short_description,
-      thumbnail: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null,
-      badges: Array.isArray(product.badges) ? product.badges : [],
-      rating: product.rating,
-      total_reviews: product.total_reviews,
-      store: product.store
-        ? {
-            id: product.store.id,
-            name: product.store.name,
-            slug: product.store.slug,
-            logo: product.store.logo,
-          }
-        : null,
-      category: product.category
-        ? {
-            id: product.category.id,
-            name: product.category.name,
-            slug: product.category.slug,
-          }
-        : null,
-    }));
+    const transformedProducts = products.map((product) =>
+      transformProductSummary(product.get ? product.get({ plain: true }) : product)
+    );
 
     let keywordSuggestions = [];
     if (includeSuggestions) {
       const suggestionSet = new Set();
-      for (const product of products) {
+      const addSuggestion = (value) => {
+        if (value === undefined || value === null) return;
+        const trimmed = String(value).trim();
+        if (trimmed) {
+          suggestionSet.add(trimmed);
+        }
+      };
+
+      for (const product of transformedProducts) {
         if (Array.isArray(product.tags)) {
-          product.tags.forEach((tag) => suggestionSet.add(String(tag).trim()));
+          product.tags.forEach(addSuggestion);
         }
         if (Array.isArray(product.meta_keywords)) {
-          product.meta_keywords.forEach((keyword) => suggestionSet.add(String(keyword).trim()));
+          product.meta_keywords.forEach(addSuggestion);
         }
         if (product.category?.name) {
-          suggestionSet.add(product.category.name);
+          addSuggestion(product.category.name);
         }
         if (product.store?.name) {
-          suggestionSet.add(product.store.name);
+          addSuggestion(product.store.name);
         }
       }
 
@@ -819,11 +821,13 @@ class ProductService {
     if (cached) return cached;
 
     const products = await Product.findFeatured(limit);
+    const transformed = products.map((product) =>
+      transformProductSummary(product.get ? product.get({ plain: true }) : product)
+    );
 
-    // Cache for 1 hour
-    await cache.set(cacheKey, products, 3600);
+    await cache.set(cacheKey, transformed, 3600);
 
-    return products;
+    return transformed;
   }
 
   /**
@@ -837,11 +841,13 @@ class ProductService {
     if (cached) return cached;
 
     const products = await Product.findBestSellers(limit);
+    const transformed = products.map((product) =>
+      transformProductSummary(product.get ? product.get({ plain: true }) : product)
+    );
 
-    // Cache for 30 minutes
-    await cache.set(cacheKey, products, 1800);
+    await cache.set(cacheKey, transformed, 1800);
 
-    return products;
+    return transformed;
   }
 
   /**
@@ -866,12 +872,38 @@ class ProductService {
       ],
       order: Product.sequelize.random(),
       limit,
+      attributes: [
+        'id',
+        'store_id',
+        'category_id',
+        'title',
+        'slug',
+        'short_description',
+        'price',
+        'compare_price',
+        'stock',
+        'low_stock_threshold',
+        'images',
+        'badges',
+        'tags',
+        'meta_keywords',
+        'seo_title',
+        'seo_description',
+        'rating',
+        'total_reviews',
+        'total_sales',
+        'created_at',
+        'updated_at',
+      ],
     });
 
-    // Cache briefly (1 minute) to keep results fresh but avoid hammering DB
-    await cache.set(cacheKey, products, 60);
+    const transformed = products.map((product) =>
+      transformProductSummary(product.get ? product.get({ plain: true }) : product)
+    );
 
-    return products;
+    await cache.set(cacheKey, transformed, 60);
+
+    return transformed;
   }
 }
 
