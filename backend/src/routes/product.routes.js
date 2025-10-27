@@ -42,6 +42,13 @@ router.get('/bestsellers', productController.getBestSellers);
 router.get('/random', productController.getRandomProducts);
 
 /**
+ * @route   GET /api/v1/products/slug/:slug
+ * @desc    Get product by slug
+ * @access  Public
+ */
+router.get('/slug/:slug', optionalAuth, productController.getProductBySlug);
+
+/**
  * @route   POST /api/v1/products
  * @desc    Create new product
  * @access  Private (Seller only)

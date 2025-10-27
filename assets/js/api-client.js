@@ -371,46 +371,6 @@ class ApiClient {
   }
 
   /**
-   * Search products with suggestions
-   */
-  async searchProducts(query, options = {}) {
-    const trimmedQuery = typeof query === 'string' ? query.trim() : '';
-
-    if (!trimmedQuery || trimmedQuery.length < 2) {
-      return Promise.resolve({
-        success: true,
-        data: {
-          query: trimmedQuery,
-          normalizedQuery: trimmedQuery.toLowerCase(),
-          total: 0,
-          results: [],
-          suggestions: [],
-          fallback: [],
-          took: 0,
-        },
-        message: 'Search query too short',
-      });
-    }
-
-    const params = {
-      query: trimmedQuery,
-      limit: options.limit,
-      includeSuggestions: options.includeSuggestions,
-      includeFallbacks: options.includeFallbacks,
-      store_id: options.storeId,
-      category_id: options.categoryId,
-    };
-
-    Object.keys(params).forEach((key) => {
-      if (params[key] === undefined || params[key] === null || params[key] === '') {
-        delete params[key];
-      }
-    });
-
-    return this.get(API_CONFIG.ENDPOINTS.SEARCH.PRODUCTS, params, { useCache: false });
-  }
-
-  /**
    * Update product status (approve/reject)
    */
   async updateProductStatus(productId, status, rejectionReason = null) {
@@ -463,6 +423,13 @@ class ApiClient {
     return this.get(API_CONFIG.ENDPOINTS.ORDERS.STORE_ORDERS(storeId), filters);
   }
 
+  /**
+   * Get store products
+   */
+  async getStoreProducts(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.PRODUCTS(storeId), filters);
+  }
+
   // ==========================================
   // CATEGORY METHODS
   // ==========================================
@@ -493,6 +460,13 @@ class ApiClient {
    */
   async getCategoryBySlug(slug) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
+  }
+
+  /**
+   * Get category products
+   */
+  async getCategoryProducts(categoryId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.PRODUCTS(categoryId), filters);
   }
 
   /**

@@ -559,7 +559,7 @@
 
             <div class="nav-search" style="flex: 1; max-width: 400px; margin: 0 var(--space-lg);">
                 <div style="position: relative;">
-                    <input type="text" class="search-input" id="storeSearchInput" placeholder="Search artisans & treasures..."
+                    <input type="text" class="search-input" placeholder="Search artisans & treasures..."
                            style="width: 100%; padding: var(--space-sm) var(--space-lg) var(--space-sm) 2.5rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); backdrop-filter: var(--glass-backdrop);">
                     <span style="position: absolute; left: var(--space-md); top: 50%; transform: translateY(-50%); color: var(--warm-brown);">🔍</span>
                 </div>
@@ -595,15 +595,15 @@
                 <div style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
-                        <div><strong id="heroTotalArtisans">—</strong><br>Master Artisans</div>
+                        <div><strong id="heroStoreCount">47</strong><br>Master Artisans</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-                        <div><strong id="heroTotalPieces">—</strong><br>Unique Pieces</div>
+                        <div><strong id="heroProductCount">1,200+</strong><br>Unique Pieces</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-                        <div><strong id="heroAvgRating">—</strong><br>Avg Rating</div>
+                        <div><strong id="heroAverageRating">4.9/5</strong><br>Avg Rating</div>
                     </div>
                 </div>
             </div>
@@ -628,64 +628,279 @@
             <!-- Filter Bar -->
             <div class="filter-bar">
                 <button class="filter-btn active" data-filter="all">🌟 All Artisans</button>
-                <button class="filter-btn" data-filter="featured">💫 Featured</button>
-                <button class="filter-btn" data-filter="top-rated">⭐ Top Rated</button>
-                <button class="filter-btn" data-filter="new">🆕 New Arrivals</button>
-                <button class="filter-btn" data-filter="city-stockholm">🏙️ Stockholm</button>
-                <button class="filter-btn" data-filter="city-oslo">🌉 Oslo</button>
+                <button class="filter-btn" data-filter="wood">🪵 Wood Carvers</button>
+                <button class="filter-btn" data-filter="glass">💎 Glass Artists</button>
+                <button class="filter-btn" data-filter="leather">🛡️ Leather Crafters</button>
+                <button class="filter-btn" data-filter="ceramic">🏺 Ceramic Masters</button>
+                <button class="filter-btn" data-filter="textile">🧶 Textile Weavers</button>
             </div>
 
             <!-- Featured Artisan -->
             <section class="featured-artisan">
                 <div class="featured-content">
                     <div class="artisan-badge" style="position: static; display: inline-block; margin-bottom: var(--space-md);">⭐ Master of the Month</div>
-                    <h2 id="featuredName" style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">Featured Artisan</h2>
-                    <p id="featuredSpecialty" class="accent-text" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">—</p>
+                    <h2 style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">Erik Nordström</h2>
+                    <p class="accent-text" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">Legendary Wood Carver</p>
 
-                    <div id="featuredStats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">15+</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Years Mastery</div>
                         </div>
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">4.9/5</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Customer Rating</div>
                         </div>
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">347</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Pieces Sold</div>
                         </div>
                     </div>
 
-                    <p id="featuredDescription" style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
-                        Dostik is selecting a spotlight artisan for you...
+                    <p style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
+                        Born in the heart of Sweden's ancient forests, Erik transforms fallen Nordic trees into spiritual
+                        sculptures that capture the very essence of the wilderness. His seven-generation family tradition
+                        of woodworking flows through every piece he creates.
                     </p>
 
                     <div style="display: flex; gap: var(--space-md); justify-content: center;">
-                        <button id="featuredProfileLink" class="btn btn-secondary" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👤 View Profile</button>
-                        <button id="featuredProductsLink" class="btn btn-accent" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">🎨 View Creations</button>
+                        <button class="btn btn-secondary" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👤 View Profile</button>
+                        <button class="btn btn-accent" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">🎨 View Creations</button>
                     </div>
                 </div>
 
                 <div class="featured-image">
-                    <img id="featuredImage" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=600&h=400" alt="Featured artisan">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=600&h=400" alt="Erik Nordström in his workshop">
                 </div>
             </section>
 
             <!-- Artisan Grid -->
             <section class="artisan-grid" id="artisanGrid">
-                <div class="artisan-empty">
-                    <div class="icon">🐉</div>
-                    <p>Dostik is gathering our artisans...</p>
+                <!-- Astrid Björk - Glass Artist -->
+                <div class="artisan-card" data-category="glass">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&w=400&h=300" alt="Astrid Björk Glass Workshop">
+                        <div class="artisan-badge">🔥 Trending</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Astrid Björk</h3>
+                        <p class="artisan-specialty">Glass & Crystal Artisan</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.9</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">89</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">8</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Astrid captures the Northern Lights in glass, creating ethereal pieces that seem to hold
+                            aurora's magical energy within their crystal depths. Based in Reykjavik, Iceland.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🎨 View Gallery</button>
+                            <button class="btn btn-secondary" style="flex: 1;">💬 Message</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Magnus Eriksson - Leather Crafter -->
+                <div class="artisan-card" data-category="leather">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?ixlib=rb-4.0.3&w=400&h=300" alt="Magnus Eriksson Leather Workshop">
+                        <div class="artisan-badge">⚔️ Legendary</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Magnus Eriksson</h3>
+                        <p class="artisan-specialty">Viking Leather & Metal Craftsman</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.8</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">234</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">12</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Magnus forges the spirit of Viking warriors into leather goods and metal works,
+                            each piece telling tales of ancient adventures and Nordic strength.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">⚔️ View Weapons</button>
+                            <button class="btn btn-secondary" style="flex: 1;">📍 Location</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ingrid Svensson - Textile & Candle -->
+                <div class="artisan-card" data-category="textile">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?ixlib=rb-4.0.3&w=400&h=300" alt="Ingrid Svensson Textile Studio">
+                        <div class="artisan-badge">🌿 Organic</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Ingrid Svensson</h3>
+                        <p class="artisan-specialty">Natural Textile & Candle Maker</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.9</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">156</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">6</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Using ancient dyeing techniques and wild Nordic plants, Ingrid creates textiles and candles
+                            that bring the tranquil energy of mountain forests into your sacred space.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🕯️ View Candles</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🌿 Process</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Björn Andersen - Ceramic Master -->
+                <div class="artisan-card" data-category="ceramic">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1578749556568-bc2c40e68393?ixlib=rb-4.0.3&w=400&h=300" alt="Björn Andersen Pottery Studio">
+                        <div class="artisan-badge">🏺 Master</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Björn Andersen</h3>
+                        <p class="artisan-specialty">Nordic Ceramic Master</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.7</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">98</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">20</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Inspired by the deep blue fjords of Norway, Björn creates ceramic vessels that embody
+                            the raw beauty and tranquility of Nordic landscapes in every curve.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🏺 View Pottery</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🎬 Videos</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Freya Jónsdóttir - Mixed Media -->
+                <div class="artisan-card" data-category="wood">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1601027847350-0285867c31f7?ixlib=rb-4.0.3&w=400&h=300" alt="Freya Jónsdóttir Mixed Media Studio">
+                        <div class="artisan-badge">✨ Rising Star</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Freya Jónsdóttir</h3>
+                        <p class="artisan-specialty">Mixed Media Mystic</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.8</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">43</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">3</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            Young but incredibly talented, Freya combines wood, stone, and metal to create mystical
+                            sculptures that bridge ancient Nordic spirituality with modern artistic vision.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🔮 View Magic</button>
+                            <button class="btn btn-secondary" style="flex: 1;">📚 Story</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Olaf Brennan - Metalsmith -->
+                <div class="artisan-card" data-category="leather">
+                    <div class="artisan-image">
+                        <img src="https://images.unsplash.com/photo-1504911061927-c74e0ca75ba7?ixlib=rb-4.0.3&w=400&h=300" alt="Olaf Brennan Forge">
+                        <div class="artisan-badge">🔥 Hot Pick</div>
+                    </div>
+                    <div class="artisan-info">
+                        <h3 class="artisan-name">Olaf Brennan</h3>
+                        <p class="artisan-specialty">Nordic Metalsmith & Forger</p>
+
+                        <div class="artisan-stats">
+                            <div class="stat">
+                                <span class="stat-number">4.6</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">167</span>
+                                <span class="stat-label">Pieces</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">18</span>
+                                <span class="stat-label">Years</span>
+                            </div>
+                        </div>
+
+                        <p class="artisan-description">
+                            From his blazing forge in the Norwegian mountains, Olaf creates metal treasures
+                            using techniques passed down from Viking smiths, each piece carrying ancient fire magic.
+                        </p>
+
+                        <div class="artisan-actions">
+                            <button class="btn btn-primary" style="flex: 2;">🔨 View Forge</button>
+                            <button class="btn btn-secondary" style="flex: 1;">🔥 Process</button>
+                        </div>
+                    </div>
                 </div>
             </section>
-
-            <div style="text-align: center; margin: var(--space-xl) 0;">
-                <button class="btn btn-primary" id="loadMoreStores" style="display: none;">Load More Artisans</button>
-            </div>
 
             <!-- Traditional Techniques Section -->
             <section class="artisan-techniques">
@@ -906,14 +1121,19 @@
         </div>
     </main>
 
-    <!-- Scripts -->
-    <script src="../assets/js/auth-manager.js"></script>
-    <script src="../assets/js/api-config.js"></script>
-    <script src="../assets/js/api-client.js"></script>
-    <script src="../assets/js/main.js"></script>
-    <script src="../assets/js/stores-api.js"></script>
-    <script src="../assets/js/dostik-ai.js"></script>
-    <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <!-- Scripts - Optimized loading -->
+    <script defer src="../assets/js/security-utils.js"></script>
+    <script defer src="../assets/js/error-handler.js"></script>
+    <script defer src="../assets/js/lazy-load.js"></script>
+    <script defer src="../assets/js/performance-monitor.js"></script>
+    <script defer src="../assets/js/auth-manager.js"></script>
+    <script defer src="../assets/js/api-config.js"></script>
+    <script defer src="../assets/js/api-client.js"></script>
+    <script defer src="../assets/js/store-directory.js"></script>
+    <script defer src="../assets/js/dostik-ai.js"></script>
+    <script defer src="../assets/js/carsi-pazar-browser.js"></script>
+    <script defer src="../assets/js/main.js"></script>
+
 
     <!-- Footer -->
     <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
@@ -969,4 +1189,3 @@
 
 </body>
 </html>
-

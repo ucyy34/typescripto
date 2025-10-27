@@ -11,59 +11,6 @@ const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
 const MAX_SEO_DESCRIPTION_LENGTH = 160;
-const DEFAULT_SEARCH_LIMIT = 8;
-const MAX_SEARCH_LIMIT = 50;
-const DEFAULT_SUGGESTION_LIMIT = 6;
-const DEFAULT_FALLBACK_LIMIT = 6;
-
-const escapeLike = (value) => {
-  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
-};
-
-const normalizeQuery = (value) => value.trim().replace(/\s+/g, ' ');
-
-const pickThumbnail = (images) => {
-  if (!Array.isArray(images) || images.length === 0) {
-    return null;
-  }
-
-  return images.find((src) => typeof src === 'string' && src.trim().length > 0) || null;
-};
-
-const mapProductForSearch = (product) => {
-  const plain = product.toJSON();
-  const thumbnail = pickThumbnail(plain.images);
-
-  return {
-    id: plain.id,
-    slug: plain.slug,
-    title: plain.title,
-    short_description: plain.short_description,
-    price: plain.price,
-    compare_price: plain.compare_price,
-    rating: plain.rating ? Number(plain.rating) : 0,
-    total_reviews: plain.total_reviews,
-    badges: Array.isArray(plain.badges) ? plain.badges : [],
-    stock: plain.stock,
-    store: plain.store
-      ? {
-          id: plain.store.id,
-          name: plain.store.name,
-          slug: plain.store.slug,
-          logo: plain.store.logo,
-          rating: plain.store.rating,
-        }
-      : null,
-    category: plain.category
-      ? {
-          id: plain.category.id,
-          name: plain.category.name,
-          slug: plain.category.slug,
-        }
-      : null,
-    thumbnail,
-  };
-};
 
 const sanitizeSeoText = (text, limit) => {
   if (!text) return undefined;
@@ -164,7 +111,6 @@ class ProductService {
 
     // Clear cache
     await cache.delPattern('products:*');
-    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -176,54 +122,7 @@ class ProductService {
    * @returns {Promise<Product>}
    */
   async getProductById(productId, includeInactive = false) {
-    // Try cache first
-    const cacheKey = `product:${productId}`;
-    const cached = await cache.get(cacheKey);
-    if (cached && !includeInactive) {
-      return cached;
-    }
-
-    const where = { id: productId };
-
-    if (!includeInactive) {
-      where.status = 'approved';
-      where.is_active = true;
-      where.stock = { [Op.gt]: 0 };
-    }
-
-    const product = await Product.findOne({
-      where,
-      include: [
-        {
-          model: Store,
-          as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug'],
-        },
-        {
-          model: ProductVariant,
-          as: 'productVariants',
-        },
-      ],
-    });
-
-    if (!product) {
-      throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
-    }
-
-    // Increment views (async, don't wait)
-    product.incrementViews().catch(() => {});
-
-    // Cache for 1 hour
-    if (!includeInactive) {
-      await cache.set(cacheKey, product, 3600);
-    }
-
-    return product;
+    return this.getProductByField({ id: productId }, { cacheKey: `product:${productId}` }, includeInactive);
   }
 
   /**
@@ -233,13 +132,28 @@ class ProductService {
    * @returns {Promise<Product>}
    */
   async getProductBySlug(slug, includeInactive = false) {
-    const cacheKey = `product:slug:${slug}`;
-    const cached = await cache.get(cacheKey);
-    if (cached && !includeInactive) {
-      return cached;
+    return this.getProductByField({ slug }, { cacheKey: `product:slug:${slug}` }, includeInactive);
+  }
+
+  /**
+   * Shared helper to retrieve product by where clause
+   * @param {Object} whereClause
+   * @param {Object} options
+   * @param {string} options.cacheKey
+   * @param {boolean} includeInactive
+   * @returns {Promise<Product>}
+   */
+  async getProductByField(whereClause, { cacheKey }, includeInactive = false) {
+    const shouldUseCache = !includeInactive && cacheKey;
+
+    if (shouldUseCache) {
+      const cached = await cache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
-    const where = { slug };
+    const where = { ...whereClause };
 
     if (!includeInactive) {
       where.status = 'approved';
@@ -273,7 +187,7 @@ class ProductService {
 
     product.incrementViews().catch(() => {});
 
-    if (!includeInactive) {
+    if (shouldUseCache) {
       await cache.set(cacheKey, product, 3600);
     }
 
@@ -476,17 +390,19 @@ class ProductService {
       }
     }
 
-    const currentSlug = product.slug;
+    const previousSlug = product.slug;
 
     await product.update(updateData);
 
     // Clear cache
     await cache.del(`product:${productId}`);
-    if (currentSlug) {
-      await cache.del(`product:slug:${currentSlug}`);
+    if (previousSlug) {
+      await cache.del(`product:slug:${previousSlug}`);
+    }
+    if (product.slug) {
+      await cache.del(`product:slug:${product.slug}`);
     }
     await cache.delPattern('products:*');
-    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -518,17 +434,19 @@ class ProductService {
       updateData.approved_by = null;
     }
 
-    const currentSlug = product.slug;
+    const previousSlug = product.slug;
 
     await product.update(updateData);
 
     // Clear cache
     await cache.del(`product:${productId}`);
-    if (currentSlug) {
-      await cache.del(`product:slug:${currentSlug}`);
+    if (previousSlug) {
+      await cache.del(`product:slug:${previousSlug}`);
+    }
+    if (product.slug) {
+      await cache.del(`product:slug:${product.slug}`);
     }
     await cache.delPattern('products:*');
-    await cache.delPattern('product-search:*');
 
     return product;
   }
@@ -553,188 +471,16 @@ class ProductService {
       throw new ApiError('You do not have permission to delete this product', StatusCodes.FORBIDDEN);
     }
 
-    const currentSlug = product.slug;
+    const productSlug = product.slug;
 
     await product.destroy(); // Soft delete
 
     // Clear cache
     await cache.del(`product:${productId}`);
-    if (currentSlug) {
-      await cache.del(`product:slug:${currentSlug}`);
+    if (productSlug) {
+      await cache.del(`product:slug:${productSlug}`);
     }
     await cache.delPattern('products:*');
-    await cache.delPattern('product-search:*');
-  }
-
-  /**
-   * Search products for storefront header search
-   * @param {string} rawQuery
-   * @param {Object} options
-   * @returns {Promise<Object>}
-   */
-  async searchProducts(rawQuery, options = {}) {
-    const startedAt = Date.now();
-    const query = typeof rawQuery === 'string' ? normalizeQuery(rawQuery) : '';
-
-    if (!query || query.length < 2) {
-      return {
-        query,
-        normalizedQuery: query.toLowerCase(),
-        total: 0,
-        results: [],
-        suggestions: [],
-        fallback: [],
-        took: Date.now() - startedAt,
-      };
-    }
-
-    const limit = Math.min(
-      Math.max(parseInt(options.limit, 10) || DEFAULT_SEARCH_LIMIT, 1),
-      MAX_SEARCH_LIMIT
-    );
-    const includeSuggestions = !['false', false].includes(options.includeSuggestions);
-    const includeFallbacks = !['false', false].includes(options.includeFallbacks);
-    const storeId = options.store_id || options.storeId || null;
-    const categoryId = options.category_id || options.categoryId || null;
-
-    const normalizedQuery = query.toLowerCase();
-    const cacheKey = `product-search:${storeId || 'all'}:${categoryId || 'all'}:${limit}:${includeSuggestions ? 'with-s' : 'no-s'}:${includeFallbacks ? 'with-f' : 'no-f'}:${normalizedQuery}`;
-    const cached = await cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
-    const likePattern = `%${escapeLike(normalizedQuery)}%`;
-
-    const where = {
-      is_active: true,
-      status: 'approved',
-      stock: { [Op.gt]: 0 },
-    };
-
-    if (storeId) {
-      where.store_id = storeId;
-    }
-
-    if (categoryId) {
-      where.category_id = categoryId;
-    }
-
-    const orConditions = [
-      { title: { [Op.iLike]: likePattern } },
-      { seo_title: { [Op.iLike]: likePattern } },
-      { short_description: { [Op.iLike]: likePattern } },
-      { description: { [Op.iLike]: likePattern } },
-      { sku: { [Op.iLike]: likePattern } },
-      { '$store.name$': { [Op.iLike]: likePattern } },
-    ];
-
-    if (tokens.length > 0) {
-      orConditions.push({ tags: { [Op.overlap]: tokens } });
-      orConditions.push({ meta_keywords: { [Op.overlap]: tokens } });
-    }
-
-    where[Op.or] = orConditions;
-
-    const queryOptions = {
-      where,
-      include: [
-        {
-          model: Store,
-          as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
-          where: { status: 'approved' },
-          required: false,
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug'],
-          required: false,
-        },
-      ],
-      order: [
-        ['is_featured', 'DESC'],
-        ['total_sales', 'DESC'],
-        ['rating', 'DESC'],
-        ['created_at', 'DESC'],
-      ],
-      limit,
-      distinct: true,
-    };
-
-    const { rows: products, count: total } = await Product.findAndCountAll(queryOptions);
-    const results = products.map(mapProductForSearch);
-
-    let suggestions = [];
-    if (includeSuggestions) {
-      const suggestionSet = new Set();
-      for (const product of products) {
-        if (product.title) {
-          suggestionSet.add(product.title);
-        }
-        if (product.seo_title) {
-          suggestionSet.add(product.seo_title);
-        }
-        if (product.store?.name) {
-          suggestionSet.add(product.store.name);
-        }
-        const productTags = Array.isArray(product.tags) ? product.tags : [];
-        for (const tag of productTags) {
-          if (typeof tag === 'string' && tag.trim()) {
-            suggestionSet.add(tag.trim());
-          }
-        }
-      }
-      suggestions = Array.from(suggestionSet).slice(0, DEFAULT_SUGGESTION_LIMIT);
-    }
-
-    let fallback = [];
-    if (includeFallbacks && results.length === 0) {
-      const fallbackProducts = await Product.findAll({
-        where: {
-          is_active: true,
-          status: 'approved',
-          stock: { [Op.gt]: 0 },
-        },
-        include: [
-          {
-            model: Store,
-            as: 'store',
-            attributes: ['id', 'name', 'slug', 'logo', 'rating'],
-            where: { status: 'approved' },
-          },
-          {
-            model: Category,
-            as: 'category',
-            attributes: ['id', 'name', 'slug'],
-          },
-        ],
-        order: [
-          ['total_sales', 'DESC'],
-          ['rating', 'DESC'],
-          ['created_at', 'DESC'],
-        ],
-        limit: Math.max(limit, DEFAULT_FALLBACK_LIMIT),
-      });
-
-      fallback = fallbackProducts.map(mapProductForSearch);
-    }
-
-    const payload = {
-      query,
-      normalizedQuery,
-      total: typeof total === 'number' ? total : Array.isArray(total) ? total.length : 0,
-      results,
-      suggestions,
-      fallback,
-      took: Date.now() - startedAt,
-    };
-
-    await cache.set(cacheKey, payload, 120);
-
-    return payload;
   }
 
   /**

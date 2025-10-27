@@ -8,8 +8,8 @@ const router = express.Router();
 
 const categoryController = require('../controllers/category.controller');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
-const { validateParams } = require('../middlewares/validate');
-const { categorySlugSchema } = require('../validators/category.validator');
+const { validateQuery } = require('../middlewares/validate');
+const { productQuerySchema } = require('../validators/product.validator');
 
 /**
  * @route   GET /api/v1/categories/top-level
@@ -26,13 +26,6 @@ router.get('/top-level', categoryController.getTopLevelCategories);
 router.get('/featured', categoryController.getFeaturedCategories);
 
 /**
- * @route   GET /api/v1/categories/slug/:slug
- * @desc    Get category by slug
- * @access  Public
- */
-router.get('/slug/:slug', validateParams(categorySlugSchema), categoryController.getCategoryBySlug);
-
-/**
  * @route   GET /api/v1/categories
  * @desc    Get all categories (tree structure)
  * @access  Public
@@ -45,6 +38,13 @@ router.get('/', categoryController.getAllCategories);
  * @access  Public
  */
 router.get('/slug/:slug', categoryController.getCategoryBySlug);
+
+/**
+ * @route   GET /api/v1/categories/:id/products
+ * @desc    Get products within a category
+ * @access  Public
+ */
+router.get('/:id/products', validateQuery(productQuerySchema), categoryController.getCategoryProducts);
 
 /**
  * @route   GET /api/v1/categories/:id/variants
