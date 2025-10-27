@@ -314,13 +314,6 @@ class ApiClient {
   }
 
   /**
-   * Create a new store for the authenticated seller
-   */
-  async createStore(storeData = {}) {
-    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
-  }
-
-  /**
    * Update store status (approve/reject/suspend)
    */
   async updateStoreStatus(storeId, status, rejectionReason = null) {

@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
-const { validateQuery, validateParams, validate } = require('../middlewares/validate');
+const { validate, validateQuery, validateParams } = require('../middlewares/validate');
 const {
-  userListQuerySchema,
+  listUsersQuerySchema,
   userIdParamSchema,
-  updateStatusSchema,
-  updateRoleSchema,
+  updateUserStatusSchema,
+  updateUserRoleSchema,
 } = require('../validators/user.validator');
 
 // All routes require admin authentication
@@ -15,7 +15,7 @@ router.use(authenticate);
 router.use(requireAdmin);
 
 // Get all users
-router.get('/', validateQuery(userListQuerySchema), userController.getAllUsers);
+router.get('/', validateQuery(listUsersQuerySchema), userController.getAllUsers);
 
 // Get user by ID
 router.get('/:id', validateParams(userIdParamSchema), userController.getUserById);
@@ -24,7 +24,7 @@ router.get('/:id', validateParams(userIdParamSchema), userController.getUserById
 router.patch(
   '/:id/status',
   validateParams(userIdParamSchema),
-  validate(updateStatusSchema),
+  validate(updateUserStatusSchema),
   userController.updateUserStatus
 );
 
@@ -32,7 +32,7 @@ router.patch(
 router.patch(
   '/:id/role',
   validateParams(userIdParamSchema),
-  validate(updateRoleSchema),
+  validate(updateUserRoleSchema),
   userController.updateUserRole
 );
 
