@@ -49,6 +49,16 @@ class CategoryController {
   });
 
   /**
+   * Get category by slug
+   * GET /api/v1/categories/slug/:slug
+   */
+  getCategoryBySlug = asyncHandler(async (req, res) => {
+    const category = await categoryService.getCategoryBySlug(req.params.slug);
+
+    return success(res, category, 'Category retrieved successfully');
+  });
+
+  /**
    * Create category (admin only)
    * POST /api/v1/categories
    */

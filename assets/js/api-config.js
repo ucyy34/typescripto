@@ -78,6 +78,10 @@ const API_CONFIG = {
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
     },
 
+    SEARCH: {
+      PRODUCTS: '/products/search',
+    },
+
     // Category endpoints
     CATEGORIES: {
       BASE: '/categories',
@@ -109,6 +113,11 @@ const API_CONFIG = {
       STATS: '/dashboard/stats',
       RECENT_ORDERS: '/dashboard/recent-orders',
       RECENT_PRODUCTS: '/dashboard/recent-products',
+    },
+
+    // Upload endpoints
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
     },
   },
 
