@@ -12,16 +12,33 @@ class ProductsPageAPI {
         this.currentView = 'grid';
         this.currentPage = 1;
         this.totalPages = 1;
+        this.urlParams = new URLSearchParams(window.location.search);
         this.filters = {
             categories: [],
             priceRange: 1000,
             rating: '',
             search: '',
-            sort: 'featured'
+            sort: 'featured',
+            storeId: this.urlParams.get('store') || null,
         };
+        this.activeRequestController = null;
+        this.debug = Boolean(API_CONFIG.DEBUG);
+        const initialSearch = this.urlParams.get('search');
+        if (initialSearch) {
+            this.filters.search = initialSearch.trim();
+        }
+        this.storeName = this.urlParams.get('storeName')
+            ? decodeURIComponent(this.urlParams.get('storeName'))
+            : null;
 
-        console.log('[Products Page API] Initializing...');
+        this.log('Initializing products page API');
         this.init();
+    }
+
+    log(...args) {
+        if (this.debug && typeof console !== 'undefined' && console.debug) {
+            console.debug('[Products Page]', ...args);
+        }
     }
 
     async init() {
@@ -35,7 +52,7 @@ class ProductsPageAPI {
             // Setup event listeners
             this.setupEventListeners();
 
-            console.log('[Products Page API] Initialization complete');
+            this.log('Initialization complete');
         } catch (error) {
             console.error('[Products Page API] Initialization error:', error);
             this.showError('Failed to initialize products page');
@@ -44,12 +61,12 @@ class ProductsPageAPI {
 
     async loadCategories() {
         try {
-            console.log('[Products Page API] Loading categories...');
+            this.log('Loading categories...');
             const response = await this.apiClient.getTopLevelCategories();
 
             if (response.success && response.data) {
                 this.categories = response.data;
-                console.log('[Products Page API] Categories loaded:', this.categories.length);
+                this.log('Loaded categories', this.categories.length);
                 this.renderCategoryFilters();
             }
         } catch (error) {
@@ -58,8 +75,9 @@ class ProductsPageAPI {
     }
 
     async loadProducts() {
+        let controller = null;
         try {
-            console.log('[Products Page API] Loading products...');
+            this.log('Loading products...');
 
             // Show loading state
             this.showLoading();
@@ -70,6 +88,11 @@ class ProductsPageAPI {
                 limit: 20,
                 sort: this.getSortParam()
             };
+
+            if (this.filters.storeId) {
+                params.store_id = this.filters.storeId;
+                params.includeAllStatuses = false;
+            }
 
             // Add category filter
             if (this.filters.categories.length > 0) {
@@ -89,7 +112,22 @@ class ProductsPageAPI {
             // Add rating filter (only approved products shown by default)
             // Backend returns only approved & active products by default
 
-            const response = await this.apiClient.getProducts(params);
+            if (this.activeRequestController) {
+                this.activeRequestController.abort();
+            }
+
+            controller = new AbortController();
+            this.activeRequestController = controller;
+
+            const response = await this.apiClient.getProducts(params, { signal: controller.signal });
+
+            if (controller !== this.activeRequestController) {
+                return;
+            }
+
+            if (!response) {
+                return;
+            }
 
             if (response.success && response.data) {
                 this.allProducts = response.data;
@@ -101,18 +139,33 @@ class ProductsPageAPI {
                     this.totalPages = response.pagination.totalPages || 1;
                 }
 
-                console.log('[Products Page API] Products loaded:', this.allProducts.length);
+                this.log('Products loaded', this.allProducts.length);
 
                 this.renderProducts();
                 this.updateResultsCount();
+                this.updateStoreContext();
+                this.syncSearchInput();
             } else {
+                if (response.error === 'ABORTED') {
+                    return;
+                }
                 this.showError('No products found');
             }
         } catch (error) {
+            if (error?.error === 'ABORTED') {
+                return;
+            }
             console.error('[Products Page API] Error loading products:', error);
             this.showError('Failed to load products');
         } finally {
-            this.hideLoading();
+            const isLatest = controller && this.activeRequestController === controller;
+            if (isLatest && this.activeRequestController.signal.aborted) {
+                this.log('Latest product request aborted');
+            }
+            if (isLatest) {
+                this.hideLoading();
+                this.activeRequestController = null;
+            }
         }
     }
 
@@ -160,6 +213,37 @@ class ProductsPageAPI {
         this.loadProducts();
     }
 
+    syncSearchInput() {
+        const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = this.filters.search || '';
+        }
+    }
+
+    updateQueryParams() {
+        const params = new URLSearchParams(window.location.search);
+
+        if (this.filters.search) {
+            params.set('search', this.filters.search);
+        } else {
+            params.delete('search');
+        }
+
+        if (this.filters.storeId) {
+            params.set('store', this.filters.storeId);
+            if (this.storeName) {
+                params.set('storeName', this.storeName);
+            }
+        } else {
+            params.delete('store');
+            params.delete('storeName');
+        }
+
+        const queryString = params.toString();
+        const nextUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+        window.history.replaceState({}, '', nextUrl);
+    }
+
     setupEventListeners() {
         // Sort dropdown
         const sortSelect = document.getElementById('sortSelect');
@@ -168,20 +252,48 @@ class ProductsPageAPI {
                 this.filters.sort = e.target.value;
                 this.loadProducts();
             });
+            if (this.filters.storeId) {
+                sortSelect.value = 'newest';
+            }
         }
 
         // Search (use globalSearch from header)
         const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
         if (searchInput) {
             let searchTimeout;
+            this.syncSearchInput();
             searchInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filters.search = e.target.value.toLowerCase();
+                    this.filters.search = value;
+                    this.currentPage = 1;
+                    this.updateQueryParams();
                     this.loadProducts();
-                }, 500); // Debounce
+                }, 400);
             });
+        } else {
+            this.syncSearchInput();
         }
+
+        document.addEventListener('global-search:submit', (event) => {
+            if (!event || !event.detail) return;
+            event.preventDefault();
+            this.filters.search = (event.detail.query || '').trim();
+            this.currentPage = 1;
+            this.updateQueryParams();
+            this.syncSearchInput();
+            this.loadProducts();
+        });
+
+        document.addEventListener('global-search:clear', () => {
+            if (!this.filters.search) return;
+            this.filters.search = '';
+            this.currentPage = 1;
+            this.updateQueryParams();
+            this.syncSearchInput();
+            this.loadProducts();
+        });
 
         // Price range slider
         const priceRange = document.getElementById('priceRange');
@@ -251,6 +363,22 @@ class ProductsPageAPI {
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {
             setTimeout(() => window.dostikAI.initializeProductBubbles(), 100);
+        }
+    }
+
+    updateStoreContext() {
+        if (!this.filters.storeId) return;
+
+        const resultsInfo = document.getElementById('resultsCount');
+        if (resultsInfo) {
+            const storeLabel = this.storeName || (this.filteredProducts[0]?.store?.name ?? 'selected artisan');
+            const count = this.filteredProducts.length;
+            resultsInfo.textContent = `Showing ${count} treasures from ${storeLabel}`;
+        }
+
+        const pageTitle = document.querySelector('.page-title') || document.querySelector('.section-title h2');
+        if (pageTitle && this.storeName) {
+            pageTitle.textContent = `${this.storeName} Treasures`;
         }
     }
 

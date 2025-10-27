@@ -8,10 +8,11 @@ class ProductDetailAPI {
         this.apiClient = new ApiClient();
         this.product = null;
         this.productId = this.getProductIdFromURL();
+        this.productSlug = this.getProductSlugFromURL();
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
-        console.log('[Product Detail API] Initializing for product:', this.productId);
+        console.log('[Product Detail API] Initializing for product:', this.productId || this.productSlug);
         this.init();
     }
 
@@ -79,8 +80,13 @@ class ProductDetailAPI {
         return params.get('id');
     }
 
+    getProductSlugFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('slug');
+    }
+
     async init() {
-        if (!this.productId) {
+        if (!this.productId && !this.productSlug) {
             this.showError('Product not found');
             return;
         }
@@ -97,14 +103,21 @@ class ProductDetailAPI {
 
     async loadProduct() {
         try {
-            console.log('[Product Detail API] Loading product:', this.productId);
+            if (this.productId) {
+                console.log('[Product Detail API] Loading product by ID:', this.productId);
+            } else {
+                console.log('[Product Detail API] Loading product by slug:', this.productSlug);
+            }
             this.showLoading();
 
-            const response = await this.apiClient.getProduct(this.productId);
+            const response = this.productId
+                ? await this.apiClient.getProduct(this.productId)
+                : await this.apiClient.getProductBySlug(this.productSlug);
 
             if (response.success && response.data) {
                 this.product = response.data;
                 console.log('[Product Detail API] Product loaded:', this.product);
+                this.productId = this.product.id;
                 this.renderProduct();
                 this.renderVariantsSection();
                 this.attachVariantListeners();

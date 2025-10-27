@@ -76,6 +76,7 @@ const API_CONFIG = {
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
+      SEARCH: '/products/search',
     },
 
     // Category endpoints
@@ -110,6 +111,11 @@ const API_CONFIG = {
       RECENT_ORDERS: '/dashboard/recent-orders',
       RECENT_PRODUCTS: '/dashboard/recent-products',
     },
+
+    // Upload endpoints
+    UPLOADS: {
+      PRODUCT_IMAGE: '/uploads/products',
+    },
   },
 
   // Request timeout
@@ -120,6 +126,25 @@ const API_CONFIG = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+
+  DEBUG: (() => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (typeof window.API_DEBUG === 'boolean') {
+          return window.API_DEBUG;
+        }
+        if (window.localStorage) {
+          const stored = window.localStorage.getItem('API_DEBUG');
+          if (stored !== null) {
+            return stored === 'true' || stored === '1';
+          }
+        }
+      }
+    } catch (err) {
+      // Ignore access issues
+    }
+    return false;
+  })(),
 };
 
 // Export for use in other modules
