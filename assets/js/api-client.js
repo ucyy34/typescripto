@@ -7,19 +7,6 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
-    this.debug = false;
-
-    try {
-      if (typeof window !== 'undefined') {
-        if (window.API_DEBUG === true) {
-          this.debug = true;
-        } else if (window.localStorage) {
-          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
-        }
-      }
-    } catch (_) {
-      this.debug = false;
-    }
   }
 
   /**
@@ -135,49 +122,88 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      this._log(`${config.method || 'GET'} ${endpoint}`);
+      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      const responseText = await response.text();
-      let data;
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
 
-      if (responseText) {
+      if (![204, 205].includes(response.status)) {
+        let rawBody = '';
+
         try {
-          data = JSON.parse(responseText);
-        } catch (_) {
-          data = { success: response.ok, message: responseText };
+          rawBody = await response.text();
+        } catch (textError) {
+          console.warn('[API] Failed to read response body:', textError);
         }
-      } else {
-        data = { success: response.ok };
-      }
 
-      if (typeof data.success !== 'boolean') {
-        data.success = response.ok;
-      }
-
-      if (!data.message && response.statusText) {
-        data.message = response.statusText;
+        if (rawBody) {
+          if (contentType.includes('application/json')) {
+            try {
+              data = JSON.parse(rawBody);
+            } catch (parseError) {
+              console.warn('[API] Failed to parse JSON response, exposing raw text:', parseError);
+              data = { message: rawBody };
+            }
+          } else {
+            data = { message: rawBody };
+          }
+        } else if (contentType.includes('application/json')) {
+          data = {}; // Empty JSON body (e.g., {})
+        }
       }
 
       if (!response.ok) {
-        this._log(`Error ${response.status} ${endpoint}`, data);
+        console.error(`[API] Error ${response.status}:`, data);
 
-        if (data.message) {
-          return {
-            success: false,
-            message: data.message,
-            error: data.error || 'API_ERROR',
-            status: response.status,
-          };
+        if (data && typeof data === 'object') {
+          if (data.message) {
+            return {
+              success: false,
+              message: data.message,
+              error: data.error || 'API_ERROR',
+              status: response.status,
+              data,
+            };
+          }
+
+          if (Array.isArray(data.errors) && data.errors.length > 0) {
+            return {
+              success: false,
+              message: 'Validation failed',
+              error: 'VALIDATION_ERROR',
+              status: response.status,
+              errors: data.errors,
+            };
+          }
         }
 
-        return this.handleError(new Error('Request failed'), response);
+        const fallbackMessage =
+          (typeof data === 'string' && data) ||
+          (data && typeof data === 'object' && data.error) ||
+          response.statusText ||
+          'Request failed';
+
+        return this.handleError(new Error(fallbackMessage), response);
       }
 
-      this._log(`Success ${endpoint}`, data);
-      return data;
+      if (data === null) {
+        return { success: true, data: null, status: response.status };
+      }
+
+      console.log('[API] Success:', data);
+
+      if (typeof data === 'object') {
+        if (Object.prototype.hasOwnProperty.call(data, 'success')) {
+          return data;
+        }
+
+        return { success: true, data };
+      }
+
+      return { success: true, data };
     } catch (error) {
       clearTimeout(timeoutId);
       return this.handleError(error);
@@ -250,12 +276,6 @@ class ApiClient {
     });
   }
 
-  _log(...args) {
-    if (this.debug) {
-      console.log('[API]', ...args);
-    }
-  }
-
   // ==========================================
   // AUTH METHODS
   // ==========================================
@@ -304,13 +324,6 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
-  }
-
-  /**
-   * Get current user's store
-   */
-  async getMyStore() {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
   }
 
   /**
