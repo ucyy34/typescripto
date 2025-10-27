@@ -248,7 +248,11 @@
         }
     </style>
 </head>
-<body data-category-slug="wood-carvings" data-category-title="Wood Carvings">
+<body data-category-slug="wood-carvings"
+      data-category-name="Nordic Wood Carvings"
+      data-products-container="wood-carvings-products"
+      data-load-more-button="loadMoreWoodCarvings"
+      data-category-page-size="6">
     <!-- Navigation Header -->
     <header class="header glass-card">
         <nav class="navbar container">
@@ -303,15 +307,15 @@
 
             <div class="category-stats">
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryProductCount">0</span>
+                    <span class="stat-number" id="categoryStatTotal">—</span>
                     <span class="stat-label">Unique Pieces</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStoreCount">0</span>
+                    <span class="stat-number" id="categoryStatArtisans">—</span>
                     <span class="stat-label">Master Artisans</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryAverageRating">0.0</span>
+                    <span class="stat-number" id="categoryStatRating">—</span>
                     <span class="stat-label">Average Rating</span>
                 </div>
             </div>
@@ -340,6 +344,10 @@
                 <p>Each piece tells a story of Nordic craftsmanship and natural beauty</p>
             </div>
 
+            <div class="results-info" id="resultsCount" style="margin-bottom: var(--space-md); color: var(--warm-brown);">
+                Loading artisan carvings...
+            </div>
+
             <!-- Mobile Filter Toggle -->
             <button class="mobile-filter-toggle" id="mobileFilterToggle" style="display: none;">🔍 Filters</button>
             <div class="filter-overlay" id="filterOverlay"></div>
@@ -353,42 +361,88 @@
                         <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
                     </div>
 
+                    <!-- Wood Type Filter -->
                     <div class="filter-group">
-                        <h4>✨ Collections</h4>
-                        <div id="subcategoryFilters" class="filter-options" aria-live="polite"></div>
+                        <h4>🌳 Wood Type</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="pine">
+                            <span>Nordic Pine</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="birch">
+                            <span>Silver Birch</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="oak">
+                            <span>Ancient Oak</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="wood-type" value="maple">
+                            <span>Norwegian Maple</span>
+                        </label>
                     </div>
 
+                    <!-- Product Type Filter -->
                     <div class="filter-group">
-                        <h4>🎨 Master Carvers</h4>
-                        <div id="storeFilters" class="filter-options" aria-live="polite"></div>
+                        <h4>🏺 Product Type</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="bowls">
+                            <span>Bowls & Vessels</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="sculptures">
+                            <span>Sculptures</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="functional">
+                            <span>Functional Items</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="product-type" value="decorative">
+                            <span>Decorative Art</span>
+                        </label>
                     </div>
 
+                    <!-- Price Range -->
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="categoryPriceRange" min="0" max="1000" value="1000">
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="500" value="250" data-default-value="250">
                         <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
-                            <span id="categoryPriceValue">$0</span>
-                            <span id="categoryPriceMax">$0</span>
+                            <span id="priceValue">$250</span>
+                            <span>$500+</span>
                         </div>
                     </div>
 
+                    <!-- Artisan Filter -->
                     <div class="filter-group">
-                        <h4>🔍 Keyword</h4>
-                        <input type="search" id="categorySearchInput" class="search-input" placeholder="Search carved treasures...">
+                        <h4>🎨 Master Carvers</h4>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="erik">
+                            <span>Erik Nordström</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="bjorn">
+                            <span>Björn Ironwood</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="artisan" value="astrid">
+                            <span>Astrid Woodcraft</span>
+                        </label>
                     </div>
 
-                    <button class="btn btn-secondary" id="clearCategoryFilters" style="width: 100%; margin-top: var(--space-lg);">Clear All Filters</button>
+                    <!-- Clear Filters -->
+                    <button class="btn btn-secondary" id="clearFilters" style="width: 100%; margin-top: var(--space-lg);">Clear All Filters</button>
                 </aside>
 
                 <!-- Products Grid -->
                 <div class="products-main">
-                    <div class="asymmetric-grid" id="categoryProductsContainer">
+                    <div class="asymmetric-grid" id="wood-carvings-products">
                         <!-- Products will be dynamically generated -->
                     </div>
 
                     <div class="text-center mt-xl">
-                        <button class="btn btn-primary" id="categoryLoadMore">
+                    <button class="btn btn-primary" id="loadMoreWoodCarvings" style="display: none;">
                             🌟 Load More Wood Carvings
                         </button>
                     </div>
@@ -453,16 +507,12 @@
         </div>
     </footer>
 
-    <!-- Scripts - Optimized loading -->
-    <script defer src="../assets/js/main.js"></script>
-    <script defer src="../assets/js/product-modal.js"></script>
-
+    <!-- Scripts -->
     <script src="../assets/js/auth-manager.js"></script>
     <script src="../assets/js/api-config.js"></script>
     <script src="../assets/js/api-client.js"></script>
-    <script src="../assets/js/category-page.js"></script>
-
-    <!-- Dostik AI System -->
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/category-page-api.js"></script>
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
 </body>

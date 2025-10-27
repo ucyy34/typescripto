@@ -57,9 +57,7 @@ class CategoryPageAPI {
     }
 
     async loadCategory() {
-        if (API_CONFIG.DEBUG && console && console.debug) {
-            console.debug('[Category Page API] Loading category details for', this.categorySlug);
-        }
+        console.log('[Category Page API] Loading category details for', this.categorySlug);
         const response = await this.apiClient.getCategoryBySlug(this.categorySlug);
 
         if (!response.success || !response.data) {
@@ -104,9 +102,6 @@ class CategoryPageAPI {
         const searchInput = document.getElementById('globalSearch');
         if (searchInput) {
             let debounceTimer;
-            if (this.filters.search) {
-                searchInput.value = this.filters.search;
-            }
             searchInput.addEventListener('input', (event) => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
@@ -115,29 +110,6 @@ class CategoryPageAPI {
                 }, 400);
             });
         }
-
-        document.addEventListener('global-search:submit', (event) => {
-            if (!event || !event.detail) return;
-            event.preventDefault();
-            this.filters.search = (event.detail.query || '').trim();
-            this.currentPage = 1;
-            const input = document.getElementById('globalSearch');
-            if (input) {
-                input.value = this.filters.search;
-            }
-            this.loadProducts({ reset: true });
-        });
-
-        document.addEventListener('global-search:clear', () => {
-            if (!this.filters.search) return;
-            this.filters.search = '';
-            this.currentPage = 1;
-            const input = document.getElementById('globalSearch');
-            if (input) {
-                input.value = '';
-            }
-            this.loadProducts({ reset: true });
-        });
 
         // Price slider
         if (this.dom.priceRange) {

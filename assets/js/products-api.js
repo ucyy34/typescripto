@@ -12,20 +12,22 @@ class ProductsPageAPI {
         this.currentView = 'grid';
         this.currentPage = 1;
         this.totalPages = 1;
+        this.urlParams = new URLSearchParams(window.location.search);
         this.filters = {
             categories: [],
             priceRange: 1000,
             rating: '',
             search: '',
-            sort: 'featured'
+            sort: 'featured',
+            storeId: this.urlParams.get('store') || null,
         };
-
-        this.urlParams = new URLSearchParams(window.location.search);
-        this.storeId = this.urlParams.get('storeId');
-        this.storeSlug = this.urlParams.get('storeSlug');
-        this.categorySlug = this.urlParams.get('categorySlug');
-        this.activeStore = null;
-        this.initialCategory = null;
+        const initialSearch = this.urlParams.get('search');
+        if (initialSearch) {
+            this.filters.search = initialSearch.trim();
+        }
+        this.storeName = this.urlParams.get('storeName')
+            ? decodeURIComponent(this.urlParams.get('storeName'))
+            : null;
 
         console.log('[Products Page API] Initializing...');
         this.init();
@@ -33,8 +35,6 @@ class ProductsPageAPI {
 
     async init() {
         try {
-            await this.resolveInitialFilters();
-
             // Load categories first
             await this.loadCategories();
 
@@ -48,33 +48,6 @@ class ProductsPageAPI {
         } catch (error) {
             console.error('[Products Page API] Initialization error:', error);
             this.showError('Failed to initialize products page');
-        }
-    }
-
-    async resolveInitialFilters() {
-        try {
-            if (this.storeSlug && !this.storeId) {
-                const storeResponse = await this.apiClient.getStoreBySlug(this.storeSlug);
-                if (storeResponse.success && storeResponse.data) {
-                    this.activeStore = storeResponse.data;
-                    this.storeId = storeResponse.data.id;
-                }
-            } else if (this.storeId) {
-                const storeResponse = await this.apiClient.getStore(this.storeId);
-                if (storeResponse.success && storeResponse.data) {
-                    this.activeStore = storeResponse.data;
-                }
-            }
-
-            if (this.categorySlug) {
-                const categoryResponse = await this.apiClient.getCategoryBySlug(this.categorySlug);
-                if (categoryResponse.success && categoryResponse.data) {
-                    this.initialCategory = categoryResponse.data;
-                    this.filters.categories = [categoryResponse.data.id];
-                }
-            }
-        } catch (error) {
-            console.warn('[Products Page API] resolveInitialFilters warning:', error);
         }
     }
 
@@ -107,19 +80,14 @@ class ProductsPageAPI {
                 sort: this.getSortParam()
             };
 
+            if (this.filters.storeId) {
+                params.store_id = this.filters.storeId;
+                params.includeAllStatuses = false;
+            }
+
             // Add category filter
             if (this.filters.categories.length > 0) {
                 params.category_id = this.filters.categories[0]; // Backend expects single category for now
-            }
-
-            if (this.categorySlug && !params.category_id) {
-                params.category_slug = this.categorySlug;
-            }
-
-            if (this.storeId) {
-                params.store_id = this.storeId;
-            } else if (this.storeSlug) {
-                params.store_slug = this.storeSlug;
             }
 
             // Add price filter
@@ -128,8 +96,9 @@ class ProductsPageAPI {
             }
 
             // Add search
-            if (this.filters.search) {
-                params.search = this.filters.search;
+            const searchTerm = this.filters.search ? this.filters.search.trim() : '';
+            if (searchTerm) {
+                params.search = searchTerm;
             }
 
             // Add rating filter (only approved products shown by default)
@@ -151,7 +120,7 @@ class ProductsPageAPI {
 
                 this.renderProducts();
                 this.updateResultsCount();
-                this.renderActiveStoreBanner();
+                this.updateStoreContext();
             } else {
                 this.showError('No products found');
             }
@@ -215,20 +184,41 @@ class ProductsPageAPI {
                 this.filters.sort = e.target.value;
                 this.loadProducts();
             });
+            if (this.filters.storeId) {
+                sortSelect.value = 'newest';
+            }
         }
 
         // Search (use globalSearch from header)
         const searchInput = document.getElementById('globalSearch') || document.getElementById('searchInput');
         if (searchInput) {
+            if (this.filters.search) {
+                searchInput.value = this.filters.search;
+            }
+
             let searchTimeout;
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.filters.search = e.target.value.toLowerCase();
+                    const nextValue = e.target.value.trim();
+                    this.filters.search = nextValue;
+                    this.currentPage = 1;
+                    this.updateSearchQueryParam(nextValue);
                     this.loadProducts();
-                }, 500); // Debounce
+                }, 400); // Debounce
             });
         }
+
+        document.addEventListener('dostan:search', (event) => {
+            const nextQuery = (event.detail?.query || '').trim();
+            this.filters.search = nextQuery;
+            this.currentPage = 1;
+            this.updateSearchQueryParam(nextQuery);
+            if (searchInput && searchInput.value !== nextQuery) {
+                searchInput.value = nextQuery;
+            }
+            this.loadProducts();
+        });
 
         // Price range slider
         const priceRange = document.getElementById('priceRange');
@@ -270,6 +260,20 @@ class ProductsPageAPI {
         });
     }
 
+    updateSearchQueryParam(value) {
+        try {
+            const url = new URL(window.location.href);
+            if (value) {
+                url.searchParams.set('search', value);
+            } else {
+                url.searchParams.delete('search');
+            }
+            window.history.replaceState({}, '', url.toString());
+        } catch (error) {
+            console.warn('[Products Page API] Unable to update search param', error);
+        }
+    }
+
     renderProducts() {
         const container = document.getElementById('productsContainer');
         if (!container) {
@@ -298,6 +302,22 @@ class ProductsPageAPI {
         // Re-initialize Dostik bubbles if available
         if (window.dostikAI) {
             setTimeout(() => window.dostikAI.initializeProductBubbles(), 100);
+        }
+    }
+
+    updateStoreContext() {
+        if (!this.filters.storeId) return;
+
+        const resultsInfo = document.getElementById('resultsCount');
+        if (resultsInfo) {
+            const storeLabel = this.storeName || (this.filteredProducts[0]?.store?.name ?? 'selected artisan');
+            const count = this.filteredProducts.length;
+            resultsInfo.textContent = `Showing ${count} treasures from ${storeLabel}`;
+        }
+
+        const pageTitle = document.querySelector('.page-title') || document.querySelector('.section-title h2');
+        if (pageTitle && this.storeName) {
+            pageTitle.textContent = `${this.storeName} Treasures`;
         }
     }
 
@@ -365,11 +385,6 @@ class ProductsPageAPI {
 
         // Store information (if available)
         const storeName = product.store ? product.store.name : 'Nordic Artisan';
-        const storeSlug = product.store?.slug;
-        const storeLink = product.store?.id
-            ? `products.html?storeId=${product.store.id}${storeSlug ? `&storeSlug=${storeSlug}` : ''}`
-            : null;
-        const detailUrl = product.slug ? `product-detail.html?slug=${product.slug}` : `product-detail.html?id=${product.id}`;
 
         card.innerHTML = `
             <div class="journey-indicator"></div>
@@ -379,9 +394,7 @@ class ProductsPageAPI {
             </div>
             <div class="product-info">
                 <h3 class="product-title">${product.title}</h3>
-                <p class="product-artisan">
-                    by ${storeLink ? `<a href="${storeLink}" data-store-link="true">${storeName}</a>` : storeName}
-                </p>
+                <p class="product-artisan">by ${storeName}</p>
                 <p class="product-description">${product.short_description || product.description?.substring(0, 100) + '...' || ''}</p>
                 <div class="social-proof">
                     <span class="rating-stars">${'★'.repeat(Math.floor(product.rating || 0))}${'☆'.repeat(5 - Math.floor(product.rating || 0))}</span>
@@ -409,10 +422,9 @@ class ProductsPageAPI {
         // Click to view details
         card.addEventListener('click', (e) => {
             // Don't navigate if clicking on buttons
-            if (e.target.closest('button') || e.target.closest('a[data-store-link="true"]')) {
-                return;
+            if (!e.target.closest('button')) {
+                window.location.href = `product-detail.html?id=${product.id}`;
             }
-            window.location.href = detailUrl;
         });
 
         return card;
@@ -512,42 +524,7 @@ class ProductsPageAPI {
         const resultsElement = document.getElementById('resultsCount');
 
         if (resultsElement) {
-            let summary = `Showing ${count} product${count !== 1 ? 's' : ''}`;
-            if (this.activeStore?.name) {
-                summary += ` from ${this.activeStore.name}`;
-            }
-            resultsElement.textContent = summary;
-        }
-    }
-
-    renderActiveStoreBanner() {
-        const banner = document.getElementById('activeStoreBanner');
-        if (!banner) return;
-
-        if (this.activeStore?.name) {
-            banner.innerHTML = `
-                <div class="active-store-chip">
-                    <span>🏪 Viewing products from <strong>${this.activeStore.name}</strong></span>
-                    <button id="clearStoreFilter" class="btn btn-link">Clear</button>
-                </div>
-            `;
-
-            const clearBtn = banner.querySelector('#clearStoreFilter');
-            if (clearBtn) {
-                clearBtn.addEventListener('click', () => {
-                    this.storeId = null;
-                    this.storeSlug = null;
-                    this.activeStore = null;
-                    this.urlParams.delete('storeId');
-                    this.urlParams.delete('storeSlug');
-                    const newUrl = `${window.location.pathname}?${this.urlParams.toString()}`.replace(/\?$/, '');
-                    window.history.replaceState({}, '', newUrl);
-                    this.loadProducts();
-                    this.renderActiveStoreBanner();
-                });
-            }
-        } else {
-            banner.innerHTML = '';
+            resultsElement.textContent = `Showing ${count} product${count !== 1 ? 's' : ''}`;
         }
     }
 

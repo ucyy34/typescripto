@@ -12,7 +12,7 @@ class ProductDetailAPI {
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
-        console.log('[Product Detail API] Initializing for product:', this.productId);
+        console.log('[Product Detail API] Initializing for product:', this.productId || this.productSlug);
         this.init();
     }
 
@@ -103,19 +103,21 @@ class ProductDetailAPI {
 
     async loadProduct() {
         try {
-            console.log('[Product Detail API] Loading product:', this.productId);
+            if (this.productId) {
+                console.log('[Product Detail API] Loading product by ID:', this.productId);
+            } else {
+                console.log('[Product Detail API] Loading product by slug:', this.productSlug);
+            }
             this.showLoading();
 
-            const response = this.productSlug
-                ? await this.apiClient.getProductBySlug(this.productSlug)
-                : await this.apiClient.getProduct(this.productId);
+            const response = this.productId
+                ? await this.apiClient.getProduct(this.productId)
+                : await this.apiClient.getProductBySlug(this.productSlug);
 
             if (response.success && response.data) {
                 this.product = response.data;
-                if (!this.productId && this.product?.id) {
-                    this.productId = this.product.id;
-                }
                 console.log('[Product Detail API] Product loaded:', this.product);
+                this.productId = this.product.id;
                 this.renderProduct();
                 this.renderVariantsSection();
                 this.attachVariantListeners();
@@ -300,10 +302,7 @@ class ProductDetailAPI {
                         <span>⭐ ${Number(store.rating || 0).toFixed(1)} rating</span>
                         <span>📦 ${store.total_sales || 0} products sold</span>
                     </div>
-                    <a href="products.html?storeId=${store.id}${store.slug ? `&storeSlug=${store.slug}` : ''}"
-                       class="btn btn-secondary">
-                        Visit Store
-                    </a>
+                    <a href="store.html?id=${store.id}" class="btn btn-secondary">Visit Store</a>
                 </div>
             </div>
         `;

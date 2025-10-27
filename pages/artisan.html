@@ -149,24 +149,6 @@
             letter-spacing: 0.5px;
         }
 
-        .artisan-tags {
-            margin-top: var(--space-md);
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--space-sm);
-        }
-
-        .store-chip {
-            background: var(--cream-warm);
-            color: var(--forest-deep);
-            border-radius: var(--radius-sm);
-            padding: var(--space-xs) var(--space-sm);
-            font-size: 0.85rem;
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-xs);
-        }
-
         .artisan-description {
             line-height: 1.6;
             color: var(--forest-medium);
@@ -577,7 +559,7 @@
 
             <div class="nav-search" style="flex: 1; max-width: 400px; margin: 0 var(--space-lg);">
                 <div style="position: relative;">
-                    <input id="artisanSearchInput" type="text" class="search-input" placeholder="Search artisans & treasures..."
+                    <input type="text" class="search-input" id="storeSearchInput" placeholder="Search artisans & treasures..."
                            style="width: 100%; padding: var(--space-sm) var(--space-lg) var(--space-sm) 2.5rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg); backdrop-filter: var(--glass-backdrop);">
                     <span style="position: absolute; left: var(--space-md); top: 50%; transform: translateY(-50%); color: var(--warm-brown);">🔍</span>
                 </div>
@@ -613,15 +595,15 @@
                 <div style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
-                        <div><strong id="artisanStoreCount">0</strong><br>Master Artisans</div>
+                        <div><strong id="heroTotalArtisans">—</strong><br>Master Artisans</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-                        <div><strong id="artisanTotalPieces">0</strong><br>Unique Pieces</div>
+                        <div><strong id="heroTotalPieces">—</strong><br>Unique Pieces</div>
                     </div>
                     <div style="text-align: center; color: rgba(255, 255, 255, 0.9);">
                         <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-                        <div><strong id="artisanAvgRating">0.0</strong><br>Avg Rating</div>
+                        <div><strong id="heroAvgRating">—</strong><br>Avg Rating</div>
                     </div>
                 </div>
             </div>
@@ -644,59 +626,65 @@
             </section>
 
             <!-- Filter Bar -->
-            <div class="filter-bar" id="artisanFilters" aria-live="polite"></div>
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">🌟 All Artisans</button>
+                <button class="filter-btn" data-filter="featured">💫 Featured</button>
+                <button class="filter-btn" data-filter="top-rated">⭐ Top Rated</button>
+                <button class="filter-btn" data-filter="new">🆕 New Arrivals</button>
+                <button class="filter-btn" data-filter="city-stockholm">🏙️ Stockholm</button>
+                <button class="filter-btn" data-filter="city-oslo">🌉 Oslo</button>
+            </div>
 
             <!-- Featured Artisan -->
-            <section class="featured-artisan" id="featuredArtisan">
+            <section class="featured-artisan">
                 <div class="featured-content">
-                    <div class="artisan-badge" id="featuredStoreBadge" style="position: static; display: inline-block; margin-bottom: var(--space-md);">⭐ Featured Artisan</div>
-                    <h2 id="featuredStoreName" style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">Artisan Name</h2>
-                    <p class="accent-text" id="featuredStoreTagline" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">Craft Discipline</p>
+                    <div class="artisan-badge" style="position: static; display: inline-block; margin-bottom: var(--space-md);">⭐ Master of the Month</div>
+                    <h2 id="featuredName" style="font-size: 2.5rem; margin-bottom: var(--space-md); color: white;">Featured Artisan</h2>
+                    <p id="featuredSpecialty" class="accent-text" style="font-size: 1.5rem; color: rgba(255, 255, 255, 0.9); margin-bottom: var(--space-lg);">—</p>
 
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
+                    <div id="featuredStats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); margin: var(--space-xl) 0; text-align: center;">
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🏆</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;" id="featuredStoreYears">0</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Years Mastery</div>
                         </div>
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">⭐</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;" id="featuredStoreRating">0.0</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Customer Rating</div>
                         </div>
                         <div style="padding: var(--space-lg); background: rgba(255, 255, 255, 0.1); border-radius: var(--radius-md);">
                             <div style="font-size: 2rem; margin-bottom: var(--space-sm);">🎯</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;" id="featuredStoreSales">0</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">—</div>
                             <div style="font-size: 0.9rem; opacity: 0.8;">Pieces Sold</div>
                         </div>
                     </div>
 
-                    <p id="featuredStoreDescription" style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
-                        Store description will appear here once data is loaded.
+                    <p id="featuredDescription" style="font-size: 1.1rem; line-height: 1.6; margin-bottom: var(--space-xl); color: rgba(255, 255, 255, 0.9);">
+                        Dostik is selecting a spotlight artisan for you...
                     </p>
 
                     <div style="display: flex; gap: var(--space-md); justify-content: center;">
-                        <button class="btn btn-secondary" id="featuredStoreProfile" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👤 View Profile</button>
-                        <button class="btn btn-accent" id="featuredStoreProducts" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">🎨 View Creations</button>
+                        <button id="featuredProfileLink" class="btn btn-secondary" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">👤 View Profile</button>
+                        <button id="featuredProductsLink" class="btn btn-accent" style="background: rgba(255, 255, 255, 0.9); color: var(--forest-deep);">🎨 View Creations</button>
                     </div>
                 </div>
 
                 <div class="featured-image">
-                    <img id="featuredStoreImage" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80" alt="Featured artisan">
+                    <img id="featuredImage" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=600&h=400" alt="Featured artisan">
                 </div>
             </section>
 
             <!-- Artisan Grid -->
-            <section class="artisan-grid" id="artisanGrid" aria-live="polite">
-                <div class="loading-state" id="artisanLoadingState" style="grid-column: 1 / -1; text-align: center; padding: var(--space-xxl); display: none;">
-                    <div class="spinner" style="margin: 0 auto 1rem;"></div>
-                    <p>Mağazalar yükleniyor...</p>
+            <section class="artisan-grid" id="artisanGrid">
+                <div class="artisan-empty">
+                    <div class="icon">🐉</div>
+                    <p>Dostik is gathering our artisans...</p>
                 </div>
             </section>
 
-            <div class="text-center" style="margin-bottom: var(--space-xxl);">
-                <button id="artisanLoadMore" class="btn btn-primary" style="display: none;">Daha fazla mağaza</button>
-                <p id="artisanNoResults" style="display: none; margin-top: var(--space-md); color: var(--warm-brown);">Filtrelere uygun mağaza bulunamadı.</p>
+            <div style="text-align: center; margin: var(--space-xl) 0;">
+                <button class="btn btn-primary" id="loadMoreStores" style="display: none;">Load More Artisans</button>
             </div>
 
             <!-- Traditional Techniques Section -->
@@ -919,9 +907,13 @@
     </main>
 
     <!-- Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/stores-api.js"></script>
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
-    <script src="../assets/js/main.js"></script>
 
     <!-- Footer -->
     <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
@@ -975,16 +967,6 @@
         </div>
     </footer>
 
-    <!-- Scripts -->
-    <script defer src="../assets/js/main.js"></script>
-
-    <script src="../assets/js/auth-manager.js"></script>
-    <script src="../assets/js/api-config.js"></script>
-    <script src="../assets/js/api-client.js"></script>
-    <script src="../assets/js/store-directory.js"></script>
-
-    <script src="../assets/js/dostik-ai.js"></script>
-    <script src="../assets/js/carsi-pazar-browser.js"></script>
-
 </body>
 </html>
+

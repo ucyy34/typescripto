@@ -130,12 +130,6 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      if (options.body instanceof FormData) {
-        const headers = { ...config.headers };
-        delete headers['Content-Type'];
-        config.headers = headers;
-      }
-
       console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
@@ -213,19 +207,6 @@ class ApiClient {
     return this.request(endpoint, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
-  }
-
-  /**
-   * Upload product image
-   */
-  async uploadProductImage(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
-      method: 'POST',
-      body: formData,
     });
   }
 
@@ -308,13 +289,6 @@ class ApiClient {
   }
 
   /**
-   * Get store by slug
-   */
-  async getStoreBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.BY_SLUG(slug));
-  }
-
-  /**
    * Get store by ID
    */
   async getStore(storeId) {
@@ -383,10 +357,27 @@ class ApiClient {
   }
 
   /**
-   * Get product by slug
+   * Search products with autocomplete suggestions
    */
-  async getProductBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
+  async searchProducts(query, options = {}) {
+    const trimmedQuery = (query || '').trim();
+
+    if (trimmedQuery.length < 2) {
+      return {
+        success: true,
+        data: {
+          query: trimmedQuery,
+          results: [],
+          suggestions: [],
+        },
+      };
+    }
+
+    const params = { q: trimmedQuery };
+    if (options.limit) params.limit = options.limit;
+    if (options.includeSuggestions === false) params.includeSuggestions = false;
+
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
   }
 
   /**
@@ -394,6 +385,13 @@ class ApiClient {
    */
   async getProduct(productId) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(productId));
+  }
+
+  /**
+   * Get product by slug
+   */
+  async getProductBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -468,17 +466,17 @@ class ApiClient {
   }
 
   /**
-   * Get category by slug
-   */
-  async getCategoryBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
-  }
-
-  /**
    * Get category by ID
    */
   async getCategory(categoryId) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_ID(categoryId));
+  }
+
+  /**
+   * Get category by slug
+   */
+  async getCategoryBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

@@ -143,19 +143,31 @@ const productIdSchema = Joi.object({
 });
 
 /**
+ * Product slug param validation
+ */
+const productSlugSchema = Joi.object({
+  slug: Joi.string()
+    .trim()
+    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .min(2)
+    .max(350)
+    .required()
+    .messages({
+      'string.pattern.base': 'Invalid product slug format',
+      'string.min': 'Product slug must be at least 2 characters',
+      'string.max': 'Product slug cannot exceed 350 characters',
+      'any.required': 'Product slug is required',
+    }),
+});
+
+/**
  * Product query params validation
  */
 const productQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
   store_id: Joi.string().uuid().optional(),
-  store_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
-    'string.pattern.base': 'Store slug can only include letters, numbers, and hyphens',
-  }),
   category_id: Joi.string().uuid().optional(),
-  category_slug: Joi.string().pattern(/^[a-z0-9-]{3,}$/i).optional().messages({
-    'string.pattern.base': 'Category slug can only include letters, numbers, and hyphens',
-  }),
   status: Joi.string().valid('draft', 'pending', 'approved', 'rejected').optional(),
   search: Joi.string().max(200).optional().trim(),
   min_price: Joi.number().min(0).optional(),
@@ -179,19 +191,18 @@ const productQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
+const productSearchSchema = Joi.object({
+  q: Joi.string().trim().min(2).max(200).required(),
+  limit: Joi.number().integer().min(1).max(30).default(8),
+  includeSuggestions: Joi.boolean().optional(),
+});
+
 module.exports = {
   createProductSchema,
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
-  productSlugSchema: Joi.object({
-    slug: Joi.string()
-      .pattern(/^[a-z0-9-]{3,}$/)
-      .required()
-      .messages({
-        'string.pattern.base': 'Product slug can only include lowercase letters, numbers, and hyphens',
-        'any.required': 'Product slug is required',
-      }),
-  }),
+  productSlugSchema,
   productQuerySchema,
+  productSearchSchema,
 };
