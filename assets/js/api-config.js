@@ -76,6 +76,7 @@ const API_CONFIG = {
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
+      UPLOAD_IMAGE: '/products/upload-image',
     },
 
     // Category endpoints

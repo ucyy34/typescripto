@@ -841,11 +841,45 @@
 
                 <!-- Product Images -->
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image URL</label>
-                    <input type="url" id="productImage"
-                           placeholder="https://example.com/image.jpg (optional for now)"
-                           style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; font-size: 1rem;">
-                    <small style="color: #666; font-size: 0.85rem;">Tip: Image upload feature coming soon. For now, use external image URLs.</small>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image</label>
+                    <div class="image-upload-wrapper" style="display: grid; gap: 1rem;">
+                        <label for="productImageFile" class="image-upload-dropzone" style="
+                            border: 2px dashed var(--vendor-border);
+                            border-radius: 12px;
+                            padding: 1.25rem;
+                            display: flex;
+                            align-items: center;
+                            gap: 1rem;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        ">
+                            <div style="flex: 1;">
+                                <strong style="display: block; color: var(--vendor-primary);">Upload from your computer</strong>
+                                <span style="color: #64748b; font-size: 0.9rem;">Supported formats: JPG, PNG, GIF (converted to WebP automatically)</span>
+                            </div>
+                            <span style="font-size: 2rem; color: var(--vendor-primary);">⬆️</span>
+                            <input type="file" id="productImageFile" accept="image/*" style="display: none;">
+                        </label>
+                        <div id="productImagePreview" class="image-upload-preview" style="
+                            width: 100%;
+                            height: 180px;
+                            border: 1px solid var(--vendor-border);
+                            border-radius: 12px;
+                            background: #f8fafc;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            overflow: hidden;
+                            position: relative;
+                            color: #94a3b8;
+                            font-weight: 600;
+                        ">
+                            <span>Seçilmiş görsel yok</span>
+                        </div>
+                    </div>
+                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                        Yüklenen görseller otomatik olarak WebP formatına çevrilir ve Dostan sunucularında saklanır.
+                    </small>
                 </div>
 
                 <!-- Product Badges -->

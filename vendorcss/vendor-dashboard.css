@@ -580,6 +580,193 @@ body {
     background: var(--vendor-primary);
 }
 
+/* Image upload styles */
+.image-upload-dropzone {
+    background: rgba(45, 104, 83, 0.04);
+}
+
+.image-upload-dropzone:hover {
+    border-color: var(--vendor-primary);
+    background: rgba(45, 104, 83, 0.08);
+}
+
+.image-upload-preview {
+    position: relative;
+    overflow: hidden;
+}
+
+.image-upload-preview.has-image {
+    border-style: solid;
+    background: #fff;
+    color: transparent;
+}
+
+.image-upload-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-upload-preview .remove-image {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(15, 23, 42, 0.8);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+/* Variant selector styles */
+.variant-container {
+    margin-top: 1.5rem;
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-lg);
+    background: #f8fafc;
+    padding: var(--space-md);
+    display: grid;
+    gap: var(--space-md);
+}
+
+.variant-empty-state {
+    padding: 1rem;
+    border: 1px dashed var(--vendor-border);
+    border-radius: var(--radius-md);
+    color: #64748b;
+    text-align: center;
+    background: rgba(100, 116, 139, 0.08);
+    font-size: 0.9rem;
+}
+
+.variant-group {
+    background: #fff;
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    display: grid;
+    gap: var(--space-sm);
+    box-shadow: var(--shadow-sm);
+}
+
+.variant-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.variant-group-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--vendor-primary);
+    margin: 0;
+}
+
+.variant-group-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.variant-group-badge.required {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+}
+
+.variant-group-badge.optional {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+}
+
+.variant-group-description {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.variant-options-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.variant-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 0.75rem;
+    background: #fdfdfd;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    font-weight: 600;
+}
+
+.variant-option:hover {
+    border-color: var(--vendor-primary);
+    box-shadow: 0 4px 12px rgba(45, 104, 83, 0.1);
+    transform: translateY(-1px);
+}
+
+.variant-option input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.variant-option-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--vendor-text);
+}
+
+.variant-color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.variant-option input:checked + .variant-option-label {
+    color: var(--vendor-primary);
+}
+
+.vendor-product-badges {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.vendor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(45, 104, 83, 0.08);
+    color: var(--vendor-primary);
+}
+
+.vendor-badge-handmade { background: rgba(253, 230, 138, 0.4); color: #92400e; }
+.vendor-badge-limited { background: rgba(221, 214, 254, 0.6); color: #6b21a8; }
+.vendor-badge-eco-friendly { background: rgba(187, 247, 208, 0.6); color: #047857; }
+.vendor-badge-spiritual { background: rgba(196, 181, 253, 0.5); color: #5b21b6; }
+.vendor-badge-traditional { background: rgba(229, 231, 235, 0.8); color: #1f2937; }
+.vendor-badge-artisan { background: rgba(254, 215, 170, 0.6); color: #c2410c; }
+
 /* Accessibility & Performance Optimizations */
 @media (prefers-reduced-motion: reduce) {
     * {

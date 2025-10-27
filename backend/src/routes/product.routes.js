@@ -8,6 +8,8 @@ const router = express.Router();
 
 const productController = require('../controllers/product.controller');
 const { authenticate, requireSeller, requireAdmin, optionalAuth } = require('../middlewares/auth');
+const { uploadLimiter } = require('../middlewares/rateLimiter');
+const { productImageUpload } = require('../middlewares/upload');
 const { validate, validateQuery, validateParams } = require('../middlewares/validate');
 const {
   createProductSchema,
@@ -37,6 +39,20 @@ router.get('/bestsellers', productController.getBestSellers);
  * @access  Public
  */
 router.get('/random', productController.getRandomProducts);
+
+/**
+ * @route   POST /api/v1/products/upload-image
+ * @desc    Upload product image and convert to WebP
+ * @access  Private (Seller only)
+ */
+router.post(
+  '/upload-image',
+  authenticate,
+  requireSeller,
+  uploadLimiter,
+  productImageUpload,
+  productController.uploadProductImage
+);
 
 /**
  * @route   POST /api/v1/products

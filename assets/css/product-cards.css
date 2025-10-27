@@ -405,6 +405,26 @@
   color: #6b21a8;
 }
 
+.badge.eco-friendly {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.badge.spiritual {
+  background: #e9d5ff;
+  color: #5b21b6;
+}
+
+.badge.traditional {
+  background: #f1f5f9;
+  color: #1f2937;
+}
+
+.badge.artisan {
+  background: #fde68a;
+  color: #92400e;
+}
+
 .badge.new {
   background: #d1fae5;
   color: #065f46;
