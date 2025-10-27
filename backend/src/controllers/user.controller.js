@@ -1,7 +1,12 @@
+/**
+ * User Controller
+ * Administrative operations for managing users
+ */
+
 const { StatusCodes } = require('http-status-codes');
 const { User } = require('../models');
-const { success } = require('../utils/response');
-const { ApiError, asyncHandler } = require('../middlewares/errorHandler');
+const { success, paginated } = require('../utils/response');
+const { asyncHandler, ApiError } = require('../middlewares/errorHandler');
 
 const USER_ATTRIBUTES = [
   'id',
@@ -14,55 +19,69 @@ const USER_ATTRIBUTES = [
   'updatedAt',
 ];
 
-const getPaginationMeta = (total, limit, offset, currentCount) => ({
-  total,
-  limit,
-  offset,
-  count: currentCount,
-  hasNext: offset + currentCount < total,
-  hasPrev: offset > 0,
-});
+const buildStatusFilter = (status) => {
+  if (typeof status === 'undefined' || status === null) {
+    return undefined;
+  }
 
-const userController = {
-  /**
-   * Get all users (admin only)
-   */
-  getAllUsers: asyncHandler(async (req, res) => {
-    const { role, status, limit, offset } = req.query;
+  if (typeof status === 'boolean') {
+    return status;
+  }
 
-    const where = {};
-    if (role) {
-      where.role = role;
-    }
-    if (status) {
-      where.is_active = status === 'active';
-    }
+  return status === 'active';
+};
 
+const getAllUsers = asyncHandler(async (req, res) => {
+  const { role, status, limit = 100, offset = 0 } = req.query;
+  const where = {};
+
+  if (role) {
+    where.role = role;
+  }
+
+  const parsedStatus = buildStatusFilter(status);
+  if (typeof parsedStatus !== 'undefined') {
+    where.is_active = parsedStatus;
+  }
+
+  const queryLimit = Number(limit);
+  const queryOffset = Number(offset);
+
+  try {
     const [users, total] = await Promise.all([
       User.findAll({
         where,
         attributes: USER_ATTRIBUTES,
-        limit,
-        offset,
+        limit: queryLimit,
+        offset: queryOffset,
         order: [['createdAt', 'DESC']],
       }),
       User.count({ where }),
     ]);
 
-    return success(
-      res,
-      {
-        users,
-        pagination: getPaginationMeta(total, limit, offset, users.length),
-      },
-      'Users retrieved successfully'
-    );
-  }),
+    const page = Math.floor(queryOffset / queryLimit) + 1;
+    const pagination = {
+      page,
+      limit: queryLimit,
+      total,
+      totalPages: Math.ceil(total / queryLimit) || 1,
+      hasNext: queryOffset + queryLimit < total,
+      hasPrev: queryOffset > 0,
+    };
 
-  /**
-   * Get user by ID (admin only)
-   */
-  getUserById: asyncHandler(async (req, res) => {
+    return paginated(res, users, pagination, 'Users retrieved successfully');
+  } catch (error) {
+    console.error('[User Controller] Error fetching users:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError('Failed to fetch users', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+});
+
+const getUserById = asyncHandler(async (req, res) => {
+  try {
     const user = await User.findByPk(req.params.id, {
       attributes: USER_ATTRIBUTES,
     });
@@ -72,26 +91,32 @@ const userController = {
     }
 
     return success(res, user, 'User retrieved successfully');
-  }),
+  } catch (error) {
+    console.error('[User Controller] Error fetching user:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
 
-  /**
-   * Update user status (activate/suspend)
-   */
-  updateUserStatus: asyncHandler(async (req, res) => {
-    const user = await User.findByPk(req.params.id);
+    throw new ApiError('Failed to fetch user', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+});
+
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { is_active: isActive } = req.body;
+
+  try {
+    const user = await User.findByPk(id);
 
     if (!user) {
       throw new ApiError('User not found', StatusCodes.NOT_FOUND);
     }
 
-    if (user.id === req.user.id && !req.body.is_active) {
-      throw new ApiError(
-        'You cannot deactivate your own account',
-        StatusCodes.BAD_REQUEST
-      );
+    if (user.id === req.user.id && isActive === false) {
+      throw new ApiError('You cannot deactivate your own account', StatusCodes.BAD_REQUEST);
     }
 
-    user.is_active = req.body.is_active;
+    user.is_active = isActive;
     await user.save();
 
     return success(
@@ -103,26 +128,32 @@ const userController = {
       },
       `User ${user.is_active ? 'activated' : 'suspended'} successfully`
     );
-  }),
+  } catch (error) {
+    console.error('[User Controller] Error updating user status:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
 
-  /**
-   * Update user role (admin only)
-   */
-  updateUserRole: asyncHandler(async (req, res) => {
-    const user = await User.findByPk(req.params.id);
+    throw new ApiError('Failed to update user status', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+});
+
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  try {
+    const user = await User.findByPk(id);
 
     if (!user) {
       throw new ApiError('User not found', StatusCodes.NOT_FOUND);
     }
 
     if (user.id === req.user.id) {
-      throw new ApiError(
-        'You cannot change your own role',
-        StatusCodes.BAD_REQUEST
-      );
+      throw new ApiError('You cannot change your own role', StatusCodes.BAD_REQUEST);
     }
 
-    user.role = req.body.role;
+    user.role = role;
     await user.save();
 
     return success(
@@ -134,7 +165,19 @@ const userController = {
       },
       'User role updated successfully'
     );
-  }),
-};
+  } catch (error) {
+    console.error('[User Controller] Error updating user role:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
 
-module.exports = userController;
+    throw new ApiError('Failed to update user role', StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+});
+
+module.exports = {
+  getAllUsers,
+  getUserById,
+  updateUserStatus,
+  updateUserRole,
+};

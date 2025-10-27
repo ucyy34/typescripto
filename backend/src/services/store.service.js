@@ -232,6 +232,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
