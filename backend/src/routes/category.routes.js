@@ -31,6 +31,13 @@ router.get('/featured', categoryController.getFeaturedCategories);
 router.get('/', categoryController.getAllCategories);
 
 /**
+ * @route   GET /api/v1/categories/slug/:slug
+ * @desc    Get category by slug
+ * @access  Public
+ */
+router.get('/slug/:slug', categoryController.getCategoryBySlug);
+
+/**
  * @route   GET /api/v1/categories/:id/variants
  * @desc    Get variants for a category
  * @access  Public
