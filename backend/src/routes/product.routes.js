@@ -15,6 +15,8 @@ const {
   updateProductStatusSchema,
   productIdSchema,
   productQuerySchema,
+  productSlugSchema,
+  productSearchQuerySchema,
 } = require('../validators/product.validator');
 
 /**
@@ -51,6 +53,20 @@ router.post('/', authenticate, requireSeller, validate(createProductSchema), pro
  * @access  Public
  */
 router.get('/', validateQuery(productQuerySchema), productController.getProducts);
+
+/**
+ * @route   GET /api/v1/products/search
+ * @desc    Search products for storefront autocomplete/results
+ * @access  Public
+ */
+router.get('/search', validateQuery(productSearchQuerySchema), productController.searchProducts);
+
+/**
+ * @route   GET /api/v1/products/slug/:slug
+ * @desc    Get product by slug
+ * @access  Public
+ */
+router.get('/slug/:slug', optionalAuth, validateParams(productSlugSchema), productController.getProductBySlug);
 
 /**
  * @route   GET /api/v1/products/:id
