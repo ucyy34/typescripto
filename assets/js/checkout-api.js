@@ -11,8 +11,9 @@ class CheckoutPageAPI {
         this.user = null;
         this.shippingAddress = {};
         this.billingAddress = {};
-        this.paymentMethod = 'credit_card';
+        this.paymentMethod = 'card';
         this.useSameAddress = true;
+        this.currentMode = this.isLoggedIn ? 'member' : 'guest';
 
         // Coupon state
         this.appliedCoupon = null;
@@ -33,10 +34,12 @@ class CheckoutPageAPI {
             }
 
             await this.loadCart();
-            this.renderCheckout();
             this.setupEventListeners();
-            this.prefillCheckoutContact();
-            this.refreshAuthSections();
+            this.renderCheckout();
+            this.prefillContactInfo();
+            this.renderSavedAddresses();
+            this.updateMemberBenefits(this.isLoggedIn);
+            this.setCheckoutMode(this.currentMode);
             console.log('[Checkout Page API] Initialization complete');
         } catch (error) {
             console.error('[Checkout Page API] Initialization error:', error);
@@ -135,177 +138,6 @@ class CheckoutPageAPI {
         this.renderOrderSummary();
         this.renderShippingForm();
         this.renderPaymentForm();
-    }
-
-    prefillCheckoutContact() {
-        if (!this.user) return;
-
-        const fieldMap = {
-            firstName: this.user.first_name,
-            lastName: this.user.last_name,
-            email: this.user.email,
-            phone: this.user.phone,
-        };
-
-        Object.entries(fieldMap).forEach(([fieldId, value]) => {
-            const input = document.getElementById(fieldId);
-            if (input && typeof value !== 'undefined' && value !== null) {
-                input.value = value;
-            }
-        });
-    }
-
-    refreshAuthSections() {
-        const savedAddresses = document.getElementById('saved-addresses');
-        if (savedAddresses) {
-            savedAddresses.style.display = this.isLoggedIn ? 'block' : 'none';
-        }
-
-        if (this.isLoggedIn) {
-            this.switchUserType('member');
-        }
-
-        const memberMessage = document.getElementById('memberLoginMessage');
-        const loginForm = document.getElementById('memberLoginForm');
-        const loginBtn = loginForm?.querySelector('.login-btn');
-
-        if (this.isLoggedIn) {
-            const displayName = this.user?.first_name || this.user?.email || 'Üye';
-            if (memberMessage) {
-                this.setFormMessage(memberMessage, `✅ ${displayName} olarak giriş yaptınız.`, 'success');
-            }
-            if (loginForm) {
-                loginForm.querySelectorAll('input').forEach(input => {
-                    input.disabled = true;
-                });
-            }
-            if (loginBtn) {
-                loginBtn.disabled = true;
-                loginBtn.textContent = 'Already logged in';
-            }
-        } else {
-            if (memberMessage) {
-                this.setFormMessage(memberMessage, 'Üyeliğiniz varsa giriş yaparak kaydedilmiş adreslerinizi kullanabilirsiniz.', 'info');
-            }
-            if (loginForm) {
-                loginForm.querySelectorAll('input').forEach(input => {
-                    input.disabled = false;
-                });
-            }
-            if (loginBtn) {
-                loginBtn.disabled = false;
-                loginBtn.textContent = '🔐 Login to Account';
-            }
-        }
-
-        const registerForm = document.getElementById('checkoutRegisterForm');
-        const registerBtn = registerForm?.querySelector('.register-btn');
-        const registerMessage = document.getElementById('checkoutRegisterMessage');
-
-        if (this.isLoggedIn) {
-            if (registerMessage) {
-                this.setFormMessage(registerMessage, 'Zaten giriş yaptınız. Ödeme adımlarına devam edebilirsiniz.', 'success');
-            }
-            if (registerForm) {
-                registerForm.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = true;
-                });
-            }
-            if (registerBtn) {
-                registerBtn.disabled = true;
-                registerBtn.textContent = 'Account active';
-            }
-        } else {
-            if (registerMessage) {
-                this.setFormMessage(registerMessage, '', 'info');
-            }
-            if (registerForm) {
-                registerForm.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = false;
-                });
-            }
-            if (registerBtn) {
-                registerBtn.disabled = false;
-                registerBtn.textContent = 'Create Account';
-            }
-            this.toggleSellerStoreFields(document.getElementById('registerRole')?.value || 'buyer');
-        }
-
-        const memberInfo = document.getElementById('member-info');
-        if (memberInfo) {
-            if (this.isLoggedIn) {
-                const name = this.user?.first_name || this.user?.email || 'Member';
-                memberInfo.innerHTML = `<p>💎 Hoş geldiniz ${name}! Kaydedilmiş adresleriniz ve avantajlarınız aktif.</p>`;
-                memberInfo.classList.add('active');
-            } else {
-                memberInfo.innerHTML = '<p>💎 Access saved addresses, faster checkout, order history</p>';
-            }
-        }
-
-        const promoMessage = document.getElementById('promo-message');
-        if (promoMessage) {
-            if (this.isLoggedIn) {
-                if (!promoMessage.textContent) {
-                    promoMessage.textContent = '💎 As a member, try code MEMBER15 for extra savings!';
-                }
-                promoMessage.className = 'promo-message success';
-            } else if (!promoMessage.classList.contains('success')) {
-                promoMessage.textContent = '';
-                promoMessage.className = 'promo-message';
-            }
-        }
-    }
-
-    setFormMessage(elementOrId, message = '', type = 'info') {
-        const element = typeof elementOrId === 'string' ? document.getElementById(elementOrId) : elementOrId;
-        if (!element) return;
-
-        if (!message) {
-            element.textContent = '';
-            element.classList.remove('show', 'success', 'error');
-            return;
-        }
-
-        element.textContent = message;
-        element.classList.add('show');
-        element.classList.remove('success', 'error', 'info');
-
-        if (type === 'success') {
-            element.classList.add('success');
-        } else if (type === 'error') {
-            element.classList.add('error');
-        } else if (type === 'info') {
-            element.classList.add('info');
-        }
-    }
-
-    switchUserType(type = 'guest') {
-        const tabs = document.querySelectorAll('.user-tab');
-        tabs.forEach(tab => {
-            const isActive = tab.dataset.type === type;
-            tab.classList.toggle('active', isActive);
-        });
-
-        const infoBlocks = document.querySelectorAll('.user-info');
-        infoBlocks.forEach(block => {
-            const shouldShow = block.id === `${type}-info`;
-            block.classList.toggle('active', shouldShow);
-        });
-
-        const loginSection = document.getElementById('member-login');
-        const registerSection = document.getElementById('registration');
-
-        if (type === 'member') {
-            if (loginSection) loginSection.style.display = 'block';
-            if (registerSection) registerSection.style.display = 'none';
-        } else if (type === 'register') {
-            if (loginSection) loginSection.style.display = 'none';
-            if (registerSection) registerSection.style.display = 'block';
-            this.toggleSellerStoreFields(document.getElementById('registerRole')?.value || 'buyer');
-        } else {
-            if (loginSection) loginSection.style.display = 'none';
-            if (registerSection) registerSection.style.display = 'none';
-        }
     }
 
     renderOrderSummary() {
@@ -542,10 +374,6 @@ class CheckoutPageAPI {
     }
 
     setupEventListeners() {
-        this.setupUserTypeTabs();
-        this.setupMemberLoginForm();
-        this.setupInlineRegistration();
-
         // Promo/Coupon code button
         const promoBtn = document.querySelector('.promo-btn');
         if (promoBtn) {
@@ -605,7 +433,7 @@ class CheckoutPageAPI {
         }
 
         // Expiry date formatting
-        const cardExpiryInput = document.getElementById('cardExpiry');
+        const cardExpiryInput = document.getElementById('expiry');
         if (cardExpiryInput) {
             cardExpiryInput.addEventListener('input', (e) => {
                 let value = e.target.value.replace(/\D/g, '');
@@ -615,269 +443,10 @@ class CheckoutPageAPI {
                 e.target.value = value;
             });
         }
-    }
 
-    setupUserTypeTabs() {
-        const tabs = document.querySelectorAll('.user-tab');
-        if (tabs.length === 0) return;
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const type = tab.dataset.type || 'guest';
-                this.switchUserType(type);
-
-                if (type !== 'member') {
-                    this.setFormMessage('memberLoginMessage', '', 'info');
-                }
-                if (type !== 'register') {
-                    this.setFormMessage('checkoutRegisterMessage', '', 'info');
-                }
-            });
-        });
-
-        const initialType = this.isLoggedIn ? 'member' : 'guest';
-        this.switchUserType(initialType);
-    }
-
-    setupMemberLoginForm() {
-        const form = document.getElementById('memberLoginForm');
-        if (!form) return;
-
-        const emailInput = document.getElementById('loginEmail');
-        const passwordInput = document.getElementById('loginPassword');
-        const submitBtn = form.querySelector('.login-btn');
-        const messageEl = document.getElementById('memberLoginMessage');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-
-            if (this.isLoggedIn) {
-                this.setFormMessage(messageEl, 'Zaten giriş yaptınız. Ödeme adımlarına geçebilirsiniz.', 'success');
-                return;
-            }
-
-            const email = emailInput?.value.trim();
-            const password = passwordInput?.value || '';
-
-            if (!email || !password) {
-                this.setFormMessage(messageEl, 'Lütfen e-posta ve şifrenizi girin.', 'error');
-                return;
-            }
-
-            this.setFormMessage(messageEl, '');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Logging in...';
-            }
-
-            try {
-                const response = await this.apiClient.login(email, password);
-                if (!response.success) {
-                    throw new Error(response.message || 'Login failed');
-                }
-
-                const payload = response.data || response;
-                const tokens = payload.tokens;
-                const user = payload.user;
-
-                if (!tokens?.accessToken) {
-                    throw new Error('No token received from server');
-                }
-
-                await this.handleAuthSuccess(user, tokens);
-
-                this.setFormMessage(messageEl, 'Giriş başarılı! Üyelik avantajlarınız yüklendi.', 'success');
-            } catch (error) {
-                console.error('[Checkout Page API] Login failed:', error);
-                this.setFormMessage(messageEl, error.message || 'Login failed. Please try again.', 'error');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = '🔐 Login to Account';
-                }
-            }
-        });
-    }
-
-    setupInlineRegistration() {
-        const form = document.getElementById('checkoutRegisterForm');
-        if (!form) return;
-
-        const messageEl = document.getElementById('checkoutRegisterMessage');
-        const submitBtn = form.querySelector('.register-btn');
-        const roleSelect = document.getElementById('registerRole');
-
-        if (roleSelect) {
-            roleSelect.addEventListener('change', () => {
-                this.toggleSellerStoreFields(roleSelect.value);
-            });
-        }
-
-        this.toggleSellerStoreFields(roleSelect?.value || 'buyer');
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-
-            if (this.isLoggedIn) {
-                this.setFormMessage(messageEl, 'Zaten giriş yaptınız. Ödeme adımlarına geçebilirsiniz.', 'success');
-                return;
-            }
-
-            const firstName = document.getElementById('registerFirstName')?.value.trim();
-            const lastName = document.getElementById('registerLastName')?.value.trim();
-            const email = document.getElementById('registerEmail')?.value.trim();
-            const password = document.getElementById('registerPassword')?.value || '';
-            const confirmPassword = document.getElementById('registerConfirmPassword')?.value || '';
-            const role = roleSelect?.value || 'buyer';
-
-            if (!firstName || !lastName || !email) {
-                this.setFormMessage(messageEl, 'Lütfen tüm zorunlu alanları doldurun.', 'error');
-                return;
-            }
-
-            if (password !== confirmPassword) {
-                this.setFormMessage(messageEl, 'Şifreler eşleşmiyor.', 'error');
-                return;
-            }
-
-            if (password.length < 8) {
-                this.setFormMessage(messageEl, 'Şifreniz en az 8 karakter olmalıdır.', 'error');
-                return;
-            }
-
-            const storeData = {};
-            if (role === 'seller') {
-                const storeName = document.getElementById('registerStoreName')?.value.trim();
-                if (!storeName) {
-                    this.setFormMessage(messageEl, 'Satıcı hesabı için mağaza adı gereklidir.', 'error');
-                    return;
-                }
-
-                storeData.name = storeName;
-                storeData.description = document.getElementById('registerStoreDescription')?.value.trim() || undefined;
-                storeData.phone = document.getElementById('registerStorePhone')?.value.trim() || undefined;
-                storeData.email = document.getElementById('registerStoreEmail')?.value.trim() || email;
-                storeData.address = document.getElementById('registerStoreAddress')?.value.trim() || undefined;
-                storeData.city = document.getElementById('registerStoreCity')?.value.trim() || undefined;
-                storeData.tax_number = document.getElementById('registerStoreTaxNumber')?.value.trim() || undefined;
-            }
-
-            this.setFormMessage(messageEl, '');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Creating account...';
-            }
-
-            try {
-                const response = await this.apiClient.register({
-                    first_name: firstName,
-                    last_name: lastName,
-                    email,
-                    password,
-                    role,
-                });
-
-                if (!response.success) {
-                    throw new Error(response.message || 'Registration failed');
-                }
-
-                const payload = response.data || response;
-                const tokens = payload.tokens;
-                const user = payload.user;
-
-                if (!tokens?.accessToken) {
-                    throw new Error('No token received from server');
-                }
-
-                await this.handleAuthSuccess(user, tokens);
-
-                if (role === 'seller') {
-                    try {
-                        const storeResponse = await this.apiClient.createStore(storeData);
-                        if (!storeResponse.success) {
-                            throw new Error(storeResponse.message || 'Store creation failed');
-                        }
-
-                        this.setFormMessage(messageEl, 'Hesabınız ve mağazanız hazır! Satıcı paneline yönlendiriliyorsunuz...', 'success');
-                        setTimeout(() => {
-                            window.location.href = '../vendorcss/index.html';
-                        }, 1500);
-                        return;
-                    } catch (storeError) {
-                        console.error('[Checkout Page API] Store creation failed:', storeError);
-                        this.setFormMessage(messageEl, `Hesabınız açıldı ancak mağaza kurulamadı: ${storeError.message || storeError}. Satıcı panelinden mağaza oluşturabilirsiniz.`, 'error');
-                    }
-                } else {
-                    this.setFormMessage(messageEl, 'Hesabınız oluşturuldu! Üyelik avantajlarınız hazır.', 'success');
-                }
-            } catch (error) {
-                console.error('[Checkout Page API] Registration failed:', error);
-                this.setFormMessage(messageEl, error.message || 'Registration failed. Please try again.', 'error');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create Account';
-                }
-                return;
-            }
-
-            if (!this.isLoggedIn && submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Account';
-            }
-        });
-    }
-
-    toggleSellerStoreFields(role = 'buyer') {
-        const storeFields = document.getElementById('sellerStoreFields');
-        if (!storeFields) return;
-
-        const shouldShow = role === 'seller' && !this.isLoggedIn;
-        storeFields.style.display = shouldShow ? 'block' : 'none';
-
-        storeFields.querySelectorAll('[data-store-field]').forEach(input => {
-            if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) {
-                return;
-            }
-
-            if (shouldShow) {
-                if (input.dataset.required === 'true') {
-                    input.setAttribute('required', 'required');
-                }
-            } else {
-                input.removeAttribute('required');
-                if (!this.isLoggedIn) {
-                    input.value = '';
-                }
-            }
-        });
-    }
-
-    async handleAuthSuccess(user, tokens) {
-        AuthManager.login(tokens, user);
-        this.user = user;
-        this.isLoggedIn = true;
-
-        await this.mergeGuestCartIfNeeded();
-        await this.loadCart();
-        this.renderOrderSummary();
-        this.prefillCheckoutContact();
-        this.refreshAuthSections();
-
-        if (window.dostikAI) {
-            try {
-                const name = this.user?.first_name || this.user?.email || 'üyemiz';
-                window.dostikAI.addChatMessage(`✅ ${name}, üyelik avantajların hazır!`);
-            } catch (_) {}
-        }
-    }
-
-    async mergeGuestCartIfNeeded() {
-        try {
-            if (window.cartManager && typeof window.cartManager.mergeGuestCart === 'function') {
-                await window.cartManager.mergeGuestCart();
-            }
-        } catch (error) {
-            console.warn('[Checkout Page API] Guest cart merge failed:', error);
-        }
+        this.setupAuthSections();
+        this.setupSavedAddressHandlers();
+        this.toggleCardDetails();
     }
 
     toggleCardDetails() {
@@ -912,6 +481,654 @@ class CheckoutPageAPI {
         }
 
         console.log('[Checkout Page API] Card details toggled for:', this.paymentMethod);
+    }
+
+    setupAuthSections() {
+        this.setupUserTypeTabs();
+        this.setupLoginForm();
+        this.setupRegisterForm();
+        this.updateAuthFormsState();
+    }
+
+    setupUserTypeTabs() {
+        const userTabs = document.querySelectorAll('.user-tab');
+        if (!userTabs.length) return;
+
+        userTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                const type = tab.dataset.type || 'guest';
+                this.setCheckoutMode(type);
+            });
+        });
+    }
+
+    setCheckoutMode(mode) {
+        if (!mode) return;
+
+        this.currentMode = mode;
+
+        const userTabs = document.querySelectorAll('.user-tab');
+        userTabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.type === mode);
+        });
+
+        const infoBoxes = document.querySelectorAll('.user-info');
+        infoBoxes.forEach((info) => info.classList.remove('active'));
+        const activeInfo = document.getElementById(`${mode}-info`);
+        if (activeInfo) {
+            activeInfo.classList.add('active');
+        }
+
+        const memberLoginSection = document.getElementById('member-login');
+        if (memberLoginSection) {
+            memberLoginSection.style.display = mode === 'member' && !this.isLoggedIn ? 'block' : 'none';
+        }
+
+        const registrationSection = document.getElementById('registration');
+        if (registrationSection) {
+            registrationSection.style.display = mode === 'register' && !this.isLoggedIn ? 'block' : 'none';
+        }
+
+        const contactSection = document.querySelector('.checkout-form .form-section');
+        if (contactSection) {
+            contactSection.style.display = mode === 'member' && this.isLoggedIn ? 'none' : 'block';
+        }
+
+        const savedAddresses = document.getElementById('saved-addresses');
+        if (savedAddresses) {
+            const shouldShow = mode === 'member' && this.isLoggedIn && this.hasSavedAddresses();
+            savedAddresses.style.display = shouldShow ? 'block' : 'none';
+        }
+
+        this.updateAuthFormsState();
+    }
+
+    updateAuthFormsState() {
+        const loginForm = document.getElementById('checkoutLoginForm');
+        const loggedInSummary = document.getElementById('loggedInSummary');
+        const registerForm = document.getElementById('checkoutRegisterForm');
+        const registerNotice = document.getElementById('registerLoggedInNotice');
+
+        if (loginForm) {
+            loginForm.style.display = this.isLoggedIn ? 'none' : 'block';
+        }
+
+        if (loggedInSummary) {
+            if (this.isLoggedIn && this.user) {
+                loggedInSummary.innerHTML = '';
+
+                const alert = document.createElement('div');
+                alert.className = 'form-alert success';
+                const fullName = [this.user.first_name, this.user.last_name]
+                    .filter(Boolean)
+                    .join(' ');
+                const displayName = fullName || this.user.email || 'Hesabınız';
+                alert.textContent = `✅ ${displayName} olarak giriş yaptınız.`;
+                loggedInSummary.appendChild(alert);
+
+                const logoutBtn = document.createElement('button');
+                logoutBtn.type = 'button';
+                logoutBtn.id = 'checkoutLogoutBtn';
+                logoutBtn.className = 'login-btn secondary';
+                logoutBtn.textContent = '🚪 Çıkış Yap';
+                loggedInSummary.appendChild(logoutBtn);
+                loggedInSummary.style.display = 'block';
+                this.setupCheckoutLogout();
+            } else {
+                loggedInSummary.innerHTML = '';
+                loggedInSummary.style.display = 'none';
+            }
+        }
+
+        if (registerForm) {
+            registerForm.style.display = this.isLoggedIn ? 'none' : 'block';
+        }
+
+        if (registerNotice) {
+            registerNotice.style.display = this.isLoggedIn ? 'block' : 'none';
+        }
+    }
+
+    setupLoginForm() {
+        const form = document.getElementById('checkoutLoginForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('checkoutLoginSubmit');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Giriş yapılıyor...';
+            }
+
+            this.clearAuthMessage('login');
+
+            try {
+                const email = (document.getElementById('loginEmail')?.value || '').trim();
+                const password = document.getElementById('loginPassword')?.value || '';
+
+                if (!email || !password) {
+                    throw new Error('Lütfen e-posta ve şifre giriniz.');
+                }
+
+                const response = await this.apiClient.login(email, password);
+                if (!response?.success || !response.data) {
+                    throw new Error(response?.message || 'Giriş başarısız.');
+                }
+
+                const { user, tokens } = response.data;
+                if (!tokens?.accessToken) {
+                    throw new Error('Sunucudan erişim belirteci alınamadı.');
+                }
+
+                AuthManager.login(tokens, user);
+                this.isLoggedIn = true;
+                this.user = user;
+
+                if (window.cartManager?.mergeGuestCart) {
+                    try {
+                        await window.cartManager.mergeGuestCart();
+                    } catch (mergeError) {
+                        console.warn('[Checkout Page API] mergeGuestCart failed after login:', mergeError);
+                    }
+                }
+
+                await this.afterAuthChange('login');
+                this.showAuthMessage('login', 'success', '✅ Giriş başarılı! Bilgileriniz yüklendi.');
+            } catch (error) {
+                this.showAuthMessage('login', 'error', error.message || 'Giriş başarısız.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '🔐 Login to Account';
+                }
+            }
+        });
+    }
+
+    setupRegisterForm() {
+        const form = document.getElementById('checkoutRegisterForm');
+        if (!form) return;
+
+        const sellerCheckbox = document.getElementById('registerAsSeller');
+        const sellerFields = document.getElementById('sellerStoreFields');
+
+        if (sellerCheckbox && sellerFields) {
+            const toggleSellerFields = () => {
+                sellerFields.style.display = sellerCheckbox.checked ? 'block' : 'none';
+            };
+            sellerCheckbox.addEventListener('change', toggleSellerFields);
+            toggleSellerFields();
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (this.isLoggedIn) {
+                this.showAuthMessage('register', 'info', 'Zaten giriş yaptınız.');
+                return;
+            }
+
+            const submitBtn = document.getElementById('checkoutRegisterSubmit');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Hesap oluşturuluyor...';
+            }
+
+            this.clearAuthMessage('register');
+
+            try {
+                const firstName = (document.getElementById('registerFirstName')?.value || '').trim();
+                const lastName = (document.getElementById('registerLastName')?.value || '').trim();
+                const email = (document.getElementById('registerEmail')?.value || '').trim();
+                const password = document.getElementById('registerPassword')?.value || '';
+                const confirmPassword = document.getElementById('registerConfirmPassword')?.value || '';
+                const wantsSeller = sellerCheckbox?.checked || false;
+
+                if (!firstName || !lastName || !email || !password) {
+                    throw new Error('Lütfen gerekli alanları doldurun.');
+                }
+
+                if (password !== confirmPassword) {
+                    throw new Error('Şifreler eşleşmiyor.');
+                }
+
+                const role = wantsSeller ? 'seller' : 'buyer';
+
+                const rawStoreData = wantsSeller
+                    ? {
+                        name: (document.getElementById('registerStoreName')?.value || '').trim(),
+                        description: (document.getElementById('registerStoreDescription')?.value || '').trim(),
+                        city: (document.getElementById('registerStoreCity')?.value || '').trim(),
+                        phone: (document.getElementById('registerStorePhone')?.value || '').trim(),
+                    }
+                    : null;
+
+                if (role === 'seller' && (!rawStoreData || !rawStoreData.name)) {
+                    throw new Error('Satıcı kaydı için mağaza adı gereklidir.');
+                }
+
+                const response = await this.apiClient.register({
+                    first_name: firstName,
+                    last_name: lastName,
+                    email,
+                    password,
+                    role,
+                });
+
+                if (!response?.success || !response.data) {
+                    throw new Error(response?.message || 'Kayıt başarısız.');
+                }
+
+                const { user, tokens } = response.data;
+                if (!tokens?.accessToken) {
+                    throw new Error('Sunucudan erişim belirteci alınamadı.');
+                }
+
+                AuthManager.login(tokens, user);
+                this.isLoggedIn = true;
+                this.user = user;
+
+                if (window.cartManager?.mergeGuestCart) {
+                    try {
+                        await window.cartManager.mergeGuestCart();
+                    } catch (mergeError) {
+                        console.warn('[Checkout Page API] mergeGuestCart failed after register:', mergeError);
+                    }
+                }
+
+                await this.afterAuthChange('register', { role, storeData: rawStoreData });
+                this.showAuthMessage('register', 'success', '🎉 Hesabınız oluşturuldu!');
+            } catch (error) {
+                this.showAuthMessage('register', 'error', error.message || 'Kayıt başarısız.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '⭐ Üye Ol ve Devam Et';
+                }
+            }
+        });
+    }
+
+    showAuthMessage(target, type, message, append = false) {
+        const containers = {
+            login: document.getElementById('loginMessage'),
+            register: document.getElementById('registerMessage'),
+        };
+
+        const container = containers[target];
+        if (!container) return;
+
+        if (!append) {
+            container.innerHTML = '';
+        }
+
+        const alert = document.createElement('div');
+        alert.className = `form-alert ${type || 'info'}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        container.style.display = 'block';
+    }
+
+    clearAuthMessage(target) {
+        const containers = {
+            login: document.getElementById('loginMessage'),
+            register: document.getElementById('registerMessage'),
+        };
+
+        const container = containers[target];
+        if (!container) return;
+
+        container.innerHTML = '';
+        container.style.display = 'none';
+    }
+
+    hasSavedAddresses() {
+        return Array.isArray(this.user?.addresses) && this.user.addresses.length > 0;
+    }
+
+    renderSavedAddresses() {
+        const listContainer = document.getElementById('savedAddressesList');
+        const wrapper = document.getElementById('saved-addresses');
+
+        if (!listContainer) return;
+
+        listContainer.innerHTML = '';
+
+        if (!this.isLoggedIn) {
+            if (wrapper) {
+                wrapper.style.display = 'none';
+            }
+            return;
+        }
+
+        const addresses = Array.isArray(this.user?.addresses) ? this.user.addresses : [];
+
+        if (!addresses.length) {
+            const empty = document.createElement('p');
+            empty.className = 'saved-addresses-empty';
+            empty.textContent = 'Kayıtlı adres bulunamadı.';
+            listContainer.appendChild(empty);
+            if (wrapper) {
+                wrapper.style.display = this.currentMode === 'member' ? 'block' : 'none';
+            }
+            return;
+        }
+
+        addresses.forEach((address, index) => {
+            const card = document.createElement('div');
+            card.className = 'address-card';
+
+            const header = document.createElement('div');
+            header.className = 'address-header';
+
+            const radioId = `savedAddress-${address.id || index}`;
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'savedAddress';
+            radio.id = radioId;
+            radio.value = address.id || `index-${index}`;
+            radio.dataset.index = index;
+            radio.checked = index === 0;
+
+            const label = document.createElement('label');
+            label.setAttribute('for', radioId);
+            const labelText = address.label || address.title || address.tag || `Adres ${index + 1}`;
+            label.textContent = labelText;
+
+            header.appendChild(radio);
+            header.appendChild(label);
+
+            const details = document.createElement('div');
+            details.className = 'address-details';
+            const lines = [
+                address.address_line1 || address.address || address.street || null,
+                address.address_line2 || address.line2 || null,
+                [address.district || address.state || null, address.city || null]
+                    .filter(Boolean)
+                    .join(', ')
+                    .trim(),
+                [address.postal_code || address.zip || null, address.country || null]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim(),
+            ].filter((line) => line && line.length > 0);
+
+            if (!lines.length) {
+                details.textContent = 'Adres bilgisi bulunamadı.';
+            } else {
+                lines.forEach((line) => {
+                    if (!line) return;
+                    const lineEl = document.createElement('div');
+                    lineEl.textContent = line;
+                    details.appendChild(lineEl);
+                });
+            }
+
+            card.appendChild(header);
+            card.appendChild(details);
+            listContainer.appendChild(card);
+        });
+
+        const newCard = document.createElement('div');
+        newCard.className = 'address-card new-address';
+        const newHeader = document.createElement('div');
+        newHeader.className = 'address-header';
+        const newRadio = document.createElement('input');
+        newRadio.type = 'radio';
+        newRadio.name = 'savedAddress';
+        newRadio.id = 'savedAddress-new';
+        newRadio.value = 'new';
+        newRadio.dataset.index = 'new';
+        newRadio.checked = false;
+        const newLabel = document.createElement('label');
+        newLabel.setAttribute('for', 'savedAddress-new');
+        newLabel.textContent = '➕ Yeni adres kullan';
+        newHeader.appendChild(newRadio);
+        newHeader.appendChild(newLabel);
+        newCard.appendChild(newHeader);
+        listContainer.appendChild(newCard);
+
+        if (wrapper) {
+            wrapper.style.display = this.currentMode === 'member' ? 'block' : 'none';
+        }
+
+        if (addresses.length > 0) {
+            this.fillShippingAddress(addresses[0]);
+        }
+    }
+
+    setupSavedAddressHandlers() {
+        const wrapper = document.getElementById('saved-addresses');
+        if (!wrapper) return;
+
+        wrapper.addEventListener('change', (event) => {
+            const target = event.target;
+            if (!target || target.name !== 'savedAddress') return;
+
+            const indexAttr = target.dataset.index;
+
+            if (target.value === 'new' || indexAttr === 'new') {
+                this.clearShippingAddressFields();
+                return;
+            }
+
+            const index = parseInt(indexAttr, 10);
+            if (Number.isNaN(index)) {
+                return;
+            }
+
+            const addresses = Array.isArray(this.user?.addresses) ? this.user.addresses : [];
+            if (addresses[index]) {
+                this.fillShippingAddress(addresses[index]);
+            }
+        });
+    }
+
+    fillShippingAddress(address) {
+        if (!address) return;
+
+        const shippingAddressInput = document.getElementById('shippingAddress');
+        if (shippingAddressInput) {
+            shippingAddressInput.value = address.address_line1 || address.address || address.street || '';
+        }
+
+        const shippingZip = document.getElementById('shippingZip');
+        if (shippingZip) {
+            shippingZip.value = address.postal_code || address.zip || '';
+        }
+
+        const shippingCitySelect = document.getElementById('shippingCitySelect');
+        const cityValue = address.city || '';
+        if (shippingCitySelect) {
+            if (!this.setSelectValueByText(shippingCitySelect, cityValue)) {
+                shippingCitySelect.value = cityValue;
+            }
+        }
+
+        const shippingDistrict = document.getElementById('shippingDistrict');
+        const districtValue = address.district || address.state || '';
+        if (shippingDistrict) {
+            shippingDistrict.value = districtValue;
+        }
+
+        const deliveryInstructions = document.getElementById('deliveryInstructions');
+        if (deliveryInstructions && address.notes) {
+            deliveryInstructions.value = address.notes;
+        }
+
+        const phoneInput = document.getElementById('phone');
+        if (phoneInput && !phoneInput.value && address.phone) {
+            phoneInput.value = address.phone;
+        }
+    }
+
+    clearShippingAddressFields(keepContact = true) {
+        const fields = ['shippingAddress', 'shippingZip', 'deliveryInstructions'];
+        fields.forEach((fieldId) => {
+            const input = document.getElementById(fieldId);
+            if (input) {
+                input.value = '';
+            }
+        });
+
+        const shippingCitySelect = document.getElementById('shippingCitySelect');
+        if (shippingCitySelect) {
+            shippingCitySelect.value = '';
+        }
+
+        const shippingDistrict = document.getElementById('shippingDistrict');
+        if (shippingDistrict) {
+            shippingDistrict.value = '';
+        }
+
+        if (!keepContact) {
+            ['firstName', 'lastName', 'email', 'phone'].forEach((id) => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.value = '';
+                }
+            });
+        }
+    }
+
+    setSelectValueByText(select, value) {
+        if (!select || !value) return false;
+        const target = value.toString().toLowerCase();
+
+        for (const option of Array.from(select.options)) {
+            const optionValue = option.value?.toString().toLowerCase();
+            const optionText = option.textContent?.toString().toLowerCase();
+            if (optionValue === target || optionText === target) {
+                select.value = option.value;
+                select.dispatchEvent(new Event('change'));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    prefillContactInfo(force = false) {
+        const firstNameInput = document.getElementById('firstName');
+        const lastNameInput = document.getElementById('lastName');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+
+        if (!this.user) {
+            if (force) {
+                [firstNameInput, lastNameInput, emailInput, phoneInput].forEach((input) => {
+                    if (input) {
+                        input.value = '';
+                    }
+                });
+            }
+            return;
+        }
+
+        if (firstNameInput && (force || !firstNameInput.value)) {
+            firstNameInput.value = this.user.first_name || '';
+        }
+        if (lastNameInput && (force || !lastNameInput.value)) {
+            lastNameInput.value = this.user.last_name || '';
+        }
+        if (emailInput && (force || !emailInput.value)) {
+            emailInput.value = this.user.email || '';
+        }
+        if (phoneInput && (force || !phoneInput.value)) {
+            phoneInput.value = this.user.phone || '';
+        }
+    }
+
+    updateMemberBenefits(isActive) {
+        const benefits = document.getElementById('member-benefits');
+        if (!benefits) return;
+        benefits.style.display = isActive ? 'block' : 'none';
+    }
+
+    setupCheckoutLogout() {
+        const logoutBtn = document.getElementById('checkoutLogoutBtn');
+        if (!logoutBtn || logoutBtn.dataset.bound === 'true') return;
+
+        logoutBtn.dataset.bound = 'true';
+        logoutBtn.addEventListener('click', () => this.handleCheckoutLogout());
+    }
+
+    handleCheckoutLogout() {
+        AuthManager.logout(false);
+        this.isLoggedIn = false;
+        this.user = null;
+        this.apiClient = new ApiClient();
+
+        this.clearAuthMessage('login');
+        this.clearAuthMessage('register');
+
+        this.loadLocalCart();
+        this.renderOrderSummary();
+        this.prefillContactInfo(true);
+        this.clearShippingAddressFields(false);
+        this.renderSavedAddresses();
+        this.updateMemberBenefits(false);
+        this.setCheckoutMode('guest');
+    }
+
+    async afterAuthChange(action, options = {}) {
+        try {
+            this.apiClient = new ApiClient();
+            await this.loadUser();
+            await this.loadCart();
+            this.prefillContactInfo(true);
+            this.renderOrderSummary();
+            this.renderSavedAddresses();
+            this.updateMemberBenefits(true);
+            this.setCheckoutMode('member');
+
+            if (options.role === 'seller' && options.storeData) {
+                await this.createStoreForNewSeller(options.storeData);
+            }
+        } catch (error) {
+            console.error('[Checkout Page API] afterAuthChange error:', error);
+        }
+    }
+
+    async createStoreForNewSeller(storeData) {
+        if (!storeData) return;
+
+        const payload = { ...storeData };
+        Object.keys(payload).forEach((key) => {
+            if (!payload[key]) {
+                delete payload[key];
+            }
+        });
+
+        if (!payload.name) return;
+
+        if (this.user?.email) {
+            payload.email = this.user.email;
+        }
+
+        try {
+            const response = await this.apiClient.createStore(payload);
+            if (!response?.success) {
+                throw new Error(response?.message || 'Mağaza oluşturulamadı');
+            }
+
+            const createdStore = response.data || {};
+            this.showAuthMessage(
+                'register',
+                'success',
+                `🏪 Mağazanız oluşturuldu: ${createdStore.name || payload.name}`,
+                true
+            );
+        } catch (error) {
+            this.showAuthMessage(
+                'register',
+                'warning',
+                `⚠️ Mağaza oluşturulamadı: ${error.message || 'Bilinmeyen bir hata oluştu'}`,
+                true
+            );
+        }
     }
 
     validateShippingAddress() {
