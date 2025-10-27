@@ -58,7 +58,7 @@ class OrderController {
    */
   getAllOrders = asyncHandler(async (req, res) => {
     const { orders, pagination } = await orderService.getAllOrders(req.query);
-    return paginated(res, orders, pagination, 'Orders retrieved successfully');
+    return paginated(res, orders, pagination, 'All orders retrieved successfully');
   });
 
   /**

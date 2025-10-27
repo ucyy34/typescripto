@@ -7,26 +7,32 @@ const express = require('express');
 const router = express.Router();
 const reviewController = require('../controllers/review.controller');
 const { authenticate, requireAdmin } = require('../middlewares/auth');
-const { validate, validateParams } = require('../middlewares/validate');
+const { validate, validateQuery, validateParams } = require('../middlewares/validate');
 const {
   createReviewSchema,
   updateReviewSchema,
+  reviewFeedbackSchema,
+  productReviewParamsSchema,
+  storeReviewParamsSchema,
   reviewIdParamSchema,
-  productReviewParamSchema,
-  storeReviewParamSchema,
-  markHelpfulSchema,
+  productReviewQuerySchema,
+  storeReviewQuerySchema,
+  pendingReviewQuerySchema,
   reviewModerationSchema,
+  reviewApprovalSchema,
 } = require('../validators/review.validator');
 
 // Public routes
 router.get(
   '/products/:productId/reviews',
-  validateParams(productReviewParamSchema),
+  validateParams(productReviewParamsSchema),
+  validateQuery(productReviewQuerySchema),
   reviewController.getProductReviews
 );
 router.get(
   '/stores/:storeId/reviews',
-  validateParams(storeReviewParamSchema),
+  validateParams(storeReviewParamsSchema),
+  validateQuery(storeReviewQuerySchema),
   reviewController.getStoreReviews
 );
 
@@ -34,7 +40,7 @@ router.get(
 router.post(
   '/products/:productId/reviews',
   authenticate,
-  validateParams(productReviewParamSchema),
+  validateParams(productReviewParamsSchema),
   validate(createReviewSchema),
   reviewController.createProductReview
 );
@@ -59,7 +65,7 @@ router.post(
   '/reviews/:id/helpful',
   authenticate,
   validateParams(reviewIdParamSchema),
-  validate(markHelpfulSchema),
+  validate(reviewFeedbackSchema),
   reviewController.markHelpful
 );
 
@@ -68,6 +74,7 @@ router.get(
   '/admin/reviews/pending',
   authenticate,
   requireAdmin,
+  validateQuery(pendingReviewQuerySchema),
   reviewController.getPendingReviews
 );
 router.post(
@@ -75,6 +82,7 @@ router.post(
   authenticate,
   requireAdmin,
   validateParams(reviewIdParamSchema),
+  validate(reviewApprovalSchema),
   reviewController.approveReview
 );
 router.post(

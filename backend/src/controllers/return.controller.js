@@ -79,12 +79,7 @@ class ReturnController {
       req.user.id,
       req.query
     );
-    return paginated(
-      res,
-      returns,
-      pagination,
-      'Store return requests retrieved successfully'
-    );
+    return paginated(res, returns, pagination, 'Store return requests retrieved successfully');
   });
 }
 
