@@ -5,38 +5,92 @@
 
 require('dotenv').config();
 const Redis = require('ioredis');
+const { Readable } = require('stream');
 
-// Redis client for general caching
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB, 10) || 0,
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  lazyConnect: false,
-});
+const isTestOrDisabled =
+  process.env.NODE_ENV === 'test' || process.env.REDIS_DISABLED === 'true';
 
-// Event listeners
-redisClient.on('connect', () => {
-  console.log('✅ Redis: Connected successfully');
-});
+const createRedisClient = () => {
+  if (isTestOrDisabled) {
+    const emptyStream = () =>
+      new Readable({
+        objectMode: true,
+        read() {
+          this.push(null);
+        },
+      });
 
-redisClient.on('error', (err) => {
-  console.error('❌ Redis Error:', err.message);
-});
+    return {
+      async get() {
+        return null;
+      },
+      async setex() {
+        return 'OK';
+      },
+      async del() {
+        return 0;
+      },
+      async exists() {
+        return 0;
+      },
+      async incr() {
+        return 0;
+      },
+      async expire() {
+        return true;
+      },
+      scanStream() {
+        return emptyStream();
+      },
+      on() {
+        return this;
+      },
+      quit: async () => {},
+    };
+  }
 
-redisClient.on('ready', () => {
-  console.log('✅ Redis: Ready to accept commands');
-});
+  const client = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB, 10) || 0,
+    retryStrategy: (times) => {
+      const delay = Math.min(times * 50, 2000);
+      return delay;
+    },
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    lazyConnect: false,
+  });
 
-redisClient.on('close', () => {
-  console.log('⚠️  Redis: Connection closed');
-});
+  client.on('connect', () => {
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('✅ Redis: Connected successfully');
+    }
+  });
+
+  client.on('error', (err) => {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('❌ Redis Error:', err.message);
+    }
+  });
+
+  client.on('ready', () => {
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('✅ Redis: Ready to accept commands');
+    }
+  });
+
+  client.on('close', () => {
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('⚠️  Redis: Connection closed');
+    }
+  });
+
+  return client;
+};
+
+const redisClient = createRedisClient();
 
 // Helper functions for common caching operations
 const cache = {

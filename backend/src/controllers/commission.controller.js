@@ -29,12 +29,7 @@ class CommissionController {
       storeId,
       req.query
     );
-    return paginated(
-      res,
-      transactions,
-      pagination,
-      'Store commissions retrieved successfully'
-    );
+    return paginated(res, transactions, pagination, 'Store commissions retrieved successfully');
   });
 
   /**
@@ -62,12 +57,7 @@ class CommissionController {
     const { transactions, pagination } = await commissionService.getAllCommissions(
       req.query
     );
-    return paginated(
-      res,
-      transactions,
-      pagination,
-      'Commission transactions retrieved successfully'
-    );
+    return paginated(res, transactions, pagination, 'Commission records retrieved successfully');
   });
 
   /**

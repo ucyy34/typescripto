@@ -17,7 +17,6 @@ const createReviewSchema = Joi.object({
   title: Joi.string().max(200).optional().allow(''),
   comment: Joi.string().max(2000).optional().allow(''),
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
-  order_id: uuidSchema.optional(),
 });
 
 const updateReviewSchema = Joi.object({
@@ -27,56 +26,44 @@ const updateReviewSchema = Joi.object({
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
 });
 
-const reviewFeedbackSchema = Joi.object({
-  helpful: Joi.boolean().strict().required(),
-});
-
-const productReviewParamsSchema = Joi.object({
-  productId: uuidSchema.required(),
-});
-
-const storeReviewParamsSchema = Joi.object({
-  storeId: uuidSchema.required(),
-});
-
 const reviewIdParamSchema = Joi.object({
-  id: uuidSchema.required(),
+  id: uuidSchema.required().messages({
+    'string.guid': 'Review ID must be a valid UUID',
+    'any.required': 'Review ID is required',
+  }),
 });
 
-const productReviewQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(50).default(10),
-  sort: Joi.string().valid('recent', 'highest', 'lowest', 'helpful').default('recent'),
+const productReviewParamSchema = Joi.object({
+  productId: uuidSchema.required().messages({
+    'string.guid': 'Product ID must be a valid UUID',
+    'any.required': 'Product ID is required',
+  }),
 });
 
-const storeReviewQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(50).default(10),
+const storeReviewParamSchema = Joi.object({
+  storeId: uuidSchema.required().messages({
+    'string.guid': 'Store ID must be a valid UUID',
+    'any.required': 'Store ID is required',
+  }),
 });
 
-const pendingReviewQuerySchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(50).default(20),
+const markHelpfulSchema = Joi.object({
+  helpful: Joi.boolean().required().messages({
+    'boolean.base': 'helpful must be a boolean',
+    'any.required': 'helpful flag is required',
+  }),
 });
 
 const reviewModerationSchema = Joi.object({
-  reason: Joi.string().trim().max(500).allow('', null),
-});
-
-const reviewApprovalSchema = Joi.object({
-  notes: Joi.string().trim().max(500).allow('', null),
+  reason: Joi.string().max(500).allow('').optional(),
 });
 
 module.exports = {
   createReviewSchema,
   updateReviewSchema,
-  reviewFeedbackSchema,
-  productReviewParamsSchema,
-  storeReviewParamsSchema,
   reviewIdParamSchema,
-  productReviewQuerySchema,
-  storeReviewQuerySchema,
-  pendingReviewQuerySchema,
+  productReviewParamSchema,
+  storeReviewParamSchema,
+  markHelpfulSchema,
   reviewModerationSchema,
-  reviewApprovalSchema,
 };
