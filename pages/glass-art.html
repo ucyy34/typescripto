@@ -237,7 +237,11 @@
         }
     </style>
 </head>
-<body data-category-slug="glass-art" data-products-container-id="glass-art-products" data-load-more-id="loadMoreGlassArt">
+<body data-category-slug="glass-art"
+      data-category-name="Nordic Glass Art"
+      data-products-container="glass-art-products"
+      data-load-more-button="loadMoreGlassArt"
+      data-category-page-size="8">
     <!-- Navigation Header -->
     <header class="header glass-card">
         <nav class="navbar container">
@@ -292,15 +296,15 @@
 
             <div class="category-stats">
                 <div class="stat-item">
-                    <span class="stat-number">32</span>
+                    <span class="stat-number" id="categoryStatTotal">—</span>
                     <span class="stat-label">Crystal Pieces</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number">8</span>
+                    <span class="stat-number" id="categoryStatArtisans">—</span>
                     <span class="stat-label">Glass Artists</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number">4.9</span>
+                    <span class="stat-number" id="categoryStatRating">—</span>
                     <span class="stat-label">Average Rating</span>
                 </div>
             </div>
@@ -327,6 +331,10 @@
             <div class="section-title">
                 <h2>Crystalline Nordic Treasures</h2>
                 <p>Each piece captures light like the dancing Aurora Borealis</p>
+            </div>
+
+            <div class="results-info" id="resultsCount" style="margin-bottom: var(--space-md); color: var(--warm-brown);">
+                Loading Nordic treasures...
             </div>
 
             <!-- Mobile Filter Toggle -->
@@ -391,7 +399,7 @@
                     <!-- Price Range -->
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="200">
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="400" value="200" data-default-value="200">
                         <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
                             <span id="priceValue">$200</span>
@@ -431,7 +439,7 @@
                     </div>
 
                     <div class="text-center mt-xl">
-                        <button class="btn btn-primary" id="loadMoreGlassArt">
+                    <button class="btn btn-primary" id="loadMoreGlassArt" style="display: none;">
                             ✨ Load More Glass Art
                         </button>
                     </div>
@@ -490,19 +498,13 @@
         </div>
     </footer>
 
-    <!-- Scripts - Optimized loading -->
-    <script defer src="../assets/js/security-utils.js"></script>
-    <script defer src="../assets/js/error-handler.js"></script>
-    <script defer src="../assets/js/lazy-load.js"></script>
-    <script defer src="../assets/js/performance-monitor.js"></script>
-    <script defer src="../assets/js/auth-manager.js"></script>
-    <script defer src="../assets/js/api-config.js"></script>
-    <script defer src="../assets/js/api-client.js"></script>
-    <script defer src="../assets/js/category-page.js"></script>
-    <script defer src="../assets/js/dostik-ai.js"></script>
-    <script defer src="../assets/js/carsi-pazar-browser.js"></script>
-    <script defer src="../assets/js/product-modal.js"></script>
-    <script defer src="../assets/js/main.js"></script>
-
+    <!-- Scripts -->
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/category-page-api.js"></script>
+    <script src="../assets/js/dostik-ai.js"></script>
+    <script src="../assets/js/carsi-pazar-browser.js"></script>
 </body>
 </html>

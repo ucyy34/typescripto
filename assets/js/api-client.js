@@ -357,6 +357,34 @@ class ApiClient {
   }
 
   /**
+   * Search products (autocomplete)
+   */
+  async searchProducts(query, options = {}) {
+    const trimmed = (query || '').trim();
+    if (!trimmed) {
+      return {
+        success: true,
+        data: {
+          query: '',
+          totalMatches: 0,
+          products: [],
+          suggestions: [],
+        },
+      };
+    }
+
+    const params = { q: trimmed };
+    if (options.limit) {
+      params.limit = options.limit;
+    }
+    if (options.includeSuggestions !== undefined) {
+      params.includeSuggestions = options.includeSuggestions;
+    }
+
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
+  }
+
+  /**
    * Get product by ID
    */
   async getProduct(productId) {
@@ -423,13 +451,6 @@ class ApiClient {
     return this.get(API_CONFIG.ENDPOINTS.ORDERS.STORE_ORDERS(storeId), filters);
   }
 
-  /**
-   * Get store products
-   */
-  async getStoreProducts(storeId, filters = {}) {
-    return this.get(API_CONFIG.ENDPOINTS.STORES.PRODUCTS(storeId), filters);
-  }
-
   // ==========================================
   // CATEGORY METHODS
   // ==========================================
@@ -460,13 +481,6 @@ class ApiClient {
    */
   async getCategoryBySlug(slug) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
-  }
-
-  /**
-   * Get category products
-   */
-  async getCategoryProducts(categoryId, filters = {}) {
-    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.PRODUCTS(categoryId), filters);
   }
 
   /**

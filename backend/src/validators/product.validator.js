@@ -191,13 +191,22 @@ const productQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
+/**
+ * Product search query params validation
+ */
 const productSearchQuerySchema = Joi.object({
-  query: Joi.string().min(2).max(200).required().trim(),
-  limit: Joi.number().integer().min(1).max(50).default(8),
-  includeSuggestions: Joi.boolean().optional().default(true),
-  includeFallbacks: Joi.boolean().optional().default(true),
-  store_id: Joi.string().uuid().optional(),
-  category_id: Joi.string().uuid().optional(),
+  q: Joi.string()
+    .trim()
+    .min(2)
+    .max(200)
+    .required()
+    .messages({
+      'string.min': 'Search term must be at least 2 characters long',
+      'string.max': 'Search term cannot exceed 200 characters',
+      'any.required': 'Search term is required',
+    }),
+  limit: Joi.number().integer().min(1).max(20).optional(),
+  includeSuggestions: Joi.boolean().optional(),
 });
 
 module.exports = {

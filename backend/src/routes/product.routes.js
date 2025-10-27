@@ -9,7 +9,6 @@ const router = express.Router();
 const productController = require('../controllers/product.controller');
 const { authenticate, requireSeller, requireAdmin, optionalAuth } = require('../middlewares/auth');
 const { validate, validateQuery, validateParams } = require('../middlewares/validate');
-const { searchLimiter } = require('../middlewares/rateLimiter');
 const {
   createProductSchema,
   updateProductSchema,
@@ -42,13 +41,6 @@ router.get('/bestsellers', productController.getBestSellers);
 router.get('/random', productController.getRandomProducts);
 
 /**
- * @route   GET /api/v1/products/slug/:slug
- * @desc    Get product by slug
- * @access  Public
- */
-router.get('/slug/:slug', optionalAuth, productController.getProductBySlug);
-
-/**
  * @route   POST /api/v1/products
  * @desc    Create new product
  * @access  Private (Seller only)
@@ -64,10 +56,10 @@ router.get('/', validateQuery(productQuerySchema), productController.getProducts
 
 /**
  * @route   GET /api/v1/products/search
- * @desc    Search active storefront products
+ * @desc    Search products for storefront autocomplete/results
  * @access  Public
  */
-router.get('/search', searchLimiter, validateQuery(productSearchQuerySchema), productController.searchProducts);
+router.get('/search', validateQuery(productSearchQuerySchema), productController.searchProducts);
 
 /**
  * @route   GET /api/v1/products/slug/:slug

@@ -4,8 +4,7 @@
  */
 
 const categoryService = require('../services/category.service');
-const productService = require('../services/product.service');
-const { success, created, noContent, paginated } = require('../utils/response');
+const { success, created, noContent } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class CategoryController {
@@ -57,25 +56,6 @@ class CategoryController {
     const category = await categoryService.getCategoryBySlug(req.params.slug);
 
     return success(res, category, 'Category retrieved successfully');
-  });
-
-  /**
-   * Get products within a category
-   * GET /api/v1/categories/:id/products
-   */
-  getCategoryProducts = asyncHandler(async (req, res) => {
-    const filters = {
-      ...req.query,
-      category_id: req.params.id,
-      status: 'approved',
-    };
-
-    delete filters.store_id;
-    delete filters.includeAllStatuses;
-
-    const result = await productService.getProducts(filters);
-
-    return paginated(res, result.products, result.pagination);
   });
 
   /**

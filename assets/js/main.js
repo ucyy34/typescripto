@@ -10,20 +10,16 @@ class DostanWebApp {
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
         this.wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
         this.isLoading = false;
-        this.apiClient = new ApiClient();
+        this.apiClient = typeof ApiClient === 'function' ? new ApiClient() : null;
+        this.searchPlaceholderImage = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect fill="#f5f2eb" width="64" height="64" rx="12"/><path fill="#2d6853" d="M40.54 42.4a18 18 0 1 1 1.86-1.86l8.58 8.58a1.32 1.32 0 0 1-1.86 1.86zM28.5 42a14 14 0 1 0 0-28 14 14 0 0 0 0 28z"/></svg>')}`;
         this.searchState = {
-            query: '',
-            normalizedQuery: '',
-            results: [],
-            suggestions: [],
-            fallback: [],
-            total: 0,
-            loading: false,
-            requestId: 0,
-            error: null
+            timer: null,
+            items: [],
+            activeIndex: -1,
+            lastQuery: '',
+            pendingQuery: null,
         };
-        this.searchElements = {};
-        this.searchDebounceTimer = null;
+        this.boundHandleOutsideSearch = null;
 
         this.init();
     }
@@ -463,409 +459,465 @@ class DostanWebApp {
         }
     }
 
-    // Advanced Search System backed by API
+    // Advanced Search System
     setupSearchSystem() {
         const searchInput = document.querySelector('.search-input');
-        const searchContainer = document.querySelector('.nav-search .search-container');
-        if (!searchInput || !searchContainer) return;
+        if (!searchInput || !this.apiClient) return;
 
-        this.searchElements.input = searchInput;
-        this.searchElements.container = searchContainer;
-        this.searchElements.dropdown = this.createSearchDropdown(searchContainer);
+        const suggestions = document.createElement('div');
+        suggestions.className = 'search-suggestions';
+        suggestions.id = 'globalSearchSuggestions';
+        suggestions.setAttribute('role', 'listbox');
+        suggestions.setAttribute('aria-live', 'polite');
+        suggestions.hidden = true;
 
-        searchInput.setAttribute('autocomplete', 'off');
         searchInput.setAttribute('role', 'combobox');
         searchInput.setAttribute('aria-autocomplete', 'list');
         searchInput.setAttribute('aria-expanded', 'false');
-        searchInput.setAttribute('aria-controls', 'globalSearchDropdown');
+        searchInput.setAttribute('aria-controls', suggestions.id);
+        searchInput.setAttribute('autocomplete', 'off');
+        searchInput.parentNode.appendChild(suggestions);
+
+        const minCharacters = 2;
+
+        const fetchSuggestions = async (query) => {
+            try {
+                this.searchState.pendingQuery = query;
+                suggestions.setAttribute('data-loading', 'true');
+                const response = await this.apiClient.searchProducts(query, { limit: 7 });
+                suggestions.removeAttribute('data-loading');
+
+                if (this.searchState.pendingQuery !== query) {
+                    return;
+                }
+
+                if (response.success && response.data) {
+                    this.renderSearchSuggestions(response.data, suggestions, query);
+                } else {
+                    this.renderSearchSuggestions({ products: [], suggestions: [] }, suggestions, query);
+                }
+
+                suggestions.hidden = false;
+                searchInput.setAttribute('aria-expanded', 'true');
+            } catch (error) {
+                suggestions.removeAttribute('data-loading');
+                if (this.searchState.pendingQuery !== query) {
+                    return;
+                }
+                this.renderSearchSuggestions({ products: [], suggestions: [] }, suggestions, query);
+                suggestions.hidden = false;
+                searchInput.setAttribute('aria-expanded', 'true');
+                console.warn('[DostanWebApp] Search suggestion error:', error);
+            }
+        };
+
+        const clearSuggestions = () => {
+            this.hideSearchSuggestions(suggestions, searchInput);
+            suggestions.removeAttribute('data-loading');
+            this.searchState.pendingQuery = null;
+        };
+
+        if (this.boundHandleOutsideSearch) {
+            document.removeEventListener('click', this.boundHandleOutsideSearch);
+        }
+
+        this.boundHandleOutsideSearch = (event) => {
+            if (event.target === searchInput || suggestions.contains(event.target)) {
+                return;
+            }
+            clearSuggestions();
+        };
+
+        document.addEventListener('click', this.boundHandleOutsideSearch);
 
         searchInput.addEventListener('input', (event) => {
-            const value = event.target.value || '';
-            clearTimeout(this.searchDebounceTimer);
-            this.searchDebounceTimer = setTimeout(() => this.handleSearchInput(value), 250);
+            const value = event.target.value;
+            const trimmed = value.trim();
+            clearTimeout(this.searchState.timer);
+
+            if (!trimmed) {
+                if (this.searchState.lastQuery) {
+                    document.dispatchEvent(new CustomEvent('global-search:clear'));
+                }
+                this.searchState.lastQuery = '';
+                this.performSearch('');
+                clearSuggestions();
+                return;
+            }
+
+            this.searchState.lastQuery = trimmed;
+            this.performSearch(trimmed);
+
+            if (trimmed.length < minCharacters) {
+                clearSuggestions();
+                return;
+            }
+
+            this.searchState.timer = setTimeout(() => {
+                fetchSuggestions(trimmed);
+            }, 280);
         });
 
         searchInput.addEventListener('focus', () => {
-            if ((this.searchState.results.length || this.searchState.fallback.length) && this.searchElements.dropdown) {
-                this.openSearchDropdown();
+            if (suggestions.innerHTML.trim()) {
+                suggestions.hidden = false;
+                searchInput.setAttribute('aria-expanded', 'true');
             }
+        });
+
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                clearSuggestions();
+            }, 120);
         });
 
         searchInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                if (this.searchState.query && this.searchState.query.length >= 2) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                this.moveSearchSelection(1, suggestions, searchInput);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.moveSearchSelection(-1, suggestions, searchInput);
+            } else if (event.key === 'Enter') {
+                const activeItem = this.searchState.items[this.searchState.activeIndex];
+                if (activeItem) {
                     event.preventDefault();
-                    this.navigateToSearchResults(this.searchState.query);
+                    this.handleSearchSuggestionSelection(activeItem, searchInput, suggestions);
+                } else if (searchInput.value.trim()) {
+                    event.preventDefault();
+                    clearSuggestions();
+                    this.handleSearchSubmit(searchInput.value.trim(), 'enter');
                 }
             } else if (event.key === 'Escape') {
-                this.closeSearchDropdown();
+                clearSuggestions();
             }
         });
 
-        this.searchElements.dropdown.addEventListener('click', (event) => {
-            const suggestion = event.target.closest('[data-search-suggestion]');
-            if (suggestion) {
-                event.preventDefault();
-                const encoded = suggestion.dataset.searchSuggestion || '';
-                const suggestionValue = encoded ? decodeURIComponent(encoded) : '';
-                if (suggestionValue) {
-                    this.searchElements.input.value = suggestionValue;
-                    this.handleSearchInput(suggestionValue);
-                    this.searchElements.input.focus();
-                }
-                return;
-            }
-
-            const viewAll = event.target.closest('[data-search-view-all]');
-            if (viewAll) {
-                event.preventDefault();
-                if (this.searchState.query) {
-                    this.navigateToSearchResults(this.searchState.query);
-                }
+        suggestions.addEventListener('mousedown', (event) => {
+            const itemElement = event.target.closest('[data-index]');
+            if (!itemElement) return;
+            event.preventDefault();
+            const index = Number(itemElement.dataset.index);
+            const item = this.searchState.items[index];
+            if (item) {
+                this.handleSearchSuggestionSelection(item, searchInput, suggestions);
             }
         });
 
-        document.addEventListener('click', (event) => {
-            if (!searchContainer.contains(event.target)) {
-                this.closeSearchDropdown();
-            }
+        document.addEventListener('global-search:submit', () => {
+            clearSuggestions();
         });
     }
 
-    createSearchDropdown(container) {
-        let dropdown = document.getElementById('globalSearchDropdown');
-        if (!dropdown) {
-            dropdown = document.createElement('div');
-            dropdown.id = 'globalSearchDropdown';
-            dropdown.className = 'search-dropdown is-hidden';
-            dropdown.setAttribute('role', 'listbox');
-            dropdown.innerHTML = `
-                <div class="search-status" data-role="status" aria-live="polite"></div>
-                <div class="search-suggestions is-hidden" data-role="suggestions"></div>
-                <div class="search-results-list" data-role="results"></div>
-                <div class="search-footer is-hidden" data-role="footer"></div>
-            `;
-            container.appendChild(dropdown);
-        }
-
-        this.searchElements.status = dropdown.querySelector('[data-role="status"]');
-        this.searchElements.suggestions = dropdown.querySelector('[data-role="suggestions"]');
-        this.searchElements.results = dropdown.querySelector('[data-role="results"]');
-        this.searchElements.footer = dropdown.querySelector('[data-role="footer"]');
-
-        this.setSearchStatus('En az 2 karakter girin.', 'muted');
-
-        return dropdown;
-    }
-
-    handleSearchInput(value) {
-        const trimmed = typeof value === 'string' ? value.trim() : '';
-        this.searchState.query = trimmed;
-        this.searchState.normalizedQuery = trimmed.toLowerCase();
-        this.searchState.error = null;
-
-        if (!trimmed || trimmed.length < 2) {
-            this.searchState.results = [];
-            this.searchState.suggestions = [];
-            this.searchState.fallback = [];
-            this.searchState.total = 0;
-            this.searchState.loading = false;
-            this.renderSearchResults();
-            this.closeSearchDropdown();
+    performSearch(query) {
+        if (!query) {
+            this.showAllProducts();
+            this.updateSearchResults(0, '');
             return;
         }
 
-        this.searchState.loading = true;
-        this.renderSearchResults();
-        this.openSearchDropdown();
-        this.executeSearch(trimmed);
+        const products = document.querySelectorAll('.product-card');
+        let visibleCount = 0;
+
+        products.forEach(card => {
+            const title = card.querySelector('.product-title')?.textContent.toLowerCase() || '';
+            const artisan = card.querySelector('.product-artisan')?.textContent.toLowerCase() || '';
+            const description = card.querySelector('.product-description')?.textContent.toLowerCase() || '';
+
+            const lowerQuery = query.toLowerCase();
+            const matches = title.includes(lowerQuery) ||
+                          artisan.includes(lowerQuery) ||
+                          description.includes(lowerQuery);
+
+            if (matches) {
+                card.style.display = 'block';
+                card.classList.add('fade-in');
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        this.updateSearchResults(visibleCount, query);
     }
 
-    async executeSearch(query) {
-        const requestId = ++this.searchState.requestId;
+    renderSearchSuggestions(data, container, query) {
+        const safeQuery = query || this.searchState.lastQuery || '';
+        const products = Array.isArray(data?.products) ? data.products : [];
+        const keywordEntries = Array.isArray(data?.suggestions) ? data.suggestions : [];
+        const maxItems = 7;
+        const items = [];
+
+        products.slice(0, maxItems).forEach(product => {
+            items.push({ type: 'product', product });
+        });
+
+        const remainingSlots = Math.max(0, maxItems - items.length);
+        keywordEntries
+            .map(entry => (typeof entry === 'string' ? { value: entry } : entry))
+            .filter(entry => entry && entry.value)
+            .slice(0, remainingSlots)
+            .forEach(entry => {
+                items.push({ type: 'keyword', label: entry.value, value: entry.value });
+            });
+
+        if (safeQuery && (products.length > 0 || keywordEntries.length > 0)) {
+            items.push({ type: 'view-all', query: safeQuery });
+        }
+
+        this.searchState.items = items;
+        this.searchState.activeIndex = -1;
+
+        if (items.length === 0) {
+            const message = safeQuery
+                ? `“${this.escapeHtml(safeQuery)}” için sonuç bulunamadı`
+                : 'Aramak için en az iki karakter yazın';
+            container.innerHTML = `<div class="search-suggestion-empty">${message}</div>`;
+            return;
+        }
+
+        container.innerHTML = items
+            .map((item, index) => this.buildSearchSuggestionItem(item, index, safeQuery))
+            .join('');
+    }
+
+    hideSearchSuggestions(container, input) {
+        container.hidden = true;
+        container.innerHTML = '';
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+        this.searchState.items = [];
+        this.searchState.activeIndex = -1;
+    }
+
+    moveSearchSelection(step, container, input) {
+        if (!this.searchState.items.length) return;
+
+        let nextIndex = this.searchState.activeIndex + step;
+        if (nextIndex < 0) {
+            nextIndex = this.searchState.items.length - 1;
+        } else if (nextIndex >= this.searchState.items.length) {
+            nextIndex = 0;
+        }
+
+        this.searchState.activeIndex = nextIndex;
+
+        const options = container.querySelectorAll('.search-suggestion-item');
+        options.forEach((option, idx) => {
+            if (idx === nextIndex) {
+                option.classList.add('active');
+                option.setAttribute('aria-selected', 'true');
+                input.setAttribute('aria-activedescendant', option.id);
+                option.scrollIntoView({ block: 'nearest' });
+            } else {
+                option.classList.remove('active');
+                option.setAttribute('aria-selected', 'false');
+            }
+        });
+    }
+
+    handleSearchSuggestionSelection(item, input, container) {
+        if (!item) return;
+
+        this.hideSearchSuggestions(container, input);
+
+        if (item.type === 'product' && item.product?.slug) {
+            window.location.href = this.resolveProductDetailUrl(item.product.slug);
+            return;
+        }
+
+        if (item.type === 'keyword') {
+            const keyword = item.label || item.value || '';
+            input.value = keyword;
+            this.handleSearchSubmit(keyword, 'keyword');
+            return;
+        }
+
+        if (item.type === 'view-all') {
+            this.handleSearchSubmit(item.query, 'view-all');
+        }
+    }
+
+    handleSearchSubmit(query, origin = 'input') {
+        const trimmed = (query || '').trim();
+        if (!trimmed) {
+            if (this.searchState.lastQuery) {
+                document.dispatchEvent(new CustomEvent('global-search:clear'));
+            }
+            this.searchState.lastQuery = '';
+            return;
+        }
+
+        this.searchState.lastQuery = trimmed;
+
+        const searchEvent = new CustomEvent('global-search:submit', {
+            detail: { query: trimmed, origin },
+            cancelable: true,
+        });
+
+        const shouldNavigate = document.dispatchEvent(searchEvent);
+        if (shouldNavigate) {
+            const target = this.resolvePagePath('products.html');
+            const url = `${target}?search=${encodeURIComponent(trimmed)}`;
+            window.location.href = url;
+        }
+    }
+
+    buildSearchSuggestionItem(item, index, query) {
+        const id = `search-suggestion-${index}`;
+
+        if (item.type === 'product') {
+            const product = item.product || {};
+            const price = this.formatPrice(product.price);
+            const metaParts = [];
+
+            if (product.store?.name) {
+                metaParts.push(`<span>🛍️ ${this.escapeHtml(product.store.name)}</span>`);
+            }
+
+            if (product.category?.name) {
+                metaParts.push(`<span>🏷️ ${this.escapeHtml(product.category.name)}</span>`);
+            }
+
+            if (price) {
+                metaParts.push(`<span>💰 ${this.escapeHtml(price)}</span>`);
+            }
+
+            const thumbnail = product.thumbnail ? this.escapeHtml(product.thumbnail) : this.searchPlaceholderImage;
+            const metaHtml = metaParts.length ? `<div class="search-suggestion-meta">${metaParts.join('')}</div>` : '';
+
+            return `
+                <div class="search-suggestion-item" role="option" id="${id}" data-index="${index}" aria-selected="false">
+                    <img src="${thumbnail}" alt="" class="search-suggestion-thumb" loading="lazy">
+                    <div class="search-suggestion-info">
+                        <div class="search-suggestion-title">${this.highlightMatch(product.title, query)}</div>
+                        ${metaHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (item.type === 'keyword') {
+            const label = item.label || item.value || '';
+            return `
+                <div class="search-suggestion-item" role="option" id="${id}" data-index="${index}" aria-selected="false">
+                    <div class="search-suggestion-info">
+                        <div class="search-suggestion-title search-suggestion-keyword">#${this.highlightMatch(label, query)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (item.type === 'view-all') {
+            return `
+                <div class="search-suggestion-item" role="option" id="${id}" data-index="${index}" aria-selected="false">
+                    <div class="search-suggestion-info">
+                        <div class="search-suggestion-title">"${this.escapeHtml(item.query)}" için tüm sonuçları göster</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return '';
+    }
+
+    highlightMatch(text, query) {
+        if (!text) return '';
+        if (!query) return this.escapeHtml(text);
+
+        const safeQuery = this.escapeRegExp(query);
 
         try {
-            const response = await this.apiClient.searchProducts(query, { limit: 8 });
-            if (requestId !== this.searchState.requestId) {
-                return;
-            }
-
-            if (response.success && response.data) {
-                const data = response.data;
-                this.searchState.results = Array.isArray(data.results) ? data.results : [];
-                this.searchState.suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-                this.searchState.fallback = Array.isArray(data.fallback) ? data.fallback : [];
-                this.searchState.total = typeof data.total === 'number' ? data.total : this.searchState.results.length;
-                this.searchState.query = data.query || query;
-                this.searchState.normalizedQuery = data.normalizedQuery || query.toLowerCase();
-                this.searchState.loading = false;
-                this.searchState.error = null;
-                this.renderSearchResults();
-                this.openSearchDropdown();
-            } else {
-                const message = response.message || 'Arama sırasında bir hata oluştu.';
-                this.setSearchError(message);
-            }
+            const regex = new RegExp(`(${safeQuery})`, 'ig');
+            const parts = String(text).split(regex);
+            return parts
+                .map(part => {
+                    if (!part) return '';
+                    if (part.toLowerCase() === query.toLowerCase()) {
+                        return `<mark>${this.escapeHtml(part)}</mark>`;
+                    }
+                    return this.escapeHtml(part);
+                })
+                .join('');
         } catch (error) {
-            if (requestId !== this.searchState.requestId) {
-                return;
+            return this.escapeHtml(text);
+        }
+    }
+
+    escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text).replace(/[&<>"']/g, char => {
+            switch (char) {
+                case '&': return '&amp;';
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '"': return '&quot;';
+                case "'": return '&#39;';
+                default: return char;
             }
-            console.error('[DostanWebApp] Search error:', error);
-            this.setSearchError('Arama sırasında bir sorun oluştu. Lütfen tekrar deneyin.');
-        }
-    }
-
-    renderSearchResults() {
-        if (!this.searchElements.dropdown) return;
-
-        if (this.searchState.error) {
-            this.setSearchStatus(this.searchState.error, 'error');
-        } else if (this.searchState.loading) {
-            const label = this.searchState.query
-                ? `"${this.searchState.query}" için aranıyor...`
-                : 'Arama yapılıyor...';
-            this.setSearchStatus(label, 'loading');
-        } else if (this.searchState.results.length > 0) {
-            const totalLabel = this.searchState.total > this.searchState.results.length
-                ? `${this.searchState.total} sonuç bulundu`
-                : `${this.searchState.results.length} sonuç bulundu`;
-            this.setSearchStatus(totalLabel, 'success');
-        } else if (this.searchState.fallback.length > 0) {
-            const label = `"${this.searchState.query}" için sonuç bulunamadı. Popüler ürünler:`;
-            this.setSearchStatus(label, 'info');
-        } else if (this.searchState.query.length >= 2) {
-            const label = `"${this.searchState.query}" için sonuç bulunamadı.`;
-            this.setSearchStatus(label, 'empty');
-        } else {
-            this.setSearchStatus('En az 2 karakter girin.', 'muted');
-        }
-
-        this.renderSearchSuggestions();
-        this.renderSearchProducts();
-        this.renderSearchFooter();
-    }
-
-    renderSearchSuggestions() {
-        const container = this.searchElements.suggestions;
-        if (!container) return;
-
-        const suggestions = Array.isArray(this.searchState.suggestions)
-            ? this.searchState.suggestions.filter((text) => typeof text === 'string' && text.trim().length > 0)
-            : [];
-
-        if (!suggestions.length) {
-            container.innerHTML = '';
-            container.classList.add('is-hidden');
-            return;
-        }
-
-        container.classList.remove('is-hidden');
-        container.innerHTML = `
-            <div class="search-section-header">Önerilen aramalar</div>
-            <div class="search-suggestion-list">
-                ${suggestions.slice(0, 8).map((suggestion) => {
-                    const encoded = encodeURIComponent(suggestion);
-                    return `
-                    <button type="button" class="search-suggestion-chip" data-search-suggestion="${encoded}">
-                        ${this.escapeHtml(suggestion)}
-                    </button>
-                `; }).join('')}
-            </div>
-        `;
-    }
-
-    renderSearchProducts() {
-        const container = this.searchElements.results;
-        if (!container) return;
-
-        const results = Array.isArray(this.searchState.results) ? this.searchState.results : [];
-        const fallback = Array.isArray(this.searchState.fallback) ? this.searchState.fallback : [];
-
-        if (!results.length && !fallback.length) {
-            const safeQuery = this.escapeHtml(this.searchState.query);
-            container.innerHTML = this.searchState.loading || this.searchState.query.length < 2
-                ? ''
-                : `<div class="search-empty">"${safeQuery}" için sonuç bulunamadı.</div>`;
-            return;
-        }
-
-        const sections = [];
-
-        if (results.length) {
-            sections.push(`
-                <div class="search-section-header">En iyi eşleşmeler</div>
-                <div class="search-results-group">
-                    ${results.map((product) => this.renderSearchResultItem(product)).join('')}
-                </div>
-            `);
-        }
-
-        if (!results.length && fallback.length) {
-            sections.push(`
-                <div class="search-section-header">Popüler ürünler</div>
-                <div class="search-results-group">
-                    ${fallback.slice(0, 6).map((product) => this.renderSearchResultItem(product)).join('')}
-                </div>
-            `);
-        }
-
-        container.innerHTML = sections.join('');
-    }
-
-    renderSearchFooter() {
-        const footer = this.searchElements.footer;
-        if (!footer) return;
-
-        if (this.searchState.query && (this.searchState.results.length || this.searchState.fallback.length)) {
-            const totalCount = this.searchState.total || this.searchState.results.length || this.searchState.fallback.length;
-            footer.classList.remove('is-hidden');
-            footer.innerHTML = `
-                <a href="${this.buildSearchResultsUrl(this.searchState.query)}" class="search-view-all" data-search-view-all>
-                    Tüm sonuçları gör (${totalCount})
-                </a>
-            `;
-        } else {
-            footer.classList.add('is-hidden');
-            footer.innerHTML = '';
-        }
-    }
-
-    renderSearchResultItem(product) {
-        const url = this.buildProductUrl(product);
-        const imageHtml = product.thumbnail
-            ? `<img src="${this.escapeAttribute(product.thumbnail)}" alt="${this.escapeHtml(product.title)}" loading="lazy">`
-            : '<div class="search-thumb-placeholder" aria-hidden="true">🏺</div>';
-        const storeLabel = product.store?.name ? this.escapeHtml(product.store.name) : 'Mağaza';
-        const rating = Number(product.rating || 0);
-        const ratingHtml = rating > 0 ? `<span class="search-result-rating">⭐ ${rating.toFixed(1)}</span>` : '';
-        const badges = Array.isArray(product.badges)
-            ? product.badges
-                  .filter((badge) => typeof badge === 'string' && badge.trim().length > 0)
-                  .slice(0, 2)
-                  .map((badge) => `<span class="search-badge">${this.escapeHtml(this.getBadgeLabel(badge))}</span>`)
-                  .join('')
-            : '';
-
-        const priceText = this.formatPrice(product.price) || 'Fiyat yakında';
-
-        return `
-            <a href="${url}" class="search-result-item" data-product-slug="${this.escapeAttribute(product.slug || '')}">
-                <div class="search-thumb">${imageHtml}</div>
-                <div class="search-result-info">
-                    <div class="search-result-title">${this.escapeHtml(product.title)}</div>
-                    <div class="search-result-meta">
-                        <span>${storeLabel}</span>
-                        ${ratingHtml}
-                    </div>
-                    <div class="search-result-price">${priceText}</div>
-                    ${badges ? `<div class="search-result-badges">${badges}</div>` : ''}
-                </div>
-            </a>
-        `;
-    }
-
-    setSearchStatus(message, type = 'default') {
-        const statusElement = this.searchElements.status;
-        if (!statusElement) return;
-
-        statusElement.textContent = message;
-        statusElement.dataset.statusType = type;
-    }
-
-    setSearchError(message) {
-        this.searchState.loading = false;
-        this.searchState.results = [];
-        this.searchState.fallback = [];
-        this.searchState.total = 0;
-        this.searchState.error = message;
-        this.renderSearchResults();
-        this.openSearchDropdown();
-    }
-
-    openSearchDropdown() {
-        if (!this.searchElements.dropdown) return;
-        this.searchElements.dropdown.classList.remove('is-hidden');
-        if (this.searchElements.input) {
-            this.searchElements.input.setAttribute('aria-expanded', 'true');
-        }
-    }
-
-    closeSearchDropdown() {
-        if (!this.searchElements.dropdown) return;
-        this.searchElements.dropdown.classList.add('is-hidden');
-        if (this.searchElements.input) {
-            this.searchElements.input.setAttribute('aria-expanded', 'false');
-        }
-    }
-
-    buildProductUrl(product) {
-        const base = this.getProductDetailBasePath();
-        if (product.slug) {
-            return `${base}?slug=${encodeURIComponent(product.slug)}`;
-        }
-        return `${base}?id=${encodeURIComponent(product.id)}`;
-    }
-
-    buildSearchResultsUrl(query) {
-        const base = this.getProductsBasePath();
-        return `${base}?search=${encodeURIComponent(query)}`;
-    }
-
-    getProductsBasePath() {
-        const path = window.location.pathname || '';
-        return path.includes('/pages/') ? 'products.html' : 'pages/products.html';
-    }
-
-    getProductDetailBasePath() {
-        const path = window.location.pathname || '';
-        return path.includes('/pages/') ? 'product-detail.html' : 'pages/product-detail.html';
-    }
-
-    escapeHtml(value) {
-        if (value === null || value === undefined) return '';
-        return String(value).replace(/[&<>"']/g, (char) => {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;',
-            };
-            return map[char] || char;
         });
     }
 
-    escapeAttribute(value) {
-        return this.escapeHtml(value);
+    escapeRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     formatPrice(value) {
-        const number = Number(value);
-        if (Number.isNaN(number)) {
-            return '';
-        }
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return null;
 
         try {
             return new Intl.NumberFormat('tr-TR', {
                 style: 'currency',
                 currency: 'TRY',
-                minimumFractionDigits: 2,
-            }).format(number);
-        } catch (_) {
-            return `₺${number.toFixed(2)}`;
+                maximumFractionDigits: 2,
+            }).format(numeric);
+        } catch (error) {
+            return `₺${numeric.toFixed(2)}`;
         }
     }
 
-    getBadgeLabel(badge) {
-        const labels = {
-            'handmade': '✋ El yapımı',
-            'limited': '⭐ Sınırlı',
-            'eco-friendly': '🌱 Doğa dostu',
-            'spiritual': '🕉️ Spiritüel',
-            'traditional': '🏛️ Geleneksel',
-            'artisan': '👨‍🎨 Usta işi',
-        };
-        return labels[badge] || badge;
+    resolvePagePath(page) {
+        const pathname = window.location.pathname || '';
+        if (pathname.includes('/pages/')) {
+            return page;
+        }
+        return `pages/${page}`;
+    }
+
+    resolveProductDetailUrl(slug) {
+        const target = this.resolvePagePath('product-detail.html');
+        return `${target}?slug=${encodeURIComponent(slug)}`;
+    }
+
+    showAllProducts() {
+        document.querySelectorAll('.product-card').forEach(card => {
+            card.style.display = 'block';
+        });
+    }
+
+    updateSearchResults(count, query) {
+        let resultsElement = document.querySelector('.search-results');
+        if (!resultsElement) {
+            resultsElement = document.createElement('div');
+            resultsElement.className = 'search-results';
+            const container = document.querySelector('.products-container');
+            if (container) {
+                container.parentNode.insertBefore(resultsElement, container);
+            }
+            resultsElement.style.display = 'none';
+        }
+
+        if (!query) {
+            resultsElement.textContent = '';
+            resultsElement.style.display = 'none';
+            return;
+        }
+
+        resultsElement.style.display = 'block';
+        resultsElement.textContent = count > 0
+            ? `Found ${count} treasures for "${query}"`
+            : `No treasures found for "${query}". Try a different search.`;
     }
 
     // Cart System - DEPRECATED: Now using CartManager from cart-manager.js

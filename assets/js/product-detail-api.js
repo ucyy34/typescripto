@@ -7,12 +7,12 @@ class ProductDetailAPI {
     constructor() {
         this.apiClient = new ApiClient();
         this.product = null;
-        this.productIdentifier = this.getProductIdentifierFromURL();
-        this.productId = this.productIdentifier.id || null;
+        this.productId = this.getProductIdFromURL();
+        this.productSlug = this.getProductSlugFromURL();
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
-        console.log('[Product Detail API] Initializing for product identifier:', this.productIdentifier);
+        console.log('[Product Detail API] Initializing for product:', this.productId || this.productSlug);
         this.init();
     }
 
@@ -75,24 +75,18 @@ class ProductDetailAPI {
         });
     }
 
-    getProductIdentifierFromURL() {
+    getProductIdFromURL() {
         const params = new URLSearchParams(window.location.search);
-        const id = params.get('id');
-        const slug = params.get('slug');
+        return params.get('id');
+    }
 
-        if (id) {
-            return { id };
-        }
-
-        if (slug) {
-            return { slug };
-        }
-
-        return { id: null, slug: null };
+    getProductSlugFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('slug');
     }
 
     async init() {
-        if (!this.productIdentifier.id && !this.productIdentifier.slug) {
+        if (!this.productId && !this.productSlug) {
             this.showError('Product not found');
             return;
         }
@@ -109,21 +103,21 @@ class ProductDetailAPI {
 
     async loadProduct() {
         try {
-            console.log('[Product Detail API] Loading product:', this.productIdentifier);
+            if (this.productId) {
+                console.log('[Product Detail API] Loading product by ID:', this.productId);
+            } else {
+                console.log('[Product Detail API] Loading product by slug:', this.productSlug);
+            }
             this.showLoading();
 
-            let response;
-
-            if (this.productIdentifier.id) {
-                response = await this.apiClient.getProduct(this.productIdentifier.id);
-            } else if (this.productIdentifier.slug) {
-                response = await this.apiClient.getProductBySlug(this.productIdentifier.slug);
-            }
+            const response = this.productId
+                ? await this.apiClient.getProduct(this.productId)
+                : await this.apiClient.getProductBySlug(this.productSlug);
 
             if (response.success && response.data) {
                 this.product = response.data;
-                this.productId = this.product.id;
                 console.log('[Product Detail API] Product loaded:', this.product);
+                this.productId = this.product.id;
                 this.renderProduct();
                 this.renderVariantsSection();
                 this.attachVariantListeners();
@@ -417,7 +411,7 @@ class ProductDetailAPI {
 
         // Initialize reviews if on reviews tab
         if (window.ProductReviews) {
-        this.productReviews = new ProductReviews(this.productId);
+            this.productReviews = new ProductReviews(this.productId);
         }
     }
 

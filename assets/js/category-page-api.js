@@ -14,6 +14,9 @@ class CategoryPageAPI {
         this.pageSize = Number(document.body.dataset.categoryPageSize || 8);
         this.isLoading = false;
         this.totalAvailable = 0;
+        this.nextCursor = null;
+        this.hasMore = false;
+        this.pageFetches = 0;
         this.activeFilter = 'all';
         this.filters = {
             search: '',
@@ -92,7 +95,7 @@ class CategoryPageAPI {
         // Load more button
         if (this.dom.loadMore) {
             this.dom.loadMore.addEventListener('click', () => {
-                if (!this.isLoading) {
+                if (!this.isLoading && this.hasMore) {
                     this.loadProducts({ reset: false });
                 }
             });
@@ -102,6 +105,9 @@ class CategoryPageAPI {
         const searchInput = document.getElementById('globalSearch');
         if (searchInput) {
             let debounceTimer;
+            if (this.filters.search) {
+                searchInput.value = this.filters.search;
+            }
             searchInput.addEventListener('input', (event) => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
@@ -110,6 +116,29 @@ class CategoryPageAPI {
                 }, 400);
             });
         }
+
+        document.addEventListener('global-search:submit', (event) => {
+            if (!event || !event.detail) return;
+            event.preventDefault();
+            this.filters.search = (event.detail.query || '').trim();
+            this.currentPage = 1;
+            const input = document.getElementById('globalSearch');
+            if (input) {
+                input.value = this.filters.search;
+            }
+            this.loadProducts({ reset: true });
+        });
+
+        document.addEventListener('global-search:clear', () => {
+            if (!this.filters.search) return;
+            this.filters.search = '';
+            this.currentPage = 1;
+            const input = document.getElementById('globalSearch');
+            if (input) {
+                input.value = '';
+            }
+            this.loadProducts({ reset: true });
+        });
 
         // Price slider
         if (this.dom.priceRange) {
@@ -172,14 +201,18 @@ class CategoryPageAPI {
     }
 
     async loadProducts({ reset }) {
-        if (!this.category) return;
+        if (!this.category || this.isLoading) {
+            return;
+        }
 
-        if (this.isLoading) return;
         this.isLoading = true;
 
         if (reset) {
             this.currentPage = 1;
             this.products = [];
+            this.nextCursor = null;
+            this.hasMore = false;
+            this.pageFetches = 0;
             if (this.dom.container) {
                 this.dom.container.innerHTML = this.renderLoadingSkeletons();
             }
@@ -191,7 +224,6 @@ class CategoryPageAPI {
         try {
             const params = {
                 category_id: this.category.id,
-                page: this.currentPage,
                 limit: this.pageSize,
                 sort: '-created_at',
             };
@@ -204,6 +236,13 @@ class CategoryPageAPI {
                 params.max_price = this.filters.maxPrice;
             }
 
+            if (!reset && this.nextCursor) {
+                params.cursor = this.nextCursor;
+                params.skip_total = true;
+            } else {
+                params.page = this.currentPage;
+            }
+
             const response = await this.apiClient.getProducts(params);
 
             if (!response.success || !Array.isArray(response.data)) {
@@ -211,18 +250,35 @@ class CategoryPageAPI {
             }
 
             const fetchedProducts = response.data;
-            this.totalAvailable = response.pagination?.total || fetchedProducts.length;
+            const pagination = response.pagination || {};
 
             if (reset && this.dom.container) {
                 this.dom.container.innerHTML = '';
             }
 
             this.products = reset ? fetchedProducts : [...this.products, ...fetchedProducts];
-            this.currentPage = (response.pagination?.page || this.currentPage) + 1;
+            this.pageFetches += 1;
+
+            if (Number.isFinite(pagination.total)) {
+                this.totalAvailable = pagination.total;
+            } else if (reset) {
+                this.totalAvailable = fetchedProducts.length;
+            } else {
+                this.totalAvailable += fetchedProducts.length;
+            }
+
+            if (Number.isFinite(pagination.page)) {
+                this.currentPage = pagination.page + 1;
+            } else {
+                this.currentPage = this.pageFetches + 1;
+            }
+
+            this.nextCursor = pagination.nextCursor || null;
+            this.hasMore = Boolean(pagination.hasNext);
 
             this.renderProducts();
             this.updateStats();
-            this.toggleLoadMore(response.pagination?.hasNext || false);
+            this.toggleLoadMore();
         } catch (error) {
             console.error('[Category Page API] Error loading products:', error);
             this.showError('Ürünler yüklenirken bir sorun oluştu.');
@@ -277,9 +333,11 @@ class CategoryPageAPI {
         }
 
         this.dom.container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
         filteredProducts.forEach((product) => {
-            this.dom.container.appendChild(this.createProductCard(product));
+            fragment.appendChild(this.createProductCard(product));
         });
+        this.dom.container.appendChild(fragment);
     }
 
     renderLoadingSkeletons(count = 6) {
@@ -304,15 +362,18 @@ class CategoryPageAPI {
         card.className = 'product-card breathe';
         card.dataset.productId = product.id;
 
-        const mainImage = Array.isArray(product.images) && product.images.length > 0
-            ? product.images[0]
-            : 'https://via.placeholder.com/400x300?text=Nordic+Art';
+        const fallbackImage = 'https://via.placeholder.com/400x300?text=Nordic+Art';
+        const mainImage = product.primary_image
+            || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : fallbackImage);
 
         const badges = [];
         if (Array.isArray(product.badges)) {
-            product.badges.forEach((badge) => {
-                badges.push(`<span class="badge">${badge}</span>`);
-            });
+            product.badges
+                .map((badge) => (typeof badge === 'string' ? badge.trim() : badge))
+                .filter(Boolean)
+                .forEach((badge) => {
+                    badges.push(`<span class="badge">${badge}</span>`);
+                });
         }
 
         const discount = product.compare_price && Number(product.compare_price) > Number(product.price)
@@ -413,7 +474,7 @@ class CategoryPageAPI {
         }
     }
 
-    toggleLoadMore(hasNext) {
+    toggleLoadMore(hasNext = this.hasMore) {
         if (!this.dom.loadMore) return;
 
         if (hasNext) {

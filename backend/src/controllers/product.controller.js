@@ -73,6 +73,20 @@ class ProductController {
   });
 
   /**
+   * Search products for storefront header search
+   * GET /api/v1/products/search
+   */
+  searchProducts = asyncHandler(async (req, res) => {
+    const { q, limit, includeSuggestions } = req.query;
+    const result = await productService.searchProducts(q, {
+      limit,
+      includeSuggestions,
+    });
+
+    return success(res, result, 'Products searched successfully');
+  });
+
+  /**
    * Get products by store
    * GET /api/v1/stores/:storeId/products
    */

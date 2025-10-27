@@ -64,41 +64,35 @@ const noContent = (res) => {
  * @param {Array} data - Array of items
  * @param {Object} pagination - Pagination metadata
  */
-const paginated = (res, data, pagination = {}, meta = null) => {
-  const fallback = {
-    page: pagination.page ?? 1,
-    limit: pagination.limit ?? 20,
-    total: pagination.total ?? data.length,
-    totalPages:
-      pagination.totalPages ??
-      Math.ceil((pagination.total ?? data.length) / (pagination.limit ?? 20)),
-    hasNext: Boolean(pagination.hasNext),
-    hasPrev: Boolean(pagination.hasPrev),
-  };
+const paginated = (res, data, pagination = {}) => {
+  const safeLimit = Number.isFinite(pagination.limit) ? Number(pagination.limit) : 20;
+  const hasTotal = Number.isFinite(pagination.total);
+  const safeTotal = hasTotal ? Number(pagination.total) : null;
+  const safeTotalPages = Number.isFinite(pagination.totalPages)
+    ? Number(pagination.totalPages)
+    : hasTotal && safeTotal !== null
+      ? Math.max(1, Math.ceil(safeTotal / safeLimit))
+      : null;
 
-  const response = {
+  return res.status(200).json({
     success: true,
     message: 'Success',
     data,
     pagination: {
-      ...fallback,
-      ...pagination,
-      // Ensure essential keys are always present even if pagination overrides them with undefined
-      page: pagination.page ?? fallback.page,
-      limit: pagination.limit ?? fallback.limit,
-      total: pagination.total ?? fallback.total,
-      totalPages: pagination.totalPages ?? fallback.totalPages,
-      hasNext: pagination.hasNext ?? fallback.hasNext,
-      hasPrev: pagination.hasPrev ?? fallback.hasPrev,
+      page: Number.isFinite(pagination.page) ? Number(pagination.page) : null,
+      limit: safeLimit,
+      total: safeTotal,
+      totalPages: safeTotalPages,
+      hasNext: Boolean(pagination.hasNext),
+      hasPrev: Boolean(pagination.hasPrev),
+      nextCursor: pagination.nextCursor || null,
+      previousCursor: pagination.previousCursor || null,
+      cursor: pagination.cursor || null,
+      sort: pagination.sort || null,
+      usingCursor: Boolean(pagination.usingCursor),
     },
     timestamp: new Date().toISOString(),
-  };
-
-  if (meta && Object.keys(meta).length > 0) {
-    response.meta = meta;
-  }
-
-  return res.status(200).json(response);
+  });
 };
 
 /**
