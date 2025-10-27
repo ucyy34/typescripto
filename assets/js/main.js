@@ -8,7 +8,8 @@ class DostanWebApp {
     constructor() {
         this.currentTheme = localStorage.getItem('theme') || 'light';
         this.cart = JSON.parse(localStorage.getItem('cart')) || [];
-        this.wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+        this.wishlist = [];
+        this.wishlistManager = typeof window !== 'undefined' ? window.wishlistManager || null : null;
         this.isLoading = false;
 
         this.init();
@@ -569,16 +570,41 @@ class DostanWebApp {
 
     // Wishlist System
     setupWishlistSystem() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-wishlist')) {
-                const productId = e.target.closest('.btn-wishlist').dataset.productId;
-                this.toggleWishlist(productId);
-                this.updateWishlistButton(e.target.closest('.btn-wishlist'));
-            }
+        if (this.wishlistManager) {
+            this.wishlistManager.getWishlist().then((items) => {
+                this.wishlist = items.map((item) => item.product_id);
+                this.refreshWishlistButtons();
+            });
+
+            document.addEventListener('wishlist:updated', (event) => {
+                const items = (event.detail && Array.isArray(event.detail.items)) ? event.detail.items : [];
+                this.wishlist = items.map((item) => item.product_id);
+                this.refreshWishlistButtons();
+            });
+        } else {
+            this.bootstrapLocalWishlist();
+            this.refreshWishlistButtons();
+        }
+
+        document.addEventListener('click', async (e) => {
+            const button = e.target.closest('.btn-wishlist');
+            if (!button) return;
+
+            const productId = button.dataset.productId;
+            const productData = this.extractProductData(button);
+            await this.toggleWishlist(productId, productData);
+            this.updateWishlistButton(button);
         });
     }
 
-    toggleWishlist(productId) {
+    async toggleWishlist(productId, productData = null) {
+        if (this.wishlistManager) {
+            const inWishlist = await this.wishlistManager.toggleItem(productId, productData);
+            const items = await this.wishlistManager.getWishlist();
+            this.wishlist = items.map((item) => item.product_id);
+            return inWishlist;
+        }
+
         const index = this.wishlist.indexOf(productId);
 
         if (index > -1) {
@@ -588,19 +614,75 @@ class DostanWebApp {
         }
 
         localStorage.setItem('wishlist', JSON.stringify(this.wishlist));
+        return this.wishlist.includes(productId);
     }
 
     updateWishlistButton(button) {
+        if (!button) return;
+
         const productId = button.dataset.productId;
-        const heart = button.querySelector('.heart-icon');
+        const heart = button.querySelector('.heart-icon') || button;
 
         if (this.wishlist.includes(productId)) {
-            heart.textContent = '♥';
-            heart.classList.add('liked');
+            if (heart) {
+                heart.textContent = heart.textContent && heart.textContent.trim().length > 0 ? '♥' : heart.textContent;
+                heart.classList.add('liked');
+            }
+            button.classList.add('in-wishlist');
         } else {
-            heart.textContent = '♡';
-            heart.classList.remove('liked');
+            if (heart) {
+                heart.textContent = heart.textContent && heart.textContent.trim().length > 0 ? '♡' : heart.textContent;
+                heart.classList.remove('liked');
+            }
+            button.classList.remove('in-wishlist');
         }
+    }
+
+    refreshWishlistButtons() {
+        document.querySelectorAll('.btn-wishlist').forEach((button) => this.updateWishlistButton(button));
+    }
+
+    bootstrapLocalWishlist() {
+        try {
+            const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+            if (Array.isArray(stored)) {
+                this.wishlist = stored
+                    .map((entry) => (typeof entry === 'string' ? entry : entry?.product_id))
+                    .filter(Boolean);
+            } else {
+                this.wishlist = [];
+            }
+        } catch (error) {
+            console.warn('[Main] Failed to read wishlist from storage', error);
+            this.wishlist = [];
+        }
+    }
+
+    extractProductData(button) {
+        const productId = button?.dataset?.productId;
+        if (!productId) return null;
+
+        const card = button.closest('[data-product-id]');
+        if (!card) {
+            return { product_id: productId };
+        }
+
+        const titleEl = card.querySelector('.product-title, .item-details h3');
+        const priceEl = card.querySelector('.current-price, .item-price');
+        const imageEl = card.querySelector('img');
+
+        let priceValue;
+        if (priceEl) {
+            const raw = priceEl.textContent.replace(/[^0-9.,]/g, '').replace(',', '.');
+            priceValue = parseFloat(raw);
+        }
+
+        return {
+            product_id: productId,
+            title: titleEl ? titleEl.textContent.trim() : undefined,
+            price: Number.isFinite(priceValue) ? priceValue : undefined,
+            images: imageEl ? [imageEl.src] : undefined,
+        };
     }
 
     // Smooth Scrolling

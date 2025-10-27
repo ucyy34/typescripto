@@ -141,6 +141,7 @@ class ProductDetailAPI {
         this.renderProductImages();
         this.renderStoreInfo();
         this.renderProductSpecs();
+        this.syncWishlistButton();
     }
 
     renderProductInfo() {
@@ -385,7 +386,7 @@ class ProductDetailAPI {
         // Add to wishlist button
         const wishlistBtn = document.getElementById('addToWishlistBtn');
         if (wishlistBtn) {
-            wishlistBtn.addEventListener('click', () => this.addToWishlist());
+            wishlistBtn.addEventListener('click', () => this.toggleWishlist());
         }
 
         // Tab switching
@@ -512,32 +513,95 @@ class ProductDetailAPI {
         }
     }
 
-    async addToWishlist() {
+    async toggleWishlist() {
         try {
-            console.log('[Product Detail API] Adding to wishlist:', this.productId);
-
-            // For now, just use localStorage
-            let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
-
-            if (wishlist.includes(this.productId)) {
-                this.showSuccessMessage('Already in wishlist!');
+            if (!this.productId) {
+                this.showError('Ürün bilgisi yüklenemedi');
                 return;
             }
 
-            wishlist.push(this.productId);
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            let inWishlist;
+            if (window.wishlistManager) {
+                inWishlist = await window.wishlistManager.toggleItem(this.productId, {
+                    product_id: this.productId,
+                    title: this.product?.title,
+                    price: typeof this.product?.price === 'number' ? this.product.price : parseFloat(this.product?.price || 0),
+                    images: this.product?.images || (this.product?.image ? [this.product.image] : undefined),
+                });
+            } else {
+                inWishlist = this.toggleWishlistFallback();
+            }
 
-            this.showSuccessMessage('Added to wishlist!');
-
-            // Update wishlist icon
             const wishlistBtn = document.getElementById('addToWishlistBtn');
             if (wishlistBtn) {
-                wishlistBtn.innerHTML = '♥ In Wishlist';
-                wishlistBtn.classList.add('in-wishlist');
+                if (inWishlist) {
+                    wishlistBtn.innerHTML = '♥ Favorilerde';
+                    wishlistBtn.classList.add('in-wishlist');
+                    this.showSuccessMessage('Favorilere eklendi!');
+                } else {
+                    wishlistBtn.innerHTML = '♡ Favorilere Ekle';
+                    wishlistBtn.classList.remove('in-wishlist');
+                    this.showSuccessMessage('Favorilerden çıkarıldı');
+                }
             }
         } catch (error) {
-            console.error('[Product Detail API] Error adding to wishlist:', error);
-            this.showError('Failed to add to wishlist');
+            console.error('[Product Detail API] Error toggling wishlist:', error);
+            this.showError('Favori işlemi başarısız oldu');
+        }
+    }
+
+    toggleWishlistFallback() {
+        let wishlist = [];
+        try {
+            wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        } catch (_) {
+            wishlist = [];
+        }
+
+        if (!Array.isArray(wishlist)) {
+            wishlist = [];
+        }
+
+        const index = wishlist.indexOf(this.productId);
+        if (index > -1) {
+            wishlist.splice(index, 1);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+            return false;
+        }
+
+        wishlist.push(this.productId);
+        localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        return true;
+    }
+
+    async syncWishlistButton() {
+        const wishlistBtn = document.getElementById('addToWishlistBtn');
+        if (!wishlistBtn) return;
+
+        let inWishlist = false;
+
+        if (window.wishlistManager) {
+            try {
+                const items = await window.wishlistManager.getWishlist();
+                inWishlist = items.some((item) => item.product_id === this.productId);
+            } catch (error) {
+                console.warn('[Product Detail API] Failed to load wishlist state', error);
+            }
+        } else {
+            try {
+                const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                inWishlist = Array.isArray(wishlist) && wishlist.includes(this.productId);
+            } catch (_) {
+                inWishlist = false;
+            }
+        }
+
+        if (inWishlist) {
+            wishlistBtn.innerHTML = '♥ Favorilerde';
+            wishlistBtn.classList.add('in-wishlist');
+        } else {
+            wishlistBtn.innerHTML = '♡ Favorilere Ekle';
+            wishlistBtn.classList.remove('in-wishlist');
         }
     }
 

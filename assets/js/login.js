@@ -55,6 +55,10 @@
           try { await window.cartManager.mergeGuestCart(); } catch (_) {}
         }
 
+        if (window.wishlistManager && window.wishlistManager.mergeGuestWishlist) {
+          try { await window.wishlistManager.mergeGuestWishlist(); } catch (_) {}
+        }
+
         if (successMessage) {
           successMessage.textContent = 'Login successful! Redirecting...';
           successMessage.classList.add('show');
