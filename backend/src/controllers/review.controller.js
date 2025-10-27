@@ -83,7 +83,7 @@ const reviewController = {
   markHelpful: asyncHandler(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
-    const { helpful } = req.body; // true or false
+    const { helpful = true } = req.body; // true or false
 
     const review = await reviewService.markHelpful(id, userId, helpful);
 
