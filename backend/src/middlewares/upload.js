@@ -1,36 +1,43 @@
 /**
  * Upload Middleware
- * Multer configuration for handling file uploads
+ * Handles file uploads for product media using Multer
  */
 
 const multer = require('multer');
-const { StatusCodes } = require('http-status-codes');
-const { ApiError } = require('./errorHandler');
 
 // Allowed mime types for product images
-const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
 
-// Use memory storage so we can process images with sharp before saving
-const memoryStorage = multer.memoryStorage();
+// Use memory storage so we can process the file with Sharp before saving
+const storage = multer.memoryStorage();
 
-/**
- * Validate uploaded file type
- */
-const productImageFileFilter = (req, file, cb) => {
-  if (ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype)) {
+// Validate incoming files
+const fileFilter = (req, file, cb) => {
+  if (ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
     cb(null, true);
-  } else {
-    cb(new ApiError('Unsupported image format. Please upload JPG, PNG, GIF or WebP files.', StatusCodes.BAD_REQUEST));
+    return;
   }
+
+  const error = new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname);
+  error.message = 'Unsupported file type';
+  cb(error);
 };
 
-const productImageUpload = multer({
-  storage: memoryStorage,
-  fileFilter: productImageFileFilter,
+const upload = multer({
+  storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max size
+    fileSize: 5 * 1024 * 1024, // 5 MB limit for product images
   },
+  fileFilter,
 });
+
+// Single image upload handler for product images
+const productImageUpload = upload.single('image');
 
 module.exports = {
   productImageUpload,

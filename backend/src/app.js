@@ -124,6 +124,9 @@ app.use('/api/', generalLimiter);
 const frontendPath = path.join(__dirname, '..', '..');
 app.use(express.static(frontendPath));
 
+// Serve uploaded assets (product images)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

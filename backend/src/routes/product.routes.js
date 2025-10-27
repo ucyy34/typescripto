@@ -8,7 +8,8 @@ const router = express.Router();
 
 const productController = require('../controllers/product.controller');
 const { authenticate, requireSeller, requireAdmin, optionalAuth } = require('../middlewares/auth');
-const { searchLimiter } = require('../middlewares/rateLimiter');
+const { uploadLimiter } = require('../middlewares/rateLimiter');
+const { productImageUpload } = require('../middlewares/upload');
 const { validate, validateQuery, validateParams } = require('../middlewares/validate');
 const {
   createProductSchema,
@@ -16,8 +17,6 @@ const {
   updateProductStatusSchema,
   productIdSchema,
   productQuerySchema,
-  productSearchSchema,
-  productSlugSchema,
 } = require('../validators/product.validator');
 
 /**
@@ -42,6 +41,20 @@ router.get('/bestsellers', productController.getBestSellers);
 router.get('/random', productController.getRandomProducts);
 
 /**
+ * @route   POST /api/v1/products/upload-image
+ * @desc    Upload product image and convert to WebP
+ * @access  Private (Seller only)
+ */
+router.post(
+  '/upload-image',
+  authenticate,
+  requireSeller,
+  uploadLimiter,
+  productImageUpload,
+  productController.uploadProductImage
+);
+
+/**
  * @route   POST /api/v1/products
  * @desc    Create new product
  * @access  Private (Seller only)
@@ -54,20 +67,6 @@ router.post('/', authenticate, requireSeller, validate(createProductSchema), pro
  * @access  Public
  */
 router.get('/', validateQuery(productQuerySchema), productController.getProducts);
-
-/**
- * @route   GET /api/v1/products/search
- * @desc    Search products with suggestions
- * @access  Public
- */
-router.get('/search', searchLimiter, validateQuery(productSearchSchema), productController.searchProducts);
-
-/**
- * @route   GET /api/v1/products/slug/:slug
- * @desc    Get product by slug
- * @access  Public
- */
-router.get('/slug/:slug', optionalAuth, validateParams(productSlugSchema), productController.getProductBySlug);
 
 /**
  * @route   GET /api/v1/products/:id

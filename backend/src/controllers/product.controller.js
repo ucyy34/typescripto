@@ -3,9 +3,17 @@
  * Handle product HTTP requests
  */
 
+const path = require('path');
+const fs = require('fs/promises');
+const sharp = require('sharp');
+const { v4: uuidv4 } = require('uuid');
+const { StatusCodes } = require('http-status-codes');
+
 const productService = require('../services/product.service');
 const { success, created, noContent, paginated } = require('../utils/response');
-const { asyncHandler } = require('../middlewares/errorHandler');
+const { asyncHandler, ApiError } = require('../middlewares/errorHandler');
+
+const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'uploads', 'products');
 
 class ProductController {
   /**
@@ -187,6 +195,44 @@ class ProductController {
     const products = await productService.getRandomProducts(limit);
 
     return success(res, products, 'Random products retrieved successfully');
+  });
+
+  /**
+   * Upload a product image and convert it to WebP format
+   * POST /api/v1/products/upload-image
+   */
+  uploadProductImage = asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new ApiError('Image file is required', StatusCodes.BAD_REQUEST);
+    }
+
+    await fs.mkdir(UPLOAD_ROOT, { recursive: true });
+
+    const fileName = `${uuidv4()}.webp`;
+    const filePath = path.join(UPLOAD_ROOT, fileName);
+
+    try {
+      await sharp(req.file.buffer)
+        .rotate()
+        .webp({ quality: 80 })
+        .toFile(filePath);
+    } catch (error) {
+      console.error('[ProductController] Failed to process image upload:', error);
+      throw new ApiError('Image processing failed', StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+
+    const publicUrl = `/uploads/products/${fileName}`;
+
+    return success(
+      res,
+      {
+        url: publicUrl,
+        format: 'webp',
+        size: req.file.size,
+        originalName: req.file.originalname,
+      },
+      'Image uploaded successfully'
+    );
   });
 }
 

@@ -6,11 +6,27 @@
 const Joi = require('joi');
 
 const imageUrlSchema = Joi.string()
-  .trim()
-  .pattern(/^https?:\/\/.+|^\/uploads\/.+/, 'image url')
+  .max(2048)
+  .custom((value, helpers) => {
+    if (!value) return value;
+    const trimmed = value.trim();
+    if (trimmed.startsWith('/uploads/')) {
+      return trimmed;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (['http:', 'https:'].includes(parsed.protocol)) {
+        return trimmed;
+      }
+    } catch (err) {
+      // Swallow, we will reject below
+    }
+
+    return helpers.error('any.invalid');
+  }, 'Image URL validation')
   .messages({
-    'string.pattern.name': 'Images must be valid URLs or start with /uploads/',
-    'string.pattern.base': 'Images must be valid URLs or start with /uploads/',
+    'any.invalid': 'Image URL must be a valid URL or start with /uploads/',
   });
 
 /**
@@ -50,7 +66,6 @@ const createProductSchema = Joi.object({
   }).optional(),
   attributes: Joi.object().optional().default({}),
   tags: Joi.array().items(Joi.string().max(50)).max(20).default([]),
-  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).default([]),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -75,6 +90,7 @@ const createProductSchema = Joi.object({
   ).optional().default([]),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional().default([]),
   is_active: Joi.boolean().default(true),
 });
 
@@ -101,7 +117,6 @@ const updateProductSchema = Joi.object({
   }).optional(),
   attributes: Joi.object().optional(),
   tags: Joi.array().items(Joi.string().max(50)).max(20).optional(),
-  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   badges: Joi.array()
     .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
     .max(10)
@@ -111,6 +126,7 @@ const updateProductSchema = Joi.object({
     }),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),
+  meta_keywords: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   is_active: Joi.boolean().optional(),
 });
 
@@ -145,24 +161,6 @@ const productIdSchema = Joi.object({
 });
 
 /**
- * Product slug param validation
- */
-const productSlugSchema = Joi.object({
-  slug: Joi.string()
-    .trim()
-    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .min(2)
-    .max(350)
-    .required()
-    .messages({
-      'string.pattern.base': 'Invalid product slug format',
-      'string.min': 'Product slug must be at least 2 characters',
-      'string.max': 'Product slug cannot exceed 350 characters',
-      'any.required': 'Product slug is required',
-    }),
-});
-
-/**
  * Product query params validation
  */
 const productQuerySchema = Joi.object({
@@ -176,7 +174,6 @@ const productQuerySchema = Joi.object({
   max_price: Joi.number().min(0).optional(),
   in_stock: Joi.boolean().optional(),
   is_featured: Joi.boolean().optional(),
-  includeAllStatuses: Joi.boolean().optional(),
   sort: Joi.string()
     .valid(
       'title',
@@ -191,13 +188,6 @@ const productQuerySchema = Joi.object({
       '-created_at'
     )
     .default('-created_at'),
-  includeAllStatuses: Joi.boolean().optional(),
-});
-
-const productSearchSchema = Joi.object({
-  q: Joi.string().trim().min(2).max(200).required(),
-  limit: Joi.number().integer().min(1).max(30).default(8),
-  includeSuggestions: Joi.boolean().optional(),
 });
 
 module.exports = {
@@ -205,7 +195,5 @@ module.exports = {
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
-  productSlugSchema,
   productQuerySchema,
-  productSearchSchema,
 };
