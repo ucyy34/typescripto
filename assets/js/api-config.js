@@ -62,7 +62,6 @@ const API_CONFIG = {
     STORES: {
       BASE: '/stores',
       BY_ID: (id) => `/stores/${id}`,
-      BY_SLUG: (slug) => `/stores/slug/${slug}`,
       MY_STORE: '/stores/my-store',
       STATUS: (id) => `/stores/${id}/status`,
       STATS: (id) => `/stores/${id}/stats`,
@@ -73,16 +72,10 @@ const API_CONFIG = {
     // Product endpoints
     PRODUCTS: {
       BASE: '/products',
-      SEARCH: '/products/search',
       BY_ID: (id) => `/products/${id}`,
       BY_SLUG: (slug) => `/products/slug/${slug}`,
       STATUS: (id) => `/products/${id}/status`,
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
-      SEARCH: '/products/search',
-    },
-
-    UPLOADS: {
-      PRODUCT_IMAGE: '/uploads/products',
     },
 
     // Category endpoints
@@ -118,7 +111,6 @@ const API_CONFIG = {
       RECENT_PRODUCTS: '/dashboard/recent-products',
     },
 
-    // Upload endpoints
     UPLOADS: {
       PRODUCT_IMAGE: '/uploads/products',
     },
@@ -132,25 +124,6 @@ const API_CONFIG = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
-
-  DEBUG: (() => {
-    try {
-      if (typeof window !== 'undefined') {
-        if (typeof window.API_DEBUG === 'boolean') {
-          return window.API_DEBUG;
-        }
-        if (window.localStorage) {
-          const stored = window.localStorage.getItem('API_DEBUG');
-          if (stored !== null) {
-            return stored === 'true' || stored === '1';
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore access issues
-    }
-    return false;
-  })(),
 };
 
 // Export for use in other modules

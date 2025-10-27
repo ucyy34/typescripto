@@ -1,22 +1,26 @@
-/**
- * Upload Routes
- */
-
 const express = require('express');
-const router = express.Router();
+const multer = require('multer');
+const { StatusCodes } = require('http-status-codes');
 
 const uploadController = require('../controllers/upload.controller');
-const { authenticate, requireSellerOrAdmin } = require('../middlewares/auth');
-const { uploadLimiter } = require('../middlewares/rateLimiter');
-const { productImageUpload } = require('../middlewares/upload');
+const { authenticate, requireSeller } = require('../middlewares/auth');
+const { ApiError } = require('../middlewares/errorHandler');
 
-router.post(
-  '/products',
-  authenticate,
-  requireSellerOrAdmin,
-  uploadLimiter,
-  productImageUpload.single('file'),
-  uploadController.uploadProductImage
-);
+const router = express.Router();
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new ApiError('Only image files are allowed', StatusCodes.BAD_REQUEST));
+    } else {
+      cb(null, true);
+    }
+  },
+});
+
+router.post('/products', authenticate, requireSeller, upload.single('image'), uploadController.uploadProductImage);
 
 module.exports = router;

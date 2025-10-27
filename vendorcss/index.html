@@ -841,23 +841,22 @@
 
                 <!-- Product Images -->
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Images</label>
-                    <div class="image-upload-grid">
-                        <label class="image-upload-dropzone" id="productImageDropzone">
-                            <input type="file" id="productImageFile" accept="image/*" style="display:none;">
-                            <div class="upload-icon">⬆️</div>
-                            <div class="upload-text">Drop or click to upload</div>
-                            <div class="upload-hint">Images are converted to fast-loading WebP automatically</div>
-                        </label>
-                        <div class="image-upload-preview" id="productImagePreview">
-                            <span class="preview-placeholder">No image selected</span>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--vendor-text);">Product Image</label>
+                    <div class="product-image-upload">
+                        <div class="upload-dropzone" id="productImageDropzone">
+                            <input type="file" id="productImageFile" accept="image/*" hidden>
+                            <button type="button" id="triggerProductImageUpload">📤 Upload Image</button>
+                            <p>Supported formats: JPG, PNG, WebP. Files are automatically converted to WebP.</p>
+                        </div>
+                        <div class="upload-preview" id="productImagePreview">
+                            <span>Henüz görsel seçilmedi</span>
                         </div>
                     </div>
-                    <div class="image-upload-actions">
-                        <input type="url" id="productImageUrl" placeholder="https://example.com/image.jpg (optional)" class="image-url-input">
-                        <button type="button" id="clearProductImage" class="image-clear-btn">Remove image</button>
+                    <div class="upload-fallback">
+                        <span>or paste an image URL</span>
+                        <input type="url" id="productImage" placeholder="https://example.com/image.jpg" />
                     </div>
-                    <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.5rem;">You can upload a photo from your computer or paste an existing URL. Uploaded images are hosted on Dosttan Palas and optimised for the marketplace.</small>
+                    <small style="color: #666; font-size: 0.85rem; display:block; margin-top:0.35rem;">Yüklediğiniz görseller Dosttan sunucularına kaydedilir ve otomatik olarak WebP formatına optimize edilir.</small>
                 </div>
 
                 <!-- Product Badges -->

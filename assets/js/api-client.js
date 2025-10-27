@@ -19,16 +19,12 @@ class ApiClient {
   /**
    * Build headers with authorization
    */
-  buildHeaders(customHeaders = {}) {
-    const headers = { ...API_CONFIG.HEADERS };
+  buildHeaders(customHeaders = {}, isFormData = false) {
+    const headers = { ...API_CONFIG.HEADERS, ...customHeaders };
 
-    Object.entries(customHeaders).forEach(([key, value]) => {
-      if (value === null || value === undefined) {
-        delete headers[key];
-      } else {
-        headers[key] = value;
-      }
-    });
+    if (isFormData) {
+      delete headers['Content-Type'];
+    }
 
     const token = this.getToken();
     if (token) {
@@ -122,11 +118,13 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+    const { isFormData = false, ...fetchOptions } = options;
+
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config = {
-        ...options,
-        headers: this.buildHeaders(options.headers),
+        ...fetchOptions,
+        headers: this.buildHeaders(fetchOptions.headers, isFormData),
         signal: controller.signal,
       };
 
@@ -230,18 +228,16 @@ class ApiClient {
   }
 
   /**
-   * Upload product image
+   * Upload product image (auto WebP conversion on backend)
    */
   async uploadProductImage(file) {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('image', file);
 
     return this.request(API_CONFIG.ENDPOINTS.UPLOADS.PRODUCT_IMAGE, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': null,
-      },
+      isFormData: true,
     });
   }
 
@@ -357,41 +353,10 @@ class ApiClient {
   }
 
   /**
-   * Search products with autocomplete suggestions
-   */
-  async searchProducts(query, options = {}) {
-    const trimmedQuery = (query || '').trim();
-
-    if (trimmedQuery.length < 2) {
-      return {
-        success: true,
-        data: {
-          query: trimmedQuery,
-          results: [],
-          suggestions: [],
-        },
-      };
-    }
-
-    const params = { q: trimmedQuery };
-    if (options.limit) params.limit = options.limit;
-    if (options.includeSuggestions === false) params.includeSuggestions = false;
-
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.SEARCH, params, { useCache: false });
-  }
-
-  /**
    * Get product by ID
    */
   async getProduct(productId) {
     return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(productId));
-  }
-
-  /**
-   * Get product by slug
-   */
-  async getProductBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.BY_SLUG(slug));
   }
 
   /**
@@ -470,13 +435,6 @@ class ApiClient {
    */
   async getCategory(categoryId) {
     return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_ID(categoryId));
-  }
-
-  /**
-   * Get category by slug
-   */
-  async getCategoryBySlug(slug) {
-    return this.get(API_CONFIG.ENDPOINTS.CATEGORIES.BY_SLUG(slug));
   }
 
   /**

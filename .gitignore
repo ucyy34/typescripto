@@ -3,5 +3,5 @@ cookies.txt
 C\?UsersLENOVODesktopdostanwebcss41.2backendtoken.txt
 *backendtoken.txt
 nul
-uploads/*
-!uploads/.gitignore
+backend/src/uploads/
+!backend/src/uploads/.gitkeep

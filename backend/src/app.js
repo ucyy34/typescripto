@@ -26,7 +26,6 @@ const storeRoutes = require('./routes/store.routes');
 const productRoutes = require('./routes/product.routes');
 const categoryRoutes = require('./routes/category.routes');
 const cartRoutes = require('./routes/cart.routes');
-const wishlistRoutes = require('./routes/wishlist.routes');
 const orderRoutes = require('./routes/order.routes');
 const returnRoutes = require('./routes/return.routes');
 const commissionRoutes = require('./routes/commission.routes');
@@ -125,9 +124,8 @@ app.use('/api/', generalLimiter);
 const frontendPath = path.join(__dirname, '..', '..');
 app.use(express.static(frontendPath));
 
-// Dedicated static handler for uploaded assets
-const uploadsPath = path.join(__dirname, '..', '..', 'uploads');
-app.use('/uploads', express.static(uploadsPath, { maxAge: '7d' }));
+const uploadsPath = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -148,7 +146,6 @@ app.use(`/api/${API_VERSION}/stores`, storeRoutes);
 app.use(`/api/${API_VERSION}/products`, productRoutes);
 app.use(`/api/${API_VERSION}/categories`, categoryRoutes);
 app.use(`/api/${API_VERSION}/cart`, cartRoutes);
-app.use(`/api/${API_VERSION}/wishlist`, wishlistRoutes);
 app.use(`/api/${API_VERSION}/orders`, orderRoutes);
 app.use(`/api/${API_VERSION}/returns`, returnRoutes);
 app.use(`/api/${API_VERSION}/commissions`, commissionRoutes);
