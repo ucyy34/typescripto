@@ -28,7 +28,6 @@ class AdminDashboard {
             status: 'pending',
         };
         this.storePagination = null;
-        this.refreshTimerId = null;
 
         // Check authentication before initializing
         if (!AuthManager.checkAdminAuth()) {
@@ -40,7 +39,6 @@ class AdminDashboard {
             return;
         }
 
-        window.addEventListener('beforeunload', () => this.teardown());
         this.init();
     }
 
@@ -1361,22 +1359,11 @@ class AdminDashboard {
     // Real-time Updates
     setupRealTimeUpdates() {
         // Update stats every 60 seconds
-        if (this.refreshTimerId) {
-            clearInterval(this.refreshTimerId);
-        }
-
-        this.refreshTimerId = setInterval(() => {
+        setInterval(() => {
             if (this.currentSection === 'dashboard') {
                 this.loadDashboardStats();
             }
         }, 60000);
-    }
-
-    teardown() {
-        if (this.refreshTimerId) {
-            clearInterval(this.refreshTimerId);
-            this.refreshTimerId = null;
-        }
     }
 
     animateValue(element, newValue, prefix = '', suffix = '') {

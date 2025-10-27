@@ -4,7 +4,7 @@
  */
 
 const couponService = require('../services/coupon.service');
-const { success } = require('../utils/response');
+const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
 class CouponController {
@@ -26,12 +26,7 @@ class CouponController {
   getAllCoupons = asyncHandler(async (req, res) => {
     const { coupons, pagination } = await couponService.getAllCoupons(req.query);
     
-    return res.status(200).json({
-      success: true,
-      data: coupons,
-      pagination,
-      timestamp: new Date().toISOString(),
-    });
+    return paginated(res, coupons, pagination, 'Coupons retrieved successfully');
   });
 
   /**

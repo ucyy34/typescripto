@@ -94,33 +94,32 @@ const cache = {
    */
   async delPattern(pattern) {
     try {
-      let cursor = '0';
-      let totalDeleted = 0;
+      const keys = [];
+      const stream = redisClient.scanStream({ match: pattern, count: 100 });
 
-      do {
-        const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
-        cursor = nextCursor;
-
-        if (keys.length === 0) {
-          continue;
-        }
-
-        const pipeline = redisClient.pipeline();
-        keys.forEach((key) => pipeline.del(key));
-        const results = await pipeline.exec();
-
-        results.forEach(([err, result], index) => {
-          if (err) {
-            console.warn(`Cache DEL error for key ${keys[index]}:`, err.message);
-            return;
-          }
-          if (result) {
-            totalDeleted += result;
+      await new Promise((resolve, reject) => {
+        stream.on('data', (batch) => {
+          if (Array.isArray(batch) && batch.length > 0) {
+            keys.push(...batch);
           }
         });
-      } while (cursor !== '0');
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
 
-      return totalDeleted;
+      if (keys.length === 0) {
+        return 0;
+      }
+
+      let deleted = 0;
+      const batchSize = 500;
+      for (let i = 0; i < keys.length; i += batchSize) {
+        const chunk = keys.slice(i, i + batchSize);
+        const removed = await redisClient.del(...chunk);
+        deleted += removed;
+      }
+
+      return deleted;
     } catch (error) {
       console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
       return 0;

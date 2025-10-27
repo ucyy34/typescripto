@@ -11,26 +11,28 @@ const { validate, validateQuery, validateParams } = require('../middlewares/vali
 const {
   createReviewSchema,
   updateReviewSchema,
-  reviewIdSchema,
-  reviewQuerySchema,
-  reviewModerationQuerySchema,
+  reviewFeedbackSchema,
   productReviewParamsSchema,
   storeReviewParamsSchema,
-  reviewDecisionSchema,
-  markHelpfulSchema,
+  reviewIdParamSchema,
+  productReviewQuerySchema,
+  storeReviewQuerySchema,
+  pendingReviewQuerySchema,
+  reviewModerationSchema,
+  reviewApprovalSchema,
 } = require('../validators/review.validator');
 
 // Public routes
 router.get(
   '/products/:productId/reviews',
   validateParams(productReviewParamsSchema),
-  validateQuery(reviewQuerySchema),
+  validateQuery(productReviewQuerySchema),
   reviewController.getProductReviews
 );
 router.get(
   '/stores/:storeId/reviews',
   validateParams(storeReviewParamsSchema),
-  validateQuery(reviewQuerySchema),
+  validateQuery(storeReviewQuerySchema),
   reviewController.getStoreReviews
 );
 
@@ -46,7 +48,7 @@ router.post(
 router.put(
   '/reviews/:id',
   authenticate,
-  validateParams(reviewIdSchema),
+  validateParams(reviewIdParamSchema),
   validate(updateReviewSchema),
   reviewController.updateReview
 );
@@ -54,7 +56,7 @@ router.put(
 router.delete(
   '/reviews/:id',
   authenticate,
-  validateParams(reviewIdSchema),
+  validateParams(reviewIdParamSchema),
   reviewController.deleteReview
 );
 
@@ -62,8 +64,8 @@ router.delete(
 router.post(
   '/reviews/:id/helpful',
   authenticate,
-  validateParams(reviewIdSchema),
-  validate(markHelpfulSchema),
+  validateParams(reviewIdParamSchema),
+  validate(reviewFeedbackSchema),
   reviewController.markHelpful
 );
 
@@ -72,22 +74,23 @@ router.get(
   '/admin/reviews/pending',
   authenticate,
   requireAdmin,
-  validateQuery(reviewModerationQuerySchema),
+  validateQuery(pendingReviewQuerySchema),
   reviewController.getPendingReviews
 );
 router.post(
   '/admin/reviews/:id/approve',
   authenticate,
   requireAdmin,
-  validateParams(reviewIdSchema),
+  validateParams(reviewIdParamSchema),
+  validate(reviewApprovalSchema),
   reviewController.approveReview
 );
 router.post(
   '/admin/reviews/:id/reject',
   authenticate,
   requireAdmin,
-  validateParams(reviewIdSchema),
-  validate(reviewDecisionSchema),
+  validateParams(reviewIdParamSchema),
+  validate(reviewModerationSchema),
   reviewController.rejectReview
 );
 

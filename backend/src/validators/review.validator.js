@@ -5,6 +5,8 @@
 
 const Joi = require('joi');
 
+const uuidSchema = Joi.string().uuid({ version: 'uuidv4' });
+
 const createReviewSchema = Joi.object({
   rating: Joi.number().integer().min(1).max(5).required().messages({
     'number.base': 'Rating must be a number',
@@ -15,6 +17,7 @@ const createReviewSchema = Joi.object({
   title: Joi.string().max(200).optional().allow(''),
   comment: Joi.string().max(2000).optional().allow(''),
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
+  order_id: uuidSchema.optional(),
 });
 
 const updateReviewSchema = Joi.object({
@@ -24,57 +27,56 @@ const updateReviewSchema = Joi.object({
   images: Joi.array().items(Joi.string().uri()).max(5).optional(),
 });
 
-const reviewIdSchema = Joi.object({
-  id: Joi.string().uuid().required().messages({
-    'string.guid': 'Invalid review ID format',
-    'any.required': 'Review ID is required',
-  }),
+const reviewFeedbackSchema = Joi.object({
+  helpful: Joi.boolean().strict().required(),
 });
 
 const productReviewParamsSchema = Joi.object({
-  productId: Joi.string().uuid().required().messages({
-    'string.guid': 'Invalid product ID format',
-    'any.required': 'Product ID is required',
-  }),
+  productId: uuidSchema.required(),
 });
 
 const storeReviewParamsSchema = Joi.object({
-  storeId: Joi.string().uuid().required().messages({
-    'string.guid': 'Invalid store ID format',
-    'any.required': 'Store ID is required',
-  }),
+  storeId: uuidSchema.required(),
 });
 
-const reviewQuerySchema = Joi.object({
+const reviewIdParamSchema = Joi.object({
+  id: uuidSchema.required(),
+});
+
+const productReviewQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(10),
+  limit: Joi.number().integer().min(1).max(50).default(10),
   sort: Joi.string().valid('recent', 'highest', 'lowest', 'helpful').default('recent'),
 });
 
-const reviewModerationQuerySchema = Joi.object({
+const storeReviewQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
+  limit: Joi.number().integer().min(1).max(50).default(10),
 });
 
-const reviewDecisionSchema = Joi.object({
-  reason: Joi.string().max(500).required().messages({
-    'string.empty': 'Rejection reason cannot be empty',
-    'any.required': 'Rejection reason is required',
-  }),
+const pendingReviewQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
 });
 
-const markHelpfulSchema = Joi.object({
-  helpful: Joi.boolean().default(true),
+const reviewModerationSchema = Joi.object({
+  reason: Joi.string().trim().max(500).allow('', null),
+});
+
+const reviewApprovalSchema = Joi.object({
+  notes: Joi.string().trim().max(500).allow('', null),
 });
 
 module.exports = {
   createReviewSchema,
   updateReviewSchema,
-  reviewIdSchema,
-  reviewQuerySchema,
-  reviewModerationQuerySchema,
+  reviewFeedbackSchema,
   productReviewParamsSchema,
   storeReviewParamsSchema,
-  reviewDecisionSchema,
-  markHelpfulSchema,
+  reviewIdParamSchema,
+  productReviewQuerySchema,
+  storeReviewQuerySchema,
+  pendingReviewQuerySchema,
+  reviewModerationSchema,
+  reviewApprovalSchema,
 };

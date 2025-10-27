@@ -7,6 +7,19 @@ class ApiClient {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
+    this.debug = false;
+
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.API_DEBUG === true) {
+          this.debug = true;
+        } else if (window.localStorage) {
+          this.debug = window.localStorage.getItem('API_DEBUG') === 'true';
+        }
+      }
+    } catch (_) {
+      this.debug = false;
+    }
   }
 
   /**
@@ -112,8 +125,7 @@ class ApiClient {
    */
   async request(endpoint, options = {}) {
     const controller = new AbortController();
-    const timeoutMs = typeof options.timeout === 'number' ? options.timeout : this.timeout;
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
       const url = `${this.baseURL}${endpoint}`;
@@ -123,99 +135,35 @@ class ApiClient {
         signal: controller.signal,
       };
 
-      // Ensure we do not manually set Content-Type for FormData payloads
-      if (options.body instanceof FormData) {
-        delete config.headers['Content-Type'];
-      }
-
-      console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
+      this._log(`${config.method || 'GET'} ${endpoint}`);
 
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
-      if (response.status === 204 || response.status === 205) {
-        console.log(`[API] Success:`, { status: response.status, success: true });
-        return { success: true, data: null, status: response.status };
-      }
+      const responseText = await response.text();
+      let data;
 
-      const contentType = response.headers.get('content-type') || '';
-      let data = null;
-
-      if (contentType.includes('application/json')) {
+      if (responseText) {
         try {
-          data = await response.json();
-        } catch (parseError) {
-          console.warn('[API] Failed to parse JSON response:', parseError);
-          data = { success: response.ok, message: 'Invalid JSON response payload' };
+          data = JSON.parse(responseText);
+        } catch (_) {
+          data = { success: response.ok, message: responseText };
         }
       } else {
-        const text = await response.text();
-        if (text) {
-          data = { success: response.ok, message: text };
-        }
-      }
-
-      if (!data) {
         data = { success: response.ok };
       }
 
-      const payload = typeof data === 'object' && data !== null
-        ? { ...data, status: response.status }
-        : { success: response.ok, data, status: response.status };
-
-      // Check if request was successful
-      if (!response.ok) {
-        console.error(`[API] Error ${response.status}:`, payload);
-
-        if (payload.message) {
-          return {
-            success: false,
-            message: payload.message,
-            error: payload.error || 'API_ERROR',
-            status: response.status,
-            data: payload.data ?? null,
-          };
-        }
-
-        return this.handleError(new Error(payload.message || 'Request failed'), response);
+      if (typeof data.success !== 'boolean') {
+        data.success = response.ok;
       }
 
-      console.log(`[API] Success:`, payload);
-      return payload;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      return this.handleError(error);
-    }
-  }
-
-  /**
-   * Upload request (multipart/form-data)
-   */
-  async upload(endpoint, formData, options = {}) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    try {
-      const url = `${this.baseURL}${endpoint}`;
-      const headers = this.buildHeaders(options.headers);
-      delete headers['Content-Type'];
-
-      const config = {
-        method: options.method || 'POST',
-        body: formData,
-        headers,
-        signal: controller.signal,
-      };
-
-      console.log(`[API] UPLOAD ${endpoint}`);
-
-      const response = await fetch(url, config);
-      clearTimeout(timeoutId);
-
-      const data = await response.json();
+      if (!data.message && response.statusText) {
+        data.message = response.statusText;
+      }
 
       if (!response.ok) {
-        console.error(`[API] Upload Error ${response.status}:`, data);
+        this._log(`Error ${response.status} ${endpoint}`, data);
+
         if (data.message) {
           return {
             success: false,
@@ -225,10 +173,10 @@ class ApiClient {
           };
         }
 
-        return this.handleError(new Error(data.message || 'Upload failed'), response);
+        return this.handleError(new Error('Request failed'), response);
       }
 
-      console.log('[API] Upload success:', data);
+      this._log(`Success ${endpoint}`, data);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -257,7 +205,7 @@ class ApiClient {
 
     // Cache successful GET requests
     if (useCache && window.apiCache && response.success) {
-      window.apiCache.set(endpoint, params, response, cacheDuration);
+      window.apiCache.set(endpoint, params, response);
     }
 
     return response;
@@ -300,6 +248,12 @@ class ApiClient {
     return this.request(endpoint, {
       method: 'DELETE',
     });
+  }
+
+  _log(...args) {
+    if (this.debug) {
+      console.log('[API]', ...args);
+    }
   }
 
   // ==========================================
@@ -350,6 +304,20 @@ class ApiClient {
    */
   async getStore(storeId) {
     return this.get(API_CONFIG.ENDPOINTS.STORES.BY_ID(storeId));
+  }
+
+  /**
+   * Get current user's store
+   */
+  async getMyStore() {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.MY_STORE);
+  }
+
+  /**
+   * Create a new store for the authenticated seller
+   */
+  async createStore(storeData = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.STORES.BASE, storeData);
   }
 
   /**
@@ -429,15 +397,6 @@ class ApiClient {
       data.rejection_reason = rejectionReason;
     }
     return this.patch(API_CONFIG.ENDPOINTS.PRODUCTS.STATUS(productId), data);
-  }
-
-  /**
-   * Upload a product image
-   */
-  async uploadProductImage(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-    return this.upload(API_CONFIG.ENDPOINTS.PRODUCTS.UPLOAD_IMAGE, formData);
   }
 
   // ==========================================
