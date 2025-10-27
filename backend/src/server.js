@@ -9,7 +9,7 @@ const { testConnection, syncDatabase } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
 const logger = require('./utils/logger');
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Server instance
@@ -30,29 +30,27 @@ const startServer = async () => {
       throw new Error('Failed to connect to database');
     }
 
-    // Optional: sync database models in development for new tables (e.g., shipments)
-    if (
-      NODE_ENV === 'development' &&
-      process.env.SHIPPING_PERSIST === 'true' &&
-      process.env.SHIPPING_SYNC_ON_BOOT === 'true'
-    ) {
-      logger.warn('Synchronizing database models on boot (development override)');
-      await syncDatabase({ alter: true });
+    if (NODE_ENV === 'development') {
+      logger.info('Running automatic model sync for development environment');
+      const synced = await syncDatabase({ alter: true });
+
+      if (!synced) {
+        throw new Error('Failed to synchronize database schema');
+      }
     }
 
     // Test Redis connection
     logger.info('Testing Redis connection');
     await redisClient.ping();
-    logger.info('Redis connection successful');
+    logger.info('✅ Connected to Redis');
 
     // Start Express server
     server = app.listen(PORT, () => {
-      logger.info('Server running', {
-        port: PORT,
-        environment: NODE_ENV,
-        apiBaseUrl: `http://localhost:${PORT}/api/v1`,
-        healthCheck: `http://localhost:${PORT}/health`,
-      });
+      const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+      logger.info('🚀 Server running on port %s', PORT);
+      logger.info('Environment: %s', NODE_ENV);
+      logger.info('API Base URL: %s', `${baseUrl}/api/v1`);
+      logger.info('Health Check: %s', `${baseUrl}/health`);
     });
   } catch (error) {
     logger.error('Failed to start server: %s', error.message);

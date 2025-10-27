@@ -16,6 +16,10 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 // path already required above
 
+const { sequelize } = require('./config/sequelize');
+const { redisClient } = require('./config/redis');
+const logger = require('./utils/logger');
+
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
 
@@ -128,13 +132,30 @@ app.use(express.static(frontendPath));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const [, redisResult] = await Promise.all([
+      sequelize.query('SELECT 1'),
+      redisClient.ping(),
+    ]);
+
+    const redisOk = typeof redisResult === 'string' ? redisResult.toUpperCase() === 'PONG' : false;
+
+    res.status(200).json({
+      ok: true,
+      database: { ok: true },
+      redis: { ok: redisOk },
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+    });
+  } catch (error) {
+    logger.error('Health check failed: %s', error.message);
+    res.status(503).json({
+      ok: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // API Routes

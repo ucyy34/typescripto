@@ -11,20 +11,32 @@ const env = process.env.NODE_ENV || 'development';
 const dbConfig = config[env];
 
 // Create Sequelize instance
-const sequelize = new Sequelize(
-  dbConfig.database,
-  dbConfig.username,
-  dbConfig.password,
-  {
-    host: dbConfig.host,
-    port: dbConfig.port,
+let sequelize;
+
+if (dbConfig.use_env_variable) {
+  sequelize = new Sequelize(process.env[dbConfig.use_env_variable], {
     dialect: dbConfig.dialect,
     logging: dbConfig.logging,
     pool: dbConfig.pool,
     define: dbConfig.define,
     dialectOptions: dbConfig.dialectOptions || {},
-  }
-);
+  });
+} else {
+  sequelize = new Sequelize(
+    dbConfig.database,
+    dbConfig.username,
+    dbConfig.password,
+    {
+      host: dbConfig.host,
+      port: dbConfig.port,
+      dialect: dbConfig.dialect,
+      logging: dbConfig.logging,
+      pool: dbConfig.pool,
+      define: dbConfig.define,
+      dialectOptions: dbConfig.dialectOptions || {},
+    }
+  );
+}
 
 /**
  * Test database connection
@@ -32,7 +44,7 @@ const sequelize = new Sequelize(
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    logger.info('Database connection established successfully');
+    logger.info('✅ Connected to PostgreSQL');
     return true;
   } catch (error) {
     logger.error('Database connection failed: %s', error.message);
@@ -46,7 +58,7 @@ const testConnection = async () => {
 const syncDatabase = async (options = {}) => {
   try {
     await sequelize.sync(options);
-    logger.info('Database models synchronized');
+    logger.info('✅ Database synced');
     return true;
   } catch (error) {
     logger.error('Database sync failed: %s', error.message);
