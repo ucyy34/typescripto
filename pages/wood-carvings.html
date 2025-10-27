@@ -248,11 +248,7 @@
         }
     </style>
 </head>
-<body data-category-slug="wood-carvings"
-      data-category-name="Nordic Wood Carvings"
-      data-products-container="wood-carvings-products"
-      data-load-more-button="loadMoreWoodCarvings"
-      data-category-page-size="6">
+<body data-category-slug="wood-carvings">
     <!-- Navigation Header -->
     <header class="header glass-card">
         <nav class="navbar container">
@@ -302,36 +298,22 @@
     <!-- Category Hero Section -->
     <section class="category-hero">
         <div class="container">
-            <h1>🌳 Nordic Wood Carvings</h1>
-            <p>Discover masterfully crafted wooden treasures, each piece carved from premium Nordic timber using traditional techniques passed down through generations of skilled artisans.</p>
+            <h1 id="categoryHeroTitle">🌳 Nordic Wood Carvings</h1>
+            <p id="categoryHeroSubtitle">Discover masterfully crafted wooden treasures, each piece carved from premium Nordic timber using techniques passed down through generations of skilled artisans.</p>
 
-            <div class="category-stats">
+            <div class="category-stats" id="categoryHeroStats">
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatTotal">—</span>
-                    <span class="stat-label">Unique Pieces</span>
+                    <span class="stat-number">—</span>
+                    <span class="stat-label">Live Products</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatArtisans">—</span>
-                    <span class="stat-label">Master Artisans</span>
+                    <span class="stat-number">—</span>
+                    <span class="stat-label">Artisan Stores</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number" id="categoryStatRating">—</span>
-                    <span class="stat-label">Average Rating</span>
+                    <span class="stat-number">—</span>
+                    <span class="stat-label">Avg. Rating</span>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Category Filters -->
-    <section class="container">
-        <div class="category-filters">
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-filter="all">All Wood Carvings</button>
-                <button class="filter-btn" data-filter="sculptures">Sculptures</button>
-                <button class="filter-btn" data-filter="bowls">Bowls & Vessels</button>
-                <button class="filter-btn" data-filter="figurines">Figurines</button>
-                <button class="filter-btn" data-filter="decorative">Decorative Items</button>
-                <button class="filter-btn" data-filter="functional">Functional Art</button>
             </div>
         </div>
     </section>
@@ -342,10 +324,6 @@
             <div class="section-title">
                 <h2>Handcrafted Wood Treasures</h2>
                 <p>Each piece tells a story of Nordic craftsmanship and natural beauty</p>
-            </div>
-
-            <div class="results-info" id="resultsCount" style="margin-bottom: var(--space-md); color: var(--warm-brown);">
-                Loading artisan carvings...
             </div>
 
             <!-- Mobile Filter Toggle -->
@@ -361,74 +339,66 @@
                         <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
                     </div>
 
-                    <!-- Wood Type Filter -->
+                    <!-- Availability -->
                     <div class="filter-group">
-                        <h4>🌳 Wood Type</h4>
+                        <h4>✅ Availability</h4>
                         <label class="filter-option">
-                            <input type="checkbox" name="wood-type" value="pine">
-                            <span>Nordic Pine</span>
+                            <input type="checkbox" data-category-filter="availability" value="in-stock">
+                            <span>In Stock Only</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="wood-type" value="birch">
-                            <span>Silver Birch</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="wood-type" value="oak">
-                            <span>Ancient Oak</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="wood-type" value="maple">
-                            <span>Norwegian Maple</span>
+                            <input type="checkbox" data-category-filter="availability" value="discounted">
+                            <span>Currently Discounted</span>
                         </label>
                     </div>
 
-                    <!-- Product Type Filter -->
+                    <!-- Highlights -->
                     <div class="filter-group">
-                        <h4>🏺 Product Type</h4>
+                        <h4>🌟 Highlights</h4>
                         <label class="filter-option">
-                            <input type="checkbox" name="product-type" value="bowls">
-                            <span>Bowls & Vessels</span>
+                            <input type="checkbox" data-category-filter="badge" value="handmade">
+                            <span>Hand-carved</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="product-type" value="sculptures">
-                            <span>Sculptures</span>
+                            <input type="checkbox" data-category-filter="badge" value="limited">
+                            <span>Limited Edition</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="product-type" value="functional">
-                            <span>Functional Items</span>
+                            <input type="checkbox" data-category-filter="badge" value="eco-friendly">
+                            <span>Sustainably Sourced</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="product-type" value="decorative">
-                            <span>Decorative Art</span>
+                            <input type="checkbox" data-category-filter="badge" value="artisan">
+                            <span>Artisan Crafted</span>
+                        </label>
+                    </div>
+
+                    <!-- Rating -->
+                    <div class="filter-group">
+                        <h4>⭐ Rating</h4>
+                        <label class="filter-option">
+                            <input type="radio" name="category-rating" data-category-filter="rating" value="all" checked>
+                            <span>All ratings</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="category-rating" data-category-filter="rating" value="4">
+                            <span>4★ & above</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="category-rating" data-category-filter="rating" value="3">
+                            <span>3★ & above</span>
                         </label>
                     </div>
 
                     <!-- Price Range -->
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="500" value="250" data-default-value="250">
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="500" value="500">
                         <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
-                            <span id="priceValue">$250</span>
+                            <span id="priceValue">$500</span>
                             <span>$500+</span>
                         </div>
-                    </div>
-
-                    <!-- Artisan Filter -->
-                    <div class="filter-group">
-                        <h4>🎨 Master Carvers</h4>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="erik">
-                            <span>Erik Nordström</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="bjorn">
-                            <span>Björn Ironwood</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="astrid">
-                            <span>Astrid Woodcraft</span>
-                        </label>
                     </div>
 
                     <!-- Clear Filters -->
@@ -437,12 +407,25 @@
 
                 <!-- Products Grid -->
                 <div class="products-main">
+                    <div class="sort-controls">
+                        <div class="results-info" id="categoryResultsInfo">Loading products…</div>
+                        <div class="sort-select-wrapper">
+                            <label for="categorySort" class="sr-only">Sort products</label>
+                            <select id="categorySort" class="sort-select">
+                                <option value="-created_at" selected>Newest arrivals</option>
+                                <option value="-rating">Top rated</option>
+                                <option value="-total_sales">Best sellers</option>
+                                <option value="price">Price: Low to high</option>
+                                <option value="-price">Price: High to low</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="asymmetric-grid" id="wood-carvings-products">
                         <!-- Products will be dynamically generated -->
                     </div>
 
                     <div class="text-center mt-xl">
-                    <button class="btn btn-primary" id="loadMoreWoodCarvings" style="display: none;">
+                        <button class="btn btn-primary" id="loadMoreWoodCarvings">
                             🌟 Load More Wood Carvings
                         </button>
                     </div>
@@ -508,12 +491,36 @@
     </footer>
 
     <!-- Scripts -->
+    <script src="../assets/js/security-utils.js"></script>
+    <script src="../assets/js/error-handler.js"></script>
+    <script src="../assets/js/lazy-load.js"></script>
+    <script src="../assets/js/performance-monitor.js"></script>
+
     <script src="../assets/js/auth-manager.js"></script>
     <script src="../assets/js/api-config.js"></script>
     <script src="../assets/js/api-client.js"></script>
-    <script src="../assets/js/main.js"></script>
-    <script src="../assets/js/category-page-api.js"></script>
+
     <script src="../assets/js/dostik-ai.js"></script>
     <script src="../assets/js/carsi-pazar-browser.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/product-modal.js"></script>
+    <script src="../assets/js/category-page-api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new CategoryPageAPI({
+                slug: 'wood-carvings',
+                productsContainerId: 'wood-carvings-products',
+                loadMoreButtonId: 'loadMoreWoodCarvings',
+                resultsInfoId: 'categoryResultsInfo',
+                sortSelectId: 'categorySort',
+                priceRangeId: 'priceRange',
+                priceValueId: 'priceValue',
+                clearFiltersId: 'clearFilters',
+                heroTitleId: 'categoryHeroTitle',
+                heroSubtitleId: 'categoryHeroSubtitle',
+                heroStatsId: 'categoryHeroStats'
+            });
+        });
+    </script>
 </body>
 </html>

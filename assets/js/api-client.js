@@ -296,6 +296,13 @@ class ApiClient {
   }
 
   /**
+   * Get store by slug
+   */
+  async getStoreBySlug(slug) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.BY_SLUG(slug));
+  }
+
+  /**
    * Update store status (approve/reject/suspend)
    */
   async updateStoreStatus(storeId, status, rejectionReason = null) {

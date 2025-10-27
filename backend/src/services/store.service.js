@@ -54,7 +54,6 @@ class StoreService {
 
     // Clear cache
     await cache.delPattern('stores:*');
-    await cache.delPattern(`store:${store.id}:*`);
 
     return store;
   }
@@ -62,12 +61,18 @@ class StoreService {
   /**
    * Get store by ID
    * @param {string} storeId
-   * @param {{id?: string, role?: string}|null} requester - Requesting user metadata
+   * @param {boolean} includeInactive - Include inactive stores
    * @returns {Promise<Store>}
    */
-  async getStoreById(storeId, requester = null) {
+  async getStoreById(storeId, includeInactive = false) {
+    const where = { id: storeId };
+
+    if (!includeInactive) {
+      where.status = 'approved';
+    }
+
     const store = await Store.findOne({
-      where: { id: storeId },
+      where,
       include: [
         {
           model: User,
@@ -81,11 +86,43 @@ class StoreService {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
 
-    const isAdmin = requester?.role === 'admin';
-    const isOwner = requester?.id && store.user_id === requester.id;
+    return store;
+  }
 
-    if (store.status !== 'approved' && !isAdmin && !isOwner) {
+  /**
+   * Get store by slug
+   * @param {string} slug
+   * @param {boolean} includeInactive
+   * @returns {Promise<Store>}
+   */
+  async getStoreBySlug(slug, includeInactive = false) {
+    const cacheKey = `stores:slug:${slug}:${includeInactive ? 'all' : 'public'}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
+    const where = { slug };
+
+    if (!includeInactive) {
+      where.status = 'approved';
+    }
+
+    const store = await Store.findOne({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'owner',
+          attributes: ['id', 'first_name', 'last_name', 'email'],
+        },
+      ],
+    });
+
+    if (!store) {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!includeInactive) {
+      await cache.set(cacheKey, store, 3600);
     }
 
     return store;
@@ -97,21 +134,12 @@ class StoreService {
    * @returns {Promise<Object>} Paginated stores
    */
   async getStores(filters) {
-    const {
-      page = 1,
-      limit = 20,
-      status,
-      search,
-      city,
-      is_featured,
-      sort = '-created_at',
-    } = filters;
+    const { page = 1, limit = 20, status, search, city, is_featured, sort = '-created_at' } = filters;
 
-    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
-    const limitNumber = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-    const offset = (pageNumber - 1) * limitNumber;
+    const offset = (page - 1) * limit;
     const where = {};
 
+    // Apply filters
     if (status) {
       where.status = status;
     }
@@ -125,21 +153,19 @@ class StoreService {
     }
 
     if (is_featured !== undefined) {
-      const featuredValue =
-        typeof is_featured === 'string'
-          ? is_featured.toLowerCase() === 'true'
-          : Boolean(is_featured);
-      where.is_featured = featuredValue;
+      where.is_featured = is_featured;
     }
 
-    const order = [];
+    // Parse sort parameter
+    let order = [];
     const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
     const sortDirection = sort.startsWith('-') ? 'DESC' : 'ASC';
     order.push([sortField, sortDirection]);
 
+    // Query stores
     const { rows: stores, count: total } = await Store.findAndCountAll({
       where,
-      limit: limitNumber,
+      limit,
       offset,
       order,
       include: [
@@ -151,17 +177,15 @@ class StoreService {
       ],
     });
 
-    const totalPages = Math.max(1, Math.ceil(total / limitNumber));
-
     return {
       stores,
       pagination: {
-        page: pageNumber,
-        limit: limitNumber,
+        page,
+        limit,
         total,
-        totalPages,
-        hasNext: pageNumber < totalPages,
-        hasPrev: pageNumber > 1,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
       },
     };
   }
@@ -201,6 +225,8 @@ class StoreService {
 
     await store.update(updateData);
 
+    await cache.delPattern('stores:*');
+
     return store;
   }
 
@@ -219,7 +245,6 @@ class StoreService {
       throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
     }
 
-    const previousStatus = store.status;
     const updateData = { status };
 
     if (status === 'approved') {
@@ -234,40 +259,9 @@ class StoreService {
 
     await store.update(updateData);
 
-    await this.handleStatusSideEffects(store, previousStatus, status);
+    await cache.delPattern('stores:*');
 
     return store;
-  }
-
-  async handleStatusSideEffects(store, previousStatus, nextStatus) {
-    try {
-      await cache.delPattern(`store:${store.id}:*`);
-      await cache.delPattern('stores:*');
-    } catch (error) {
-      // Cache clearing is best-effort; log and continue
-      console.warn('[StoreService] Failed to clear store cache after status change:', error.message);
-    }
-
-    if (nextStatus === 'approved' && previousStatus !== 'approved') {
-      const settings = store.settings || {};
-      const mergedSettings = {
-        return_window_days: 14,
-        return_shipping_policy: 'none',
-        tax_refund_policy: 'pro_rata',
-        ...settings,
-      };
-
-      const needsSettingsUpdate =
-        typeof settings.return_window_days !== 'number' ||
-        !settings.return_shipping_policy ||
-        !settings.tax_refund_policy;
-
-      if (needsSettingsUpdate) {
-        await store.update({ settings: mergedSettings });
-      }
-    }
-
-    await store.reload();
   }
 
   /**
@@ -295,6 +289,8 @@ class StoreService {
     // }
 
     await store.destroy(); // Soft delete
+
+    await cache.delPattern('stores:*');
   }
 
   /**
@@ -316,10 +312,8 @@ class StoreService {
     const lowStockProducts = await Product.count({
       where: {
         store_id: storeId,
-        [Op.and]: [
-          { stock: { [Op.gt]: 0 } },
-          { stock: { [Op.lte]: Product.sequelize.col('low_stock_threshold') } },
-        ],
+        stock: { [Op.lte]: sequelize.col('low_stock_threshold') },
+        stock: { [Op.gt]: 0 },
       },
     });
 

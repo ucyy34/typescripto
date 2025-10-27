@@ -47,7 +47,7 @@ class ProductController {
   getProducts = asyncHandler(async (req, res) => {
     const result = await productService.getProducts(req.query);
 
-    return paginated(res, result.products, result.pagination);
+    return paginated(res, result.products, result.pagination, result.meta);
   });
 
   /**

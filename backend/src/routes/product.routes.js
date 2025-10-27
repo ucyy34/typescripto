@@ -16,7 +16,6 @@ const {
   productIdSchema,
   productQuerySchema,
   productSlugSchema,
-  productSearchSchema,
 } = require('../validators/product.validator');
 
 /**
@@ -53,13 +52,6 @@ router.post('/', authenticate, requireSeller, validate(createProductSchema), pro
  * @access  Public
  */
 router.get('/', validateQuery(productQuerySchema), productController.getProducts);
-
-/**
- * @route   GET /api/v1/products/search
- * @desc    Search products with relevancy ranking
- * @access  Public
- */
-router.get('/search', optionalAuth, validateQuery(productSearchSchema), productController.searchProducts);
 
 /**
  * @route   GET /api/v1/products/slug/:slug

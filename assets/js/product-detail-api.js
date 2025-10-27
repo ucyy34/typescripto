@@ -7,12 +7,12 @@ class ProductDetailAPI {
     constructor() {
         this.apiClient = new ApiClient();
         this.product = null;
-        this.productId = this.getProductIdFromURL();
-        this.productSlug = this.getProductSlugFromURL();
+        this.productIdentifier = this.getProductIdentifier();
+        this.productId = this.productIdentifier?.type === 'id' ? this.productIdentifier.value : null;
         this.quantity = 1;
         this.selectedVariants = {}; // { variant_name: Set(values) }
 
-        console.log('[Product Detail API] Initializing for product:', this.productId || this.productSlug);
+        console.log('[Product Detail API] Initializing for product identifier:', this.productIdentifier);
         this.init();
     }
 
@@ -75,18 +75,35 @@ class ProductDetailAPI {
         });
     }
 
-    getProductIdFromURL() {
+    getProductIdentifier() {
         const params = new URLSearchParams(window.location.search);
-        return params.get('id');
-    }
+        const id = params.get('id');
+        if (id) {
+            return { type: 'id', value: id };
+        }
 
-    getProductSlugFromURL() {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('slug');
+        const slugParams = ['slug', 'product', 'productSlug'];
+        for (const key of slugParams) {
+            const value = params.get(key);
+            if (value) {
+                return { type: 'slug', value: value.trim().toLowerCase() };
+            }
+        }
+
+        // Support hash fragments like #slug=product-name
+        if (window.location.hash) {
+            const hash = window.location.hash.replace('#', '');
+            const [hashKey, hashValue] = hash.split('=');
+            if (hashKey && hashValue && ['slug', 'product', 'productSlug'].includes(hashKey)) {
+                return { type: 'slug', value: hashValue.trim().toLowerCase() };
+            }
+        }
+
+        return null;
     }
 
     async init() {
-        if (!this.productId && !this.productSlug) {
+        if (!this.productIdentifier) {
             this.showError('Product not found');
             return;
         }
@@ -103,21 +120,21 @@ class ProductDetailAPI {
 
     async loadProduct() {
         try {
-            if (this.productId) {
-                console.log('[Product Detail API] Loading product by ID:', this.productId);
-            } else {
-                console.log('[Product Detail API] Loading product by slug:', this.productSlug);
-            }
+            console.log('[Product Detail API] Loading product for identifier:', this.productIdentifier);
             this.showLoading();
 
-            const response = this.productId
-                ? await this.apiClient.getProduct(this.productId)
-                : await this.apiClient.getProductBySlug(this.productSlug);
+            let response;
+            if (this.productIdentifier.type === 'slug') {
+                response = await this.apiClient.getProductBySlug(this.productIdentifier.value);
+            } else {
+                response = await this.apiClient.getProduct(this.productIdentifier.value);
+            }
 
             if (response.success && response.data) {
                 this.product = response.data;
-                console.log('[Product Detail API] Product loaded:', this.product);
                 this.productId = this.product.id;
+                this.productIdentifier = { type: 'id', value: this.productId };
+                console.log('[Product Detail API] Product loaded:', this.product);
                 this.renderProduct();
                 this.renderVariantsSection();
                 this.attachVariantListeners();
@@ -154,7 +171,6 @@ class ProductDetailAPI {
         this.renderProductImages();
         this.renderStoreInfo();
         this.renderProductSpecs();
-        this.syncWishlistButton();
     }
 
     renderProductInfo() {
@@ -399,7 +415,7 @@ class ProductDetailAPI {
         // Add to wishlist button
         const wishlistBtn = document.getElementById('addToWishlistBtn');
         if (wishlistBtn) {
-            wishlistBtn.addEventListener('click', () => this.toggleWishlist());
+            wishlistBtn.addEventListener('click', () => this.addToWishlist());
         }
 
         // Tab switching
@@ -526,95 +542,32 @@ class ProductDetailAPI {
         }
     }
 
-    async toggleWishlist() {
+    async addToWishlist() {
         try {
-            if (!this.productId) {
-                this.showError('Ürün bilgisi yüklenemedi');
+            console.log('[Product Detail API] Adding to wishlist:', this.productId);
+
+            // For now, just use localStorage
+            let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+
+            if (wishlist.includes(this.productId)) {
+                this.showSuccessMessage('Already in wishlist!');
                 return;
             }
 
-            let inWishlist;
-            if (window.wishlistManager) {
-                inWishlist = await window.wishlistManager.toggleItem(this.productId, {
-                    product_id: this.productId,
-                    title: this.product?.title,
-                    price: typeof this.product?.price === 'number' ? this.product.price : parseFloat(this.product?.price || 0),
-                    images: this.product?.images || (this.product?.image ? [this.product.image] : undefined),
-                });
-            } else {
-                inWishlist = this.toggleWishlistFallback();
-            }
+            wishlist.push(this.productId);
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
 
+            this.showSuccessMessage('Added to wishlist!');
+
+            // Update wishlist icon
             const wishlistBtn = document.getElementById('addToWishlistBtn');
             if (wishlistBtn) {
-                if (inWishlist) {
-                    wishlistBtn.innerHTML = '♥ Favorilerde';
-                    wishlistBtn.classList.add('in-wishlist');
-                    this.showSuccessMessage('Favorilere eklendi!');
-                } else {
-                    wishlistBtn.innerHTML = '♡ Favorilere Ekle';
-                    wishlistBtn.classList.remove('in-wishlist');
-                    this.showSuccessMessage('Favorilerden çıkarıldı');
-                }
+                wishlistBtn.innerHTML = '♥ In Wishlist';
+                wishlistBtn.classList.add('in-wishlist');
             }
         } catch (error) {
-            console.error('[Product Detail API] Error toggling wishlist:', error);
-            this.showError('Favori işlemi başarısız oldu');
-        }
-    }
-
-    toggleWishlistFallback() {
-        let wishlist = [];
-        try {
-            wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-        } catch (_) {
-            wishlist = [];
-        }
-
-        if (!Array.isArray(wishlist)) {
-            wishlist = [];
-        }
-
-        const index = wishlist.indexOf(this.productId);
-        if (index > -1) {
-            wishlist.splice(index, 1);
-            localStorage.setItem('wishlist', JSON.stringify(wishlist));
-            return false;
-        }
-
-        wishlist.push(this.productId);
-        localStorage.setItem('wishlist', JSON.stringify(wishlist));
-        return true;
-    }
-
-    async syncWishlistButton() {
-        const wishlistBtn = document.getElementById('addToWishlistBtn');
-        if (!wishlistBtn) return;
-
-        let inWishlist = false;
-
-        if (window.wishlistManager) {
-            try {
-                const items = await window.wishlistManager.getWishlist();
-                inWishlist = items.some((item) => item.product_id === this.productId);
-            } catch (error) {
-                console.warn('[Product Detail API] Failed to load wishlist state', error);
-            }
-        } else {
-            try {
-                const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-                inWishlist = Array.isArray(wishlist) && wishlist.includes(this.productId);
-            } catch (_) {
-                inWishlist = false;
-            }
-        }
-
-        if (inWishlist) {
-            wishlistBtn.innerHTML = '♥ Favorilerde';
-            wishlistBtn.classList.add('in-wishlist');
-        } else {
-            wishlistBtn.innerHTML = '♡ Favorilere Ekle';
-            wishlistBtn.classList.remove('in-wishlist');
+            console.error('[Product Detail API] Error adding to wishlist:', error);
+            this.showError('Failed to add to wishlist');
         }
     }
 

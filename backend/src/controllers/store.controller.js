@@ -32,6 +32,17 @@ class StoreController {
   });
 
   /**
+   * Get store by slug
+   * GET /api/v1/stores/slug/:slug
+   */
+  getStoreBySlug = asyncHandler(async (req, res) => {
+    const includeInactive = req.user?.role === 'admin';
+    const store = await storeService.getStoreBySlug(req.params.slug, includeInactive);
+
+    return success(res, store, 'Store retrieved successfully');
+  });
+
+  /**
    * Get all stores with filters
    * GET /api/v1/stores
    */

@@ -142,20 +142,16 @@ const productIdSchema = Joi.object({
   }),
 });
 
-/**
- * Product slug param validation
- */
 const productSlugSchema = Joi.object({
   slug: Joi.string()
-    .trim()
-    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .pattern(/^[a-z0-9-]+$/)
     .min(2)
-    .max(350)
+    .max(250)
     .required()
     .messages({
-      'string.pattern.base': 'Invalid product slug format',
+      'string.pattern.base': 'Product slug may only contain lowercase letters, numbers, and hyphens',
       'string.min': 'Product slug must be at least 2 characters',
-      'string.max': 'Product slug cannot exceed 350 characters',
+      'string.max': 'Product slug cannot exceed 250 characters',
       'any.required': 'Product slug is required',
     }),
 });
@@ -191,28 +187,11 @@ const productQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
-const productSearchSchema = Joi.object({
-  q: Joi.string()
-    .trim()
-    .min(1)
-    .max(200)
-    .required()
-    .messages({
-      'string.empty': 'Search query is required',
-      'string.min': 'Search query must be at least 1 character',
-      'string.max': 'Search query cannot exceed 200 characters',
-      'any.required': 'Search query is required',
-    }),
-  limit: Joi.number().integer().min(1).max(25).default(8),
-  includeSuggestions: Joi.boolean().truthy('true').falsy('false').optional().default(true),
-});
-
 module.exports = {
   createProductSchema,
   updateProductSchema,
   updateProductStatusSchema,
   productIdSchema,
-  productSlugSchema,
   productQuerySchema,
-  productSearchSchema,
+  productSlugSchema,
 };

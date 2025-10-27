@@ -94,6 +94,20 @@ const storeIdSchema = Joi.object({
   }),
 });
 
+const storeSlugSchema = Joi.object({
+  slug: Joi.string()
+    .pattern(/^[a-z0-9-]+$/)
+    .min(2)
+    .max(250)
+    .required()
+    .messages({
+      'string.pattern.base': 'Store slug may only contain lowercase letters, numbers, and hyphens',
+      'string.min': 'Store slug must be at least 2 characters',
+      'string.max': 'Store slug cannot exceed 250 characters',
+      'any.required': 'Store slug is required',
+    }),
+});
+
 /**
  * Store query params validation
  */
@@ -115,4 +129,5 @@ module.exports = {
   updateStoreStatusSchema,
   storeIdSchema,
   storeQuerySchema,
+  storeSlugSchema,
 };

@@ -64,47 +64,41 @@ const noContent = (res) => {
  * @param {Array} data - Array of items
  * @param {Object} pagination - Pagination metadata
  */
-const paginated = (res, data, pagination = {}, message = 'Success', statusCode = 200) => {
-  const page = Number(pagination.page ?? pagination.currentPage ?? 1);
-  const limit = Number(pagination.limit ?? pagination.pageSize ?? data.length ?? 0);
-  const total = Number(
-    pagination.total ?? pagination.totalItems ?? pagination.count ?? data.length ?? 0
-  );
-  const calculatedTotalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-  const totalPages = Number(pagination.totalPages ?? pagination.pages ?? calculatedTotalPages);
-  const hasNext =
-    typeof pagination.hasNext !== 'undefined' ? pagination.hasNext : page < totalPages;
-  const hasPrev =
-    typeof pagination.hasPrev !== 'undefined' ? pagination.hasPrev : page > 1;
-
-  const meta = {
-    page,
-    limit,
-    total,
-    totalPages,
-    hasNext,
-    hasPrev,
+const paginated = (res, data, pagination = {}, meta = null) => {
+  const fallback = {
+    page: pagination.page ?? 1,
+    limit: pagination.limit ?? 20,
+    total: pagination.total ?? data.length,
+    totalPages:
+      pagination.totalPages ??
+      Math.ceil((pagination.total ?? data.length) / (pagination.limit ?? 20)),
+    hasNext: Boolean(pagination.hasNext),
+    hasPrev: Boolean(pagination.hasPrev),
   };
 
-  if (typeof pagination.cursor !== 'undefined') {
-    meta.cursor = pagination.cursor;
-  }
-
-  if (typeof pagination.sort !== 'undefined') {
-    meta.sort = pagination.sort;
-  }
-
-  if (typeof pagination.summary !== 'undefined') {
-    meta.summary = pagination.summary;
-  }
-
-  return res.status(statusCode).json({
+  const response = {
     success: true,
-    message,
+    message: 'Success',
     data,
-    pagination: meta,
+    pagination: {
+      ...fallback,
+      ...pagination,
+      // Ensure essential keys are always present even if pagination overrides them with undefined
+      page: pagination.page ?? fallback.page,
+      limit: pagination.limit ?? fallback.limit,
+      total: pagination.total ?? fallback.total,
+      totalPages: pagination.totalPages ?? fallback.totalPages,
+      hasNext: pagination.hasNext ?? fallback.hasNext,
+      hasPrev: pagination.hasPrev ?? fallback.hasPrev,
+    },
     timestamp: new Date().toISOString(),
-  });
+  };
+
+  if (meta && Object.keys(meta).length > 0) {
+    response.meta = meta;
+  }
+
+  return res.status(200).json(response);
 };
 
 /**
