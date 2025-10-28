@@ -5,6 +5,17 @@
 
 const Joi = require('joi');
 
+const addressSchema = Joi.object({
+  full_name: Joi.string().min(2).max(200).required(),
+  phone: Joi.string().min(3).max(50).optional().allow(null, ''),
+  address_line1: Joi.string().min(5).max(500).required(),
+  address_line2: Joi.string().max(500).optional().allow('', null),
+  city: Joi.string().min(2).max(100).required(),
+  state: Joi.string().max(100).optional().allow('', null),
+  postal_code: Joi.string().max(20).optional().allow('', null),
+  country: Joi.string().min(2).max(100).default('Turkey'),
+});
+
 /**
  * Add item to cart validation
  */
@@ -40,8 +51,17 @@ const productIdParamSchema = Joi.object({
   }),
 });
 
+const checkoutSchema = Joi.object({
+  store_id: Joi.string().uuid().optional(),
+  payment_method: Joi.string().min(2).max(100).default('card'),
+  shipping_address: addressSchema.required(),
+  billing_address: addressSchema.optional(),
+  customer_note: Joi.string().max(1000).optional().allow('', null),
+});
+
 module.exports = {
   addItemSchema,
   updateItemSchema,
   productIdParamSchema,
+  checkoutSchema,
 };

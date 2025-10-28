@@ -7,6 +7,7 @@ const cartService = require('../services/cart.service');
 const { success } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
+const orderService = require('../services/order.service');
 
 class CartController {
   /**
@@ -25,6 +26,29 @@ class CartController {
     }
 
     return success(res, cart, 'Cart retrieved successfully');
+  });
+
+  /**
+   * Checkout current cart and create an order
+   * @route POST /api/v1/cart/checkout
+   */
+  checkout = asyncHandler(async (req, res) => {
+    const checkoutInput = req.body || {};
+    const userId = req.user ? req.user.id : null;
+
+    const cart = req.user
+      ? await cartService.getUserCart(userId)
+      : await cartService.getGuestCart(req.session);
+
+    const order = await orderService.createFromCart(userId, cart, checkoutInput);
+
+    if (req.user) {
+      await cartService.clearUserCart(userId);
+    } else {
+      cartService.clearGuestCart(req.session);
+    }
+
+    return success(res, order, 'Checkout completed successfully', 201);
   });
 
   /**

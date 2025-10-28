@@ -4,6 +4,7 @@
  */
 
 const orderService = require('../services/order.service');
+const paymentService = require('../services/payment.service');
 const { success, paginated } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 
@@ -72,6 +73,33 @@ class OrderController {
       req.query
     );
     return paginated(res, orders, pagination, 'Store orders retrieved successfully');
+  });
+
+  /**
+   * Mark order as paid
+   * @route POST /api/v1/orders/:id/mark-paid
+   */
+  markPaid = asyncHandler(async (req, res) => {
+    const order = await paymentService.markPaymentSuccessful(req.params.id, req.body || {});
+    return success(res, order, 'Order marked as paid');
+  });
+
+  /**
+   * Mark order as shipped
+   * @route POST /api/v1/orders/:id/mark-shipped
+   */
+  markShipped = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderShipped(req.params.id, req.body || {});
+    return success(res, order, 'Order marked as shipped');
+  });
+
+  /**
+   * Mark order as completed/delivered
+   * @route POST /api/v1/orders/:id/mark-completed
+   */
+  markCompleted = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderCompleted(req.params.id, req.body || {});
+    return success(res, order, 'Order marked as completed');
   });
 }
 
