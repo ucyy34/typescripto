@@ -136,6 +136,20 @@ class CartController {
   });
 
   /**
+   * Checkout current cart and create an order
+   * @route POST /api/v1/cart/checkout
+   */
+  checkout = asyncHandler(async (req, res) => {
+    const order = await cartService.checkout({
+      userId: req.user?.id || null,
+      session: req.session,
+      checkoutInput: req.body,
+    });
+
+    return success(res, order, 'Checkout completed successfully', 201);
+  });
+
+  /**
    * Get product recommendations for the current cart context
    * @route GET /api/v1/cart/recommendations
    */

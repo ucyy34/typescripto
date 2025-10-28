@@ -76,20 +76,6 @@ const orderIdParamSchema = Joi.object({
   }),
 });
 
-const markPaidSchema = Joi.object({
-  transaction_id: Joi.string().max(255).optional(),
-  payment_details: Joi.object().unknown(true).optional(),
-});
-
-const markShippedSchema = Joi.object({
-  tracking_number: Joi.string().max(100).required(),
-  carrier: Joi.string().max(100).required(),
-});
-
-const markCompletedSchema = Joi.object({
-  feedback: Joi.string().max(1000).optional(),
-});
-
 /**
  * Store ID param validation
  */
@@ -120,13 +106,27 @@ const orderQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
+const markPaidSchema = Joi.object({
+  transactionId: Joi.string().max(255).optional(),
+  provider: Joi.string().max(100).optional(),
+  metadata: Joi.object().optional(),
+});
+
+const markShippedSchema = Joi.object({
+  tracking_number: Joi.string().max(100).required(),
+  carrier: Joi.string().max(100).required(),
+});
+
+const markCompletedSchema = Joi.object({
+  metadata: Joi.object().optional(),
+});
+
 module.exports = {
   createOrderSchema,
   updateOrderStatusSchema,
   orderIdParamSchema,
   storeIdParamSchema,
   orderQuerySchema,
-  shippingAddressSchema,
   markPaidSchema,
   markShippedSchema,
   markCompletedSchema,

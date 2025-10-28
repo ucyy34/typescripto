@@ -1,11 +1,8 @@
-const initializePaymentWorker = require('./payment.worker');
-const initializeNotificationWorker = require('./notification.worker');
-const initializeRecommendationWorker = require('./recommendation.worker');
-const initializeAnalyticsWorker = require('./analytics.worker');
+'use strict';
 
-module.exports = () => {
-  initializePaymentWorker();
-  initializeNotificationWorker();
-  initializeRecommendationWorker();
-  initializeAnalyticsWorker();
-};
+require('./payment.worker');
+require('./notification.worker');
+require('./recommendation.worker');
+require('./analytics.worker');
+
+module.exports = {};

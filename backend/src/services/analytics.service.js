@@ -1,35 +1,33 @@
-const logger = require('../utils/logger');
-const eventBus = require('../events/eventBus');
+'use strict';
+
 const { ORDER_EVENTS } = require('../events/order.events');
+const eventBus = require('../events/eventBus');
+const logger = require('../utils/logger');
 
 class AnalyticsService {
-  constructor() {
-    this.initialized = false;
-    this.registerConsumers();
+  constructor({ bus = eventBus, log = logger } = {}) {
+    this.bus = bus;
+    this.logger = log;
+    this.events = [];
   }
 
-  registerConsumers() {
-    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
-      return;
-    }
-
-    const trackableEvents = [ORDER_EVENTS.PAID, ORDER_EVENTS.SHIPPED, ORDER_EVENTS.COMPLETED];
-
-    trackableEvents.forEach((event) => {
-      eventBus.subscribe(event, async (payload) => {
-        await this.trackEvent(event, payload);
+  register() {
+    Object.values(ORDER_EVENTS).forEach((eventType) => {
+      this.bus.subscribe(eventType, (payload) => this.track(eventType, payload), {
+        workerId: `analytics-${eventType}`,
+        concurrency: 1,
       });
     });
-
-    this.initialized = true;
   }
 
-  async trackEvent(event, payload) {
-    logger.info('Analytics event %s', event, payload);
+  async track(eventType, payload) {
+    this.logger.info('[AnalyticsService] Tracking %s', eventType, {
+      orderId: payload.orderId,
+      userId: payload.userId,
+      version: payload.version,
+    });
+    this.events.push({ eventType, payload });
   }
 }
 
-const analyticsService = new AnalyticsService();
-
-module.exports = analyticsService;
-module.exports.AnalyticsService = AnalyticsService;
+module.exports = AnalyticsService;

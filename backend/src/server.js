@@ -8,7 +8,7 @@ const app = require('./app');
 const { testConnection, syncDatabase } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
 const logger = require('./utils/logger');
-require('./events');
+require('./workers');
 
 const PORT = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';

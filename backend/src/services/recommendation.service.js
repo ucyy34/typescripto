@@ -6,30 +6,10 @@
 const { Op } = require('sequelize');
 const { Product, Store, Category, WishlistItem } = require('../models');
 const { cache } = require('../config/redis');
-const eventBus = require('../events/eventBus');
-const { ORDER_EVENTS } = require('../events/order.events');
-const logger = require('../utils/logger');
 
 const CACHE_TTL_SECONDS = 60 * 3;
 
 class RecommendationService {
-  constructor() {
-    this.initialized = false;
-    this.registerConsumers();
-  }
-
-  registerConsumers() {
-    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
-      return;
-    }
-
-    eventBus.subscribe(ORDER_EVENTS.COMPLETED, async (payload) => {
-      await this.recordOrderCompletion(payload);
-    });
-
-    this.initialized = true;
-  }
-
   async getCartRecommendations({ cartItems = [], userId = null, limit = 6 }) {
     const categories = [
       ...new Set(
@@ -135,28 +115,6 @@ class RecommendationService {
     return recommendations;
   }
 
-  async recordOrderCompletion({ userId, items = [] }) {
-    if (!userId || !items.length) {
-      return null;
-    }
-
-    const productIds = items
-      .map((item) => item.productId || item.product_id)
-      .filter(Boolean);
-
-    if (productIds.length === 0) {
-      return null;
-    }
-
-    const cacheKey = `recommendations:orders:${userId}`;
-    const payload = {
-      lastPurchased: productIds,
-      updatedAt: new Date().toISOString(),
-    };
-    await cache.set(cacheKey, payload, CACHE_TTL_SECONDS);
-    return payload;
-  }
-
   _serializeProduct(product) {
     return {
       id: product.id,
@@ -180,27 +138,17 @@ class RecommendationService {
     return `recommendations:cart:${userKey}:${categoryKey}:${excludeKey}:${limit}`;
   }
 
-  async recordOrderCompletion(payload) {
-    if (!payload || !payload.userId) {
-      logger.info('Skipping recommendation update for anonymous completion');
+  async handleOrderCompletedEvent(event) {
+    if (!event || !event.userId) {
       return;
     }
 
-    const cacheKey = `recommendations:history:${payload.userId}`;
-    await cache.set(
-      cacheKey,
-      {
-        lastCompletedOrderId: payload.orderId,
-        completedAt: payload.timestamp || new Date().toISOString(),
-      },
-      CACHE_TTL_SECONDS
-    );
-
-    logger.info('Recorded order completion for recommendations', {
-      userId: payload.userId,
-      orderId: payload.orderId,
-    });
+    const pattern = `recommendations:cart:${event.userId}:*`;
+    await cache.delPattern(pattern);
   }
 }
 
-module.exports = new RecommendationService();
+const recommendationService = new RecommendationService();
+
+module.exports = recommendationService;
+module.exports.RecommendationService = RecommendationService;

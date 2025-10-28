@@ -1,62 +1,55 @@
-const logger = require('../utils/logger');
-const eventBus = require('../events/eventBus');
+'use strict';
+
 const { ORDER_EVENTS } = require('../events/order.events');
+const eventBus = require('../events/eventBus');
+const logger = require('../utils/logger');
 
 class NotificationService {
-  constructor() {
-    this.initialized = false;
-    this.registerConsumers();
+  constructor({ bus = eventBus, log = logger } = {}) {
+    this.bus = bus;
+    this.logger = log;
+    this.sent = [];
   }
 
-  registerConsumers() {
-    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
-      return;
-    }
-
-    eventBus.subscribe(ORDER_EVENTS.PAID, async (payload) => {
-      await this.handleOrderPaid(payload);
+  register() {
+    this.bus.subscribe(ORDER_EVENTS.PAID, (payload) => this.handlePaymentSuccess(payload), {
+      workerId: 'notification-paid',
+      concurrency: 3,
     });
 
-    eventBus.subscribe(ORDER_EVENTS.FAILED, async (payload) => {
-      await this.handleOrderFailed(payload);
+    this.bus.subscribe(ORDER_EVENTS.FAILED, (payload) => this.handlePaymentFailure(payload), {
+      workerId: 'notification-failed',
+      concurrency: 3,
     });
 
-    eventBus.subscribe(ORDER_EVENTS.SHIPPED, async (payload) => {
-      await this.handleOrderShipped(payload);
+    this.bus.subscribe(ORDER_EVENTS.SHIPPED, (payload) => this.handleShipped(payload), {
+      workerId: 'notification-shipped',
+      concurrency: 2,
     });
+  }
 
-    eventBus.subscribe(ORDER_EVENTS.COMPLETED, async (payload) => {
-      await this.handleOrderCompleted(payload);
+  async handlePaymentSuccess(payload) {
+    const message = `Payment received for order ${payload.orderId}`;
+    await this.logNotification(payload.userId, message, payload);
+  }
+
+  async handlePaymentFailure(payload) {
+    const message = `Payment failed for order ${payload.orderId}`;
+    await this.logNotification(payload.userId, message, payload);
+  }
+
+  async handleShipped(payload) {
+    const message = `Order ${payload.orderId} shipped`;
+    await this.logNotification(payload.userId, message, payload);
+  }
+
+  async logNotification(userId, message, payload) {
+    this.logger.info('[NotificationService] %s', message, {
+      userId,
+      payload,
     });
-
-    this.initialized = true;
-  }
-
-  async handleOrderPaid(payload) {
-    await this.sendNotification(payload.userId, `Order ${payload.orderId} payment confirmed`);
-  }
-
-  async handleOrderFailed(payload) {
-    await this.sendNotification(payload.userId, `Order ${payload.orderId} payment failed: ${payload.error}`);
-  }
-
-  async handleOrderShipped(payload) {
-    await this.sendNotification(
-      payload.userId,
-      `Order ${payload.orderId} shipped with tracking ${payload.trackingNumber || 'pending'}`
-    );
-  }
-
-  async handleOrderCompleted(payload) {
-    await this.sendNotification(payload.userId, `Order ${payload.orderId} completed. Enjoy!`);
-  }
-
-  async sendNotification(userId, message) {
-    logger.info('Notification to %s: %s', userId || 'guest', message);
+    this.sent.push({ userId, message, payload });
   }
 }
 
-const notificationService = new NotificationService();
-
-module.exports = notificationService;
-module.exports.NotificationService = NotificationService;
+module.exports = NotificationService;

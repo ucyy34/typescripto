@@ -125,6 +125,21 @@ class OrderController {
     );
     return paginated(res, orders, pagination, 'Store orders retrieved successfully');
   });
+
+  markPaid = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderPaid(req.params.id, req.body);
+    return success(res, order, 'Order marked as paid');
+  });
+
+  markShipped = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderShipped(req.params.id, req.body);
+    return success(res, order, 'Order marked as shipped');
+  });
+
+  markCompleted = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderCompleted(req.params.id, req.body);
+    return success(res, order, 'Order marked as completed');
+  });
 }
 
 module.exports = new OrderController();
