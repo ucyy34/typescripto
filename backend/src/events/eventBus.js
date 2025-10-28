@@ -4,8 +4,6 @@
  */
 
 const { EventEmitter } = require('events');
-const fs = require('fs');
-const path = require('path');
 let Queue;
 let Worker;
 let QueueScheduler;
@@ -19,23 +17,9 @@ try {
   QueueScheduler = null;
 }
 const { redisClient } = require('../config/redis');
+const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
-const LOG_DIR = path.join(__dirname, '..', '..', 'logs');
-const LOG_FILE = path.join(LOG_DIR, 'events.log');
-
-if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-}
-
-const appendLog = (type, payload) => {
-  const entry = `${new Date().toISOString()} ${type} ${JSON.stringify(payload)}\n`;
-  fs.appendFile(LOG_FILE, entry, (err) => {
-    if (err) {
-      console.error('[EventBus] Failed to write log entry', err);
-    }
-  });
-};
 
 const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
@@ -89,7 +73,7 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  appendLog(type, enrichedPayload);
+  eventLogger.info(type, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

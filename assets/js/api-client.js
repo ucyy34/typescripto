@@ -133,6 +133,7 @@ class ApiClient {
         ...options,
         headers: this.buildHeaders(options.headers),
         signal: controller.signal,
+        credentials: 'include',
       };
 
       this._log(`${config.method || 'GET'} ${endpoint}`);

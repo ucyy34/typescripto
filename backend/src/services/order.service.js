@@ -476,6 +476,13 @@ class OrderService {
       })
     );
 
+    await publishOrderCompleted(
+      serializeOrderForEvent(order, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      })
+    );
+
     return order;
   }
 

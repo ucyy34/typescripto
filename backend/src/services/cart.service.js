@@ -1,17 +1,23 @@
 /**
  * Cart Service
- * Business logic for shopping cart management
- * Supports both guest (session) and user (database) carts
+ * Business logic for shopping cart management backed by Redis
  */
 
-const { Cart, Product, Store, Category } = require('../models');
+const { Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
+const { redisClient } = require('../config/redis');
 const orderService = require('./order.service');
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
 const DEFAULT_CACHE_MAX_ITEMS = 500;
+
+const CART_KEY_PREFIX = 'cart';
+const USER_CART_PREFIX = `${CART_KEY_PREFIX}:user:`;
+const GUEST_CART_PREFIX = `${CART_KEY_PREFIX}:guest:`;
+const USER_CART_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const GUEST_CART_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 class CartService {
   constructor() {
@@ -23,281 +29,158 @@ class CartService {
     };
     this.debugEnabled = process.env.NODE_ENV !== 'production';
   }
-  /**
-   * Get user's cart with populated product details
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} Cart with items and totals
-   */
-  async getUserCart(userId) {
-    // Find or create cart for user
-    const cart = await Cart.findOrCreateForUser(userId);
-
-    // Get cart with populated product details
-    const cartWithDetails = await this.populateCartItems(cart.items);
-
-    if (cartWithDetails.missingProductIds.length > 0) {
-      await this._pruneMissingProductsFromUserCart(cart, cartWithDetails.missingProductIds);
-    }
-
-    return {
-      id: cart.id,
-      items: cartWithDetails.items,
-      totals: cartWithDetails.totals,
-      updated_at: cart.updated_at,
-    };
-  }
 
   /**
-   * Get guest cart from session
-   * @param {Object} session - Express session
-   * @returns {Promise<Object>} Cart with items and totals
+   * Retrieve cart for a user or guest based on identifiers
+   * @param {string|null} userId
+   * @param {string|null} guestId
    */
-  async getGuestCart(session) {
-    const guestCart = session.cart || { items: [] };
-    const cartWithDetails = await this.populateCartItems(guestCart.items);
+  async getCart(userId = null, guestId = null) {
+    const key = this._resolveCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
+    const { items, metadata } = await this._loadCartState(key);
+
+    const cartWithDetails = await this.populateCartItems(items);
 
     if (cartWithDetails.missingProductIds.length > 0) {
-      this._pruneMissingProductsFromSession(session, cartWithDetails.missingProductIds);
+      await this._pruneMissingProductsInStorage({
+        key,
+        items,
+        missingProductIds: cartWithDetails.missingProductIds,
+        ttl,
+      });
     }
 
     return {
       items: cartWithDetails.items,
       totals: cartWithDetails.totals,
+      updated_at: metadata?.updated_at || null,
     };
   }
 
   /**
-   * Add item to user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @param {number} quantity - Quantity to add
-   * @returns {Promise<Object>} Updated cart
+   * Add item to cart for user or guest
    */
-  async addItemToUserCart(userId, productId, quantity) {
-    // Validate product and stock
-    const product = await this.validateProductAndStock(productId, quantity);
+  async addItem(userId, guestId, productId, quantity) {
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
 
-    // Get or create cart
-    const cart = await Cart.findOrCreateForUser(userId);
-
-    // Check if item already exists
-    const items = cart.items || [];
-    const existingItem = items.find((item) => item.product_id === productId);
-
-    if (existingItem) {
-      // Update quantity
-      const newQuantity = existingItem.quantity + quantity;
-      await this.validateProductAndStock(productId, newQuantity);
-      existingItem.quantity = newQuantity;
-    } else {
-      // Add new item
-      items.push({ product_id: productId, quantity });
-    }
-
-    // Persist items reliably (ensure JSONB update is detected)
-    cart.items = items;
-    await cart.save({ fields: ['items'] });
-
-    const result = await this.getUserCart(userId);
-    return result;
-  }
-
-  /**
-   * Add item to guest cart (session)
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @param {number} quantity - Quantity to add
-   * @returns {Promise<Object>} Updated cart
-   */
-  async addItemToGuestCart(session, productId, quantity) {
-    // Validate product and stock
     await this.validateProductAndStock(productId, quantity);
 
-    // Initialize guest cart if not exists
-    if (!session.cart) {
-      session.cart = { items: [] };
-    }
+    const { items } = await this._loadCartState(key);
+    const existing = items.find((item) => item.product_id === productId);
 
-    const items = session.cart.items;
-    const existingItem = items.find((item) => item.product_id === productId);
-
-    if (existingItem) {
-      const newQuantity = existingItem.quantity + quantity;
+    if (existing) {
+      const newQuantity = existing.quantity + quantity;
       await this.validateProductAndStock(productId, newQuantity);
-      existingItem.quantity = newQuantity;
+      existing.quantity = newQuantity;
     } else {
       items.push({ product_id: productId, quantity });
     }
 
-    session.cart.items = items;
-
-    return this.getGuestCart(session);
+    await this._persistCartState(key, items, ttl);
+    return this.getCart(userId, guestId);
   }
 
   /**
-   * Update item quantity in user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @param {number} quantity - New quantity
-   * @returns {Promise<Object>} Updated cart
+   * Update item quantity in cart
    */
-  async updateUserCartItem(userId, productId, quantity) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (!cart) {
-      throw new ApiError('Cart not found', StatusCodes.NOT_FOUND);
-    }
+  async updateItem(userId, guestId, productId, quantity) {
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
 
-    const items = cart.items || [];
-    const item = items.find((i) => i.product_id === productId);
+    const { items } = await this._loadCartState(key);
+    const existing = items.find((item) => item.product_id === productId);
 
-    if (!item) {
+    if (!existing) {
       throw new ApiError('Item not found in cart', StatusCodes.NOT_FOUND);
     }
 
     if (quantity === 0) {
-      // Remove item
-      cart.items = items.filter((i) => i.product_id !== productId);
-    } else {
-      // Validate stock
-      await this.validateProductAndStock(productId, quantity);
-      item.quantity = quantity;
-      cart.items = items;
+      const filtered = items.filter((item) => item.product_id !== productId);
+      await this._persistCartState(key, filtered, ttl);
+      return this.getCart(userId, guestId);
     }
 
-    await cart.save();
-    return this.getUserCart(userId);
+    await this.validateProductAndStock(productId, quantity);
+    existing.quantity = quantity;
+    await this._persistCartState(key, items, ttl);
+    return this.getCart(userId, guestId);
   }
 
   /**
-   * Update item quantity in guest cart
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @param {number} quantity - New quantity
-   * @returns {Promise<Object>} Updated cart
+   * Remove item from cart
    */
-  async updateGuestCartItem(session, productId, quantity) {
-    if (!session.cart || !session.cart.items) {
-      throw new ApiError('Cart is empty', StatusCodes.NOT_FOUND);
-    }
+  async removeItem(userId, guestId, productId) {
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
 
-    const items = session.cart.items;
-    const item = items.find((i) => i.product_id === productId);
+    const { items } = await this._loadCartState(key);
+    const filtered = items.filter((item) => item.product_id !== productId);
 
-    if (!item) {
-      throw new ApiError('Item not found in cart', StatusCodes.NOT_FOUND);
-    }
-
-    if (quantity === 0) {
-      session.cart.items = items.filter((i) => i.product_id !== productId);
-    } else {
-      await this.validateProductAndStock(productId, quantity);
-      item.quantity = quantity;
-    }
-
-    return this.getGuestCart(session);
+    await this._persistCartState(key, filtered, ttl);
+    return this.getCart(userId, guestId);
   }
 
   /**
-   * Remove item from user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @returns {Promise<Object>} Updated cart
+   * Clear cart contents
    */
-  async removeItemFromUserCart(userId, productId) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (!cart) {
-      throw new ApiError('Cart not found', StatusCodes.NOT_FOUND);
-    }
-
-    cart.items = (cart.items || []).filter((item) => item.product_id !== productId);
-    await cart.save();
-
-    return this.getUserCart(userId);
-  }
-
-  /**
-   * Remove item from guest cart
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @returns {Promise<Object>} Updated cart
-   */
-  async removeItemFromGuestCart(session, productId) {
-    if (!session.cart) {
-      throw new ApiError('Cart is empty', StatusCodes.NOT_FOUND);
-    }
-
-    session.cart.items = (session.cart.items || []).filter((item) => item.product_id !== productId);
-
-    return this.getGuestCart(session);
-  }
-
-  /**
-   * Clear user cart
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} Empty cart
-   */
-  async clearUserCart(userId) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (cart) {
-      cart.items = [];
-      await cart.save();
+  async clearCart(userId = null, guestId = null) {
+    const key = this._resolveCartKey(userId, guestId);
+    if (key) {
+      await redisClient.del(key);
     }
 
     return { items: [], totals: { subtotal: 0, item_count: 0 } };
   }
 
   /**
-   * Clear guest cart
-   * @param {Object} session - Express session
-   * @returns {Object} Empty cart
+   * Merge guest cart items into authenticated user's cart
    */
-  clearGuestCart(session) {
-    session.cart = { items: [] };
-    return { items: [], totals: { subtotal: 0, item_count: 0 } };
-  }
+  async mergeGuestCartToUser(userId, guestId) {
+    if (!userId) {
+      throw new ApiError('User ID is required to merge carts', StatusCodes.BAD_REQUEST);
+    }
 
-  /**
-   * Merge guest cart to user cart (after login)
-   * @param {string} userId - User ID
-   * @param {Object} session - Express session with guest cart
-   * @returns {Promise<Object>} Merged cart
-   */
-  async mergeGuestCartToUser(userId, session) {
-    const guestItems = session.cart?.items || [];
+    if (!guestId) {
+      return this.getCart(userId, null);
+    }
+
+    const userKey = this._requireCartKey(userId, null);
+    const guestKey = this._resolveCartKey(null, guestId);
+
+    const { items: guestItems } = await this._loadCartState(guestKey);
     if (guestItems.length === 0) {
-      return this.getUserCart(userId);
+      return this.getCart(userId, null);
     }
 
-    const userCart = await Cart.findOrCreateForUser(userId);
-    const userItems = userCart.items || [];
+    const ttl = this._resolveCartTtl(userId);
+    const { items: userItems } = await this._loadCartState(userKey);
+    const merged = [...userItems];
 
-    // Merge items
     for (const guestItem of guestItems) {
-      const existingItem = userItems.find((item) => item.product_id === guestItem.product_id);
+      const existing = merged.find((item) => item.product_id === guestItem.product_id);
+      const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
+      await this.validateProductAndStock(guestItem.product_id, newQuantity);
 
-      if (existingItem) {
-        // Add quantities
-        const newQuantity = existingItem.quantity + guestItem.quantity;
-        await this.validateProductAndStock(guestItem.product_id, newQuantity);
-        existingItem.quantity = newQuantity;
+      if (existing) {
+        existing.quantity = newQuantity;
       } else {
-        // Add guest item to user cart
-        await this.validateProductAndStock(guestItem.product_id, guestItem.quantity);
-        userItems.push(guestItem);
+        merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
       }
     }
 
-    userCart.items = userItems;
-    await userCart.save();
+    await this._persistCartState(userKey, merged, ttl);
 
-    // Clear guest cart
-    session.cart = { items: [] };
+    if (guestKey) {
+      await redisClient.del(guestKey);
+    }
 
-    return this.getUserCart(userId);
+    return this.getCart(userId, null);
   }
 
-  async checkout({ userId, session, checkoutInput }) {
-    const cart = userId ? await this.getUserCart(userId) : await this.getGuestCart(session);
+  async checkout({ userId = null, guestId = null, checkoutInput = {} }) {
+    const cart = await this.getCart(userId, guestId);
 
     if (!cart.items || cart.items.length === 0) {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
@@ -325,9 +208,9 @@ class CartService {
     const order = await orderService.createOrder(userId || null, orderPayload);
 
     if (userId) {
-      await this.clearUserCart(userId);
-    } else {
-      this.clearGuestCart(session);
+      await this.clearCart(userId, null);
+    } else if (guestId) {
+      await this.clearCart(null, guestId);
     }
 
     return order;
@@ -335,10 +218,6 @@ class CartService {
 
   /**
    * Validate product exists, is available, and has sufficient stock
-   * @param {string} productId - Product ID
-   * @param {number} quantity - Requested quantity
-   * @returns {Promise<Product>} Validated product
-   * @private
    */
   async validateProductAndStock(productId, quantity) {
     const product = await Product.findByPk(productId, {
@@ -349,18 +228,10 @@ class CartService {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
     }
 
-    // Note: Removed status checks for cart operations
-    // Users should be able to add items to cart regardless of approval status
-    // Frontend will show availability status when displaying cart
-    
-    // Only check critical constraints:
-    // 1. Product exists (already checked above)
-    // 2. Stock is sufficient (but allow 0 stock items in cart with warning)
-    
     if (product.stock < quantity) {
-      // Log warning but don't throw error - allow adding to cart
-      console.warn(`[CartService] Low stock warning: Product ${productId} has ${product.stock} items, requested ${quantity}`);
-      // Still allow adding to cart, frontend will show "out of stock" message
+      console.warn(
+        `[CartService] Low stock warning: Product ${productId} has ${product.stock} items, requested ${quantity}`
+      );
     }
 
     return product;
@@ -368,9 +239,6 @@ class CartService {
 
   /**
    * Populate cart items with product details and calculate totals
-   * @param {Array} items - Array of {product_id, quantity}
-   * @returns {Promise<Object>} Items with details and totals
-   * @private
    */
   async populateCartItems(items) {
     if (!items || items.length === 0) {
@@ -427,14 +295,6 @@ class CartService {
     };
   }
 
-  /**
-   * Retrieve product entities from cache, falling back to the database for misses.
-   * Results are cached with a short TTL to reduce repeated lookups when cart
-   * operations are chained (e.g. add → fetch → update).
-   * @param {Array<string>} productIds
-   * @returns {Promise<Map<string, Product|null>>}
-   * @private
-   */
   async _getProductsWithCache(productIds) {
     if (!productIds || productIds.length === 0) {
       return new Map();
@@ -473,7 +333,6 @@ class CartService {
         productsById.set(product.id, product);
       }
 
-      // Cache negative lookups briefly to avoid hammering the DB for missing IDs
       for (const id of missingIds) {
         if (!foundIds.has(id)) {
           this._rememberProduct(id, null, this.cacheConfig.negativeTtl, now);
@@ -482,7 +341,6 @@ class CartService {
       }
     }
 
-    // Map original order to preserve deterministic item ordering downstream
     const orderedProducts = new Map();
     for (const id of productIds) {
       if (!orderedProducts.has(id)) {
@@ -491,6 +349,84 @@ class CartService {
     }
 
     return orderedProducts;
+  }
+
+  _resolveCartKey(userId, guestId) {
+    if (userId) {
+      return `${USER_CART_PREFIX}${userId}`;
+    }
+
+    if (guestId) {
+      return `${GUEST_CART_PREFIX}${guestId}`;
+    }
+
+    return null;
+  }
+
+  _requireCartKey(userId, guestId) {
+    const key = this._resolveCartKey(userId, guestId);
+    if (!key) {
+      throw new ApiError('Guest session missing', StatusCodes.BAD_REQUEST);
+    }
+    return key;
+  }
+
+  _resolveCartTtl(userId) {
+    return userId ? USER_CART_TTL_SECONDS : GUEST_CART_TTL_SECONDS;
+  }
+
+  async _loadCartState(key) {
+    if (!key) {
+      return { key: null, items: [], metadata: {} };
+    }
+
+    const data = await redisClient.hgetall(key);
+    if (!data || Object.keys(data).length === 0) {
+      return { key, items: [], metadata: {} };
+    }
+
+    let items = [];
+    if (data.items) {
+      try {
+        const parsed = JSON.parse(data.items);
+        items = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        console.warn(`[CartService] Failed to parse cart data for ${key}`, error);
+        items = [];
+      }
+    }
+
+    return { key, items, metadata: data };
+  }
+
+  async _persistCartState(key, items, ttlSeconds) {
+    if (!key) {
+      return;
+    }
+
+    await redisClient.hset(key, {
+      items: JSON.stringify(items),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (ttlSeconds) {
+      await redisClient.expire(key, ttlSeconds);
+    }
+  }
+
+  async _pruneMissingProductsInStorage({ key, items, missingProductIds, ttl }) {
+    if (!key || !Array.isArray(items) || !missingProductIds || missingProductIds.length === 0) {
+      return;
+    }
+
+    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
+
+    if (filtered.length === items.length) {
+      return;
+    }
+
+    await this._persistCartState(key, filtered, ttl);
+    this._debug(`Pruned ${items.length - filtered.length} missing products from cart ${key}`);
   }
 
   _getCachedProduct(id, now) {
@@ -534,36 +470,6 @@ class CartService {
   _debug(...args) {
     if (this.debugEnabled) {
       console.log('[CartService]', ...args);
-    }
-  }
-
-  async _pruneMissingProductsFromUserCart(cart, missingProductIds) {
-    if (!cart || !missingProductIds || missingProductIds.length === 0) {
-      return;
-    }
-
-    const items = cart.items || [];
-    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (filtered.length === items.length) {
-      return;
-    }
-
-    cart.items = filtered;
-    await cart.save({ fields: ['items'] });
-    this._debug(`Pruned ${items.length - filtered.length} missing products from user cart ${cart.id}`);
-  }
-
-  _pruneMissingProductsFromSession(session, missingProductIds) {
-    if (!session || !session.cart || !Array.isArray(session.cart.items)) {
-      return;
-    }
-
-    const before = session.cart.items.length;
-    session.cart.items = session.cart.items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (session.cart.items.length !== before) {
-      this._debug(`Pruned ${before - session.cart.items.length} missing products from guest cart`);
     }
   }
 }
