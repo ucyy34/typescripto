@@ -9,6 +9,7 @@ const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const commissionService = require('./commission.service');
+const { publishOrderEvent, ORDER_EVENTS } = require('../events/order.events');
 
 class OrderService {
   /**
@@ -125,6 +126,183 @@ class OrderService {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Create an order from a cart snapshot and emit order.created event
+   * @param {Object} options
+   * @param {string|null} options.userId
+   * @param {Array} options.cartItems
+   * @param {Object} options.checkout
+   * @returns {Promise<Order>}
+   */
+  async createFromCart({ userId = null, cartItems = [], checkout = {} }) {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const normalizedItems = cartItems.map((item) => ({
+      product_id: item.product_id || item.id,
+      quantity: item.quantity,
+    }));
+
+    const storeId = checkout.store_id || this._resolveStoreId(cartItems);
+
+    if (!storeId) {
+      throw new ApiError('Unable to determine store for checkout', StatusCodes.BAD_REQUEST);
+    }
+
+    const order = await this.createOrder(userId, {
+      store_id: storeId,
+      items: normalizedItems,
+      shipping_address: checkout.shipping_address,
+      billing_address: checkout.billing_address || checkout.shipping_address,
+      payment_method: checkout.payment_method || 'credit_card',
+      customer_note: checkout.customer_note,
+    });
+
+    await this._emitOrderEvent(ORDER_EVENTS.CREATED, order, {
+      metadata: checkout.metadata || {},
+    });
+
+    return order;
+  }
+
+  /**
+   * Mark order as paid and emit order.paid event
+   * @param {string} orderId
+   * @param {Object} payment
+   * @returns {Promise<Order>}
+   */
+  async markOrderPaid(orderId, payment = {}) {
+    const order = await Order.findByPk(orderId);
+
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!this._canTransition(order.status, 'paid')) {
+      throw new ApiError('Order cannot transition to paid state', StatusCodes.BAD_REQUEST);
+    }
+
+    const now = new Date();
+    order.status = 'paid';
+    order.payment_status = 'paid';
+    order.payment_transaction_id = payment.transactionId || order.payment_transaction_id;
+    order.payment_details = {
+      ...(order.payment_details || {}),
+      ...(payment.details || {}),
+    };
+    order.paid_at = now;
+
+    await order.save({
+      fields: ['status', 'payment_status', 'payment_transaction_id', 'payment_details', 'paid_at'],
+    });
+
+    const hydrated = await this.getOrderById(order.id, order.user_id, 'admin');
+    await this._emitOrderEvent(ORDER_EVENTS.PAID, hydrated, {
+      payment,
+    });
+
+    return hydrated;
+  }
+
+  /**
+   * Mark order as shipped and emit order.shipped event
+   * @param {string} orderId
+   * @param {Object} shipment
+   * @returns {Promise<Order>}
+   */
+  async markOrderShipped(orderId, shipment = {}) {
+    const order = await Order.findByPk(orderId);
+
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!this._canTransition(order.status, 'shipped')) {
+      throw new ApiError('Order cannot transition to shipped state', StatusCodes.BAD_REQUEST);
+    }
+
+    const now = new Date();
+    order.status = 'shipped';
+    order.shipped_at = now;
+    order.tracking_number = shipment.trackingNumber || order.tracking_number;
+    order.carrier = shipment.carrier || order.carrier;
+
+    await order.save({ fields: ['status', 'shipped_at', 'tracking_number', 'carrier'] });
+
+    const hydrated = await this.getOrderById(order.id, order.user_id, 'admin');
+    await this._emitOrderEvent(ORDER_EVENTS.SHIPPED, hydrated, {
+      shipment,
+    });
+
+    return hydrated;
+  }
+
+  /**
+   * Mark order as completed and emit order.completed event
+   * @param {string} orderId
+   * @param {Object} completion
+   * @returns {Promise<Order>}
+   */
+  async markOrderCompleted(orderId, completion = {}) {
+    const order = await Order.findByPk(orderId);
+
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!this._canTransition(order.status, 'delivered')) {
+      throw new ApiError('Order cannot transition to completed state', StatusCodes.BAD_REQUEST);
+    }
+
+    const now = new Date();
+    order.status = 'delivered';
+    order.delivered_at = completion.deliveredAt || now;
+
+    await order.save({ fields: ['status', 'delivered_at'] });
+
+    const hydrated = await this.getOrderById(order.id, order.user_id, 'admin');
+    await this._emitOrderEvent(ORDER_EVENTS.COMPLETED, hydrated, {
+      completion,
+    });
+
+    return hydrated;
+  }
+
+  /**
+   * Mark order as failed (payment failure) and emit order.failed event
+   * @param {string} orderId
+   * @param {Object} failure
+   * @returns {Promise<Order>}
+   */
+  async markOrderFailed(orderId, failure = {}) {
+    const order = await Order.findByPk(orderId);
+
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    if (!this._canTransition(order.status, 'cancelled')) {
+      throw new ApiError('Order cannot transition to failed state', StatusCodes.BAD_REQUEST);
+    }
+
+    order.status = 'cancelled';
+    order.payment_status = 'failed';
+    order.cancellation_reason = failure.reason || 'Payment failed';
+    order.cancelled_at = new Date();
+
+    await order.save({
+      fields: ['status', 'payment_status', 'cancellation_reason', 'cancelled_at'],
+    });
+
+    const hydrated = await this.getOrderById(order.id, order.user_id, 'admin');
+    await this._emitOrderEvent(ORDER_EVENTS.FAILED, hydrated, {
+      failure,
+    });
+
+    return hydrated;
   }
 
   /**
@@ -386,6 +564,47 @@ class OrderService {
     await order.save();
 
     return this.getOrderById(orderId, userId, role);
+  }
+
+  _resolveStoreId(cartItems) {
+    const firstWithStore = cartItems.find((item) => item.store_id || item.store?.id);
+    return firstWithStore ? firstWithStore.store_id || firstWithStore.store?.id : null;
+  }
+
+  _canTransition(currentStatus, nextStatus) {
+    if (currentStatus === nextStatus) {
+      return true;
+    }
+    const validTransitions = OrderService.STATE_TRANSITIONS[currentStatus] || [];
+    return validTransitions.includes(nextStatus);
+  }
+
+  async _emitOrderEvent(type, order, extra = {}) {
+    const payload = this._buildOrderEventPayload(order, extra);
+    await publishOrderEvent(type, payload);
+  }
+
+  _buildOrderEventPayload(order, extra = {}) {
+    const plain = typeof order.get === 'function' ? order.get({ plain: true }) : order;
+    const items = plain.items
+      ? plain.items.map((item) => ({
+          productId: item.product_id || item?.product_snapshot?.id || null,
+          quantity: item.quantity,
+          total: item.total || item.item_total || null,
+        }))
+      : [];
+
+    return {
+      orderId: plain.id,
+      userId: plain.user_id || null,
+      storeId: plain.store_id || null,
+      status: plain.status,
+      total: plain.total ? parseFloat(plain.total) : null,
+      timestamp: new Date().toISOString(),
+      version: Date.now(),
+      items,
+      ...extra,
+    };
   }
 
   /**

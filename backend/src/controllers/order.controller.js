@@ -38,6 +38,37 @@ class OrderController {
     return success(res, order, 'Order retrieved successfully');
   });
 
+  markPaid = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderPaid(req.params.id, {
+      transactionId: req.body.transaction_id,
+      details: req.body.details,
+    });
+    return success(res, order, 'Order marked as paid');
+  });
+
+  markShipped = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderShipped(req.params.id, {
+      trackingNumber: req.body.tracking_number,
+      carrier: req.body.carrier,
+      shippedAt: req.body.shipped_at,
+    });
+    return success(res, order, 'Order marked as shipped');
+  });
+
+  markCompleted = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderCompleted(req.params.id, {
+      deliveredAt: req.body.delivered_at ? new Date(req.body.delivered_at) : undefined,
+    });
+    return success(res, order, 'Order marked as completed');
+  });
+
+  markFailed = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderFailed(req.params.id, {
+      reason: req.body.reason,
+    });
+    return success(res, order, 'Order marked as failed');
+  });
+
   /**
    * Update order status
    * @route PATCH /api/v1/orders/:id/status
