@@ -137,6 +137,18 @@ class RecommendationService {
     const userKey = userId || 'guest';
     return `recommendations:cart:${userKey}:${categoryKey}:${excludeKey}:${limit}`;
   }
+
+  async handleOrderCompletedEvent(event) {
+    if (!event || !event.userId) {
+      return;
+    }
+
+    const pattern = `recommendations:cart:${event.userId}:*`;
+    await cache.delPattern(pattern);
+  }
 }
 
-module.exports = new RecommendationService();
+const recommendationService = new RecommendationService();
+
+module.exports = recommendationService;
+module.exports.RecommendationService = RecommendationService;

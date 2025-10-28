@@ -106,10 +106,28 @@ const orderQuerySchema = Joi.object({
     .default('-created_at'),
 });
 
+const markPaidSchema = Joi.object({
+  transactionId: Joi.string().max(255).optional(),
+  provider: Joi.string().max(100).optional(),
+  metadata: Joi.object().optional(),
+});
+
+const markShippedSchema = Joi.object({
+  tracking_number: Joi.string().max(100).required(),
+  carrier: Joi.string().max(100).required(),
+});
+
+const markCompletedSchema = Joi.object({
+  metadata: Joi.object().optional(),
+});
+
 module.exports = {
   createOrderSchema,
   updateOrderStatusSchema,
   orderIdParamSchema,
   storeIdParamSchema,
   orderQuerySchema,
+  markPaidSchema,
+  markShippedSchema,
+  markCompletedSchema,
 };

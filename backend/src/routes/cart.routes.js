@@ -10,6 +10,7 @@ const cartController = require('../controllers/cart.controller');
 const { optionalAuth, authenticate } = require('../middlewares/auth');
 const { validate, validateParams } = require('../middlewares/validate');
 const { addItemSchema, updateItemSchema, productIdParamSchema } = require('../validators/cart.validator');
+const { createOrderSchema } = require('../validators/order.validator');
 
 /**
  * @route   GET /api/v1/cart
@@ -65,5 +66,7 @@ router.delete('/', optionalAuth, cartController.clearCart);
  * @access  Private (authenticated users only)
  */
 router.post('/merge', authenticate, cartController.mergeCart);
+
+router.post('/checkout', optionalAuth, validate(createOrderSchema), cartController.checkout);
 
 module.exports = router;

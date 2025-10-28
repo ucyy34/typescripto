@@ -7,6 +7,7 @@
 const { Cart, Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
+const orderService = require('./order.service');
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
@@ -293,6 +294,43 @@ class CartService {
     session.cart = { items: [] };
 
     return this.getUserCart(userId);
+  }
+
+  async checkout({ userId, session, checkoutInput }) {
+    const cart = userId ? await this.getUserCart(userId) : await this.getGuestCart(session);
+
+    if (!cart.items || cart.items.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const orderStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
+    if (!orderStoreId) {
+      throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
+    }
+
+    const items = cart.items.map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    }));
+
+    const orderPayload = {
+      store_id: orderStoreId,
+      items,
+      shipping_address: checkoutInput.shipping_address,
+      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+      payment_method: checkoutInput.payment_method,
+      customer_note: checkoutInput.customer_note,
+    };
+
+    const order = await orderService.createOrder(userId || null, orderPayload);
+
+    if (userId) {
+      await this.clearUserCart(userId);
+    } else {
+      this.clearGuestCart(session);
+    }
+
+    return order;
   }
 
   /**

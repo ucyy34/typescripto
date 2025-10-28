@@ -9,6 +9,12 @@ const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const commissionService = require('./commission.service');
+const {
+  publishOrderCreated,
+  publishOrderPaid,
+  publishOrderShipped,
+  publishOrderCompleted,
+} = require('../events/order.events');
 
 class OrderService {
   /**
@@ -119,8 +125,14 @@ class OrderService {
         // Don't fail order creation if commission fails
       }
 
-      // Return order with items
-      return this.getOrderById(order.id, userId);
+      const orderWithItems = await this.getOrderById(order.id, userId, 'buyer');
+      await publishOrderCreated(orderWithItems, {
+        userId: orderWithItems.user_id || userId || null,
+        orderNumber: orderWithItems.order_number,
+        source: 'checkout',
+      });
+
+      return orderWithItems;
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -388,6 +400,77 @@ class OrderService {
     return this.getOrderById(orderId, userId, role);
   }
 
+  async markOrderPaid(orderId, payment = {}) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.payment_status = 'paid';
+    if (order.status === 'pending_payment') {
+      order.status = 'paid';
+    }
+    order.payment_transaction_id = payment.transactionId || order.payment_transaction_id;
+    order.payment_details = {
+      ...(order.payment_details || {}),
+      provider: payment.provider || order.payment_details?.provider || 'unknown',
+      metadata: payment.metadata || order.payment_details?.metadata || {},
+    };
+    order.paid_at = new Date();
+
+    await order.save();
+
+    const hydratedOrder = await this._getOrderSnapshot(orderId);
+    await publishOrderPaid(hydratedOrder, {
+      userId: hydratedOrder.user_id,
+      payment,
+    });
+
+    return hydratedOrder;
+  }
+
+  async markOrderShipped(orderId, shipping = {}) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.status = 'shipped';
+    order.tracking_number = shipping.trackingNumber || shipping.tracking_number || order.tracking_number;
+    order.carrier = shipping.carrier || order.carrier;
+    order.shipped_at = new Date();
+
+    await order.save();
+
+    const hydratedOrder = await this._getOrderSnapshot(orderId);
+    await publishOrderShipped(hydratedOrder, {
+      userId: hydratedOrder.user_id,
+      shipping,
+    });
+
+    return hydratedOrder;
+  }
+
+  async markOrderCompleted(orderId, metadata = {}) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.status = 'delivered';
+    order.delivered_at = new Date();
+
+    await order.save();
+
+    const hydratedOrder = await this._getOrderSnapshot(orderId);
+    await publishOrderCompleted(hydratedOrder, {
+      userId: hydratedOrder.user_id,
+      metadata,
+    });
+
+    return hydratedOrder;
+  }
+
   /**
    * Validate order items and calculate totals
    * @param {Array} items - Array of {product_id, quantity}
@@ -488,6 +571,17 @@ class OrderService {
         where: { id: item.product_id },
       });
     }
+  }
+
+  async _getOrderSnapshot(orderId) {
+    return Order.findOne({
+      where: { id: orderId },
+      include: [
+        { model: OrderItem, as: 'items' },
+        { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },
+        { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
+      ],
+    });
   }
 }
 
