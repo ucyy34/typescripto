@@ -108,17 +108,19 @@ const orderQuerySchema = Joi.object({
 
 const markPaidSchema = Joi.object({
   transactionId: Joi.string().max(255).optional(),
-  provider: Joi.string().max(100).optional(),
-  metadata: Joi.object().optional(),
+  paymentDetails: Joi.object().unknown(true).optional(),
 });
 
 const markShippedSchema = Joi.object({
-  tracking_number: Joi.string().max(100).required(),
-  carrier: Joi.string().max(100).required(),
-});
+  trackingNumber: Joi.string().max(100).optional(),
+  tracking_number: Joi.string().max(100).optional(),
+  carrier: Joi.string().max(100).optional(),
+})
+  .or('trackingNumber', 'tracking_number')
+  .messages({ 'object.missing': 'Tracking number is required' });
 
 const markCompletedSchema = Joi.object({
-  metadata: Joi.object().optional(),
+  feedback: Joi.string().max(1000).optional().allow('', null),
 });
 
 module.exports = {

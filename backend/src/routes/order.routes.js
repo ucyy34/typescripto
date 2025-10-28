@@ -65,7 +65,7 @@ router.patch(
 router.post(
   '/:id/mark-paid',
   authenticate,
-  requireAdmin,
+  requireSellerOrAdmin,
   validateParams(orderIdParamSchema),
   validate(markPaidSchema),
   orderController.markPaid

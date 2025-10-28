@@ -1,7 +1,24 @@
-let logger;
+let winston;
 
 try {
-  const { createLogger, format, transports } = require('winston');
+  winston = require('winston');
+} catch (error) {
+  winston = null;
+}
+
+if (!winston) {
+  const fallback = {
+    info: (...args) => console.log('[INFO]', ...args),
+    warn: (...args) => console.warn('[WARN]', ...args),
+    error: (...args) => console.error('[ERROR]', ...args),
+    debug: (...args) => console.debug('[DEBUG]', ...args),
+  };
+
+  fallback.child = () => fallback;
+
+  module.exports = fallback;
+} else {
+  const { createLogger, format, transports } = winston;
 
   const isProduction = process.env.NODE_ENV === 'production';
   const level = process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug');
@@ -25,7 +42,7 @@ try {
 
   const productionFormat = format.combine(...baseFormats, format.json());
 
-  logger = createLogger({
+  const logger = createLogger({
     level,
     transports: [
       new transports.Console({
@@ -33,19 +50,6 @@ try {
       }),
     ],
   });
-} catch (error) {
-  const log = (level, args) => {
-    const method = level === 'debug' ? 'log' : level;
-    // eslint-disable-next-line no-console
-    console[method](...args);
-  };
 
-  logger = {
-    error: (...args) => log('error', args),
-    warn: (...args) => log('warn', args),
-    info: (...args) => log('info', args),
-    debug: (...args) => log('debug', args),
-  };
+  module.exports = logger;
 }
-
-module.exports = logger;

@@ -1,8 +1,13 @@
-'use strict';
+const { ORDER_EVENTS } = require('../events/order.events');
+const eventBus = require('../events/eventBus');
+const notificationService = require('../services/notification.service');
 
-const NotificationService = require('../services/notification.service');
+eventBus.subscribe(ORDER_EVENTS.ORDER_PAID, async (payload) => {
+  await notificationService.handleOrderPaid(payload);
+});
 
-const notificationService = new NotificationService();
-notificationService.register();
+eventBus.subscribe(ORDER_EVENTS.ORDER_FAILED, async (payload) => {
+  await notificationService.handleOrderFailed(payload);
+});
 
-module.exports = notificationService;
+module.exports = true;

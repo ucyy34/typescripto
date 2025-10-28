@@ -1,8 +1,9 @@
-'use strict';
+const { ORDER_EVENTS } = require('../events/order.events');
+const eventBus = require('../events/eventBus');
+const paymentService = require('../services/payment.service');
 
-const PaymentService = require('../services/payment.service');
+eventBus.subscribe(ORDER_EVENTS.ORDER_CREATED, async (payload) => {
+  await paymentService.handleOrderCreated(payload);
+});
 
-const paymentService = new PaymentService();
-paymentService.register();
-
-module.exports = paymentService;
+module.exports = true;

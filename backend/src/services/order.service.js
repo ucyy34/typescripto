@@ -10,11 +10,23 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const commissionService = require('./commission.service');
 const {
+  serializeOrderForEvent,
   publishOrderCreated,
   publishOrderPaid,
   publishOrderShipped,
   publishOrderCompleted,
+  publishOrderFailed,
 } = require('../events/order.events');
+
+const ORDER_RELATIONS = [
+  { model: OrderItem, as: 'items' },
+  { model: Store, as: 'store', attributes: ['id', 'name', 'slug', 'email', 'phone'] },
+  {
+    model: User,
+    as: 'customer',
+    attributes: ['id', 'first_name', 'last_name', 'email', 'phone'],
+  },
+];
 
 class OrderService {
   /**
@@ -125,18 +137,54 @@ class OrderService {
         // Don't fail order creation if commission fails
       }
 
-      const orderWithItems = await this.getOrderById(order.id, userId, 'buyer');
-      await publishOrderCreated(orderWithItems, {
-        userId: orderWithItems.user_id || userId || null,
-        orderNumber: orderWithItems.order_number,
-        source: 'checkout',
-      });
-
-      return orderWithItems;
+      // Return order with items
+      return this.getOrderById(order.id, userId);
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Create an order from an enriched cart payload and publish workflow event.
+   * @param {string|null} userId
+   * @param {Object} cart
+   * @param {Object} checkoutInput
+   * @returns {Promise<Order>}
+   */
+  async createFromCart(userId, cart, checkoutInput = {}) {
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const derivedStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
+
+    if (!derivedStoreId) {
+      throw new ApiError('Store information is required to create an order', StatusCodes.BAD_REQUEST);
+    }
+
+    const payload = {
+      store_id: derivedStoreId,
+      items: cart.items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+      })),
+      shipping_address: checkoutInput.shipping_address,
+      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+      payment_method: checkoutInput.payment_method || 'manual',
+      customer_note: checkoutInput.customer_note,
+    };
+
+    const order = await this.createOrder(userId, payload);
+
+    await publishOrderCreated(
+      serializeOrderForEvent(order, {
+        cartTotals: cart.totals || null,
+        paymentMethod: payload.payment_method,
+      })
+    );
+
+    return order;
   }
 
   /**
@@ -400,75 +448,111 @@ class OrderService {
     return this.getOrderById(orderId, userId, role);
   }
 
-  async markOrderPaid(orderId, payment = {}) {
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+  async markOrderPaid(orderId, paymentPayload = {}) {
+    const order = await this._loadOrderWithRelations(orderId);
+
+    if (order.status === 'paid') {
+      return order;
     }
 
+    order.status = 'paid';
     order.payment_status = 'paid';
-    if (order.status === 'pending_payment') {
-      order.status = 'paid';
-    }
-    order.payment_transaction_id = payment.transactionId || order.payment_transaction_id;
-    order.payment_details = {
-      ...(order.payment_details || {}),
-      provider: payment.provider || order.payment_details?.provider || 'unknown',
-      metadata: payment.metadata || order.payment_details?.metadata || {},
-    };
     order.paid_at = new Date();
 
+    if (paymentPayload.transactionId) {
+      order.payment_transaction_id = paymentPayload.transactionId;
+    }
+
+    if (paymentPayload.paymentDetails) {
+      order.payment_details = paymentPayload.paymentDetails;
+    }
+
     await order.save();
+    await order.reload({ include: ORDER_RELATIONS });
 
-    const hydratedOrder = await this._getOrderSnapshot(orderId);
-    await publishOrderPaid(hydratedOrder, {
-      userId: hydratedOrder.user_id,
-      payment,
-    });
+    await publishOrderPaid(
+      serializeOrderForEvent(order, {
+        transactionId: paymentPayload.transactionId || null,
+      })
+    );
 
-    return hydratedOrder;
+    return order;
   }
 
-  async markOrderShipped(orderId, shipping = {}) {
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
-    }
+  async markOrderShipped(orderId, shipmentPayload = {}) {
+    const order = await this._loadOrderWithRelations(orderId);
 
     order.status = 'shipped';
-    order.tracking_number = shipping.trackingNumber || shipping.tracking_number || order.tracking_number;
-    order.carrier = shipping.carrier || order.carrier;
     order.shipped_at = new Date();
+    order.tracking_number = shipmentPayload.trackingNumber || shipmentPayload.tracking_number || null;
+    order.carrier = shipmentPayload.carrier || null;
 
     await order.save();
+    await order.reload({ include: ORDER_RELATIONS });
 
-    const hydratedOrder = await this._getOrderSnapshot(orderId);
-    await publishOrderShipped(hydratedOrder, {
-      userId: hydratedOrder.user_id,
-      shipping,
-    });
+    await publishOrderShipped(
+      serializeOrderForEvent(order, {
+        trackingNumber: order.tracking_number,
+        carrier: order.carrier,
+      })
+    );
 
-    return hydratedOrder;
+    return order;
   }
 
-  async markOrderCompleted(orderId, metadata = {}) {
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
-    }
+  async markOrderCompleted(orderId, completionPayload = {}) {
+    const order = await this._loadOrderWithRelations(orderId);
 
     order.status = 'delivered';
     order.delivered_at = new Date();
 
+    if (completionPayload.feedback) {
+      order.customer_note = [order.customer_note, completionPayload.feedback]
+        .filter(Boolean)
+        .join('\n');
+    }
+
     await order.save();
+    await order.reload({ include: ORDER_RELATIONS });
 
-    const hydratedOrder = await this._getOrderSnapshot(orderId);
-    await publishOrderCompleted(hydratedOrder, {
-      userId: hydratedOrder.user_id,
-      metadata,
-    });
+    await publishOrderCompleted(
+      serializeOrderForEvent(order, {
+        deliveredAt: order.delivered_at?.toISOString?.() || new Date().toISOString(),
+      })
+    );
 
-    return hydratedOrder;
+    return order;
+  }
+
+  async markOrderFailed(orderId, failurePayload = {}) {
+    const order = await this._loadOrderWithRelations(orderId);
+
+    order.status = 'cancelled';
+    order.payment_status = 'failed';
+    order.cancellation_reason = failurePayload.reason || 'Payment failed';
+    order.cancelled_at = new Date();
+
+    await order.save();
+    await this.restoreOrderStock(order.id);
+    await order.reload({ include: ORDER_RELATIONS });
+
+    await publishOrderFailed(
+      serializeOrderForEvent(order, {
+        reason: order.cancellation_reason,
+      })
+    );
+
+    return order;
+  }
+
+  async _loadOrderWithRelations(orderId) {
+    const order = await Order.findByPk(orderId, { include: ORDER_RELATIONS });
+
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    return order;
   }
 
   /**
@@ -571,17 +655,6 @@ class OrderService {
         where: { id: item.product_id },
       });
     }
-  }
-
-  async _getOrderSnapshot(orderId) {
-    return Order.findOne({
-      where: { id: orderId },
-      include: [
-        { model: OrderItem, as: 'items' },
-        { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },
-        { model: User, as: 'customer', attributes: ['id', 'first_name', 'last_name', 'email'] },
-      ],
-    });
   }
 }
 

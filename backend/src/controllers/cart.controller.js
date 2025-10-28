@@ -4,11 +4,10 @@
  */
 
 const cartService = require('../services/cart.service');
-const orderService = require('../services/order.service');
 const { success } = require('../utils/response');
-const { asyncHandler, ApiError } = require('../middlewares/errorHandler');
+const { asyncHandler } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
-const { StatusCodes } = require('http-status-codes');
+const orderService = require('../services/order.service');
 
 class CartController {
   /**
@@ -27,6 +26,29 @@ class CartController {
     }
 
     return success(res, cart, 'Cart retrieved successfully');
+  });
+
+  /**
+   * Checkout current cart and create an order
+   * @route POST /api/v1/cart/checkout
+   */
+  checkout = asyncHandler(async (req, res) => {
+    const checkoutInput = req.body || {};
+    const userId = req.user ? req.user.id : null;
+
+    const cart = req.user
+      ? await cartService.getUserCart(userId)
+      : await cartService.getGuestCart(req.session);
+
+    const order = await orderService.createFromCart(userId, cart, checkoutInput);
+
+    if (req.user) {
+      await cartService.clearUserCart(userId);
+    } else {
+      cartService.clearGuestCart(req.session);
+    }
+
+    return success(res, order, 'Checkout completed successfully', 201);
   });
 
   /**
@@ -108,45 +130,6 @@ class CartController {
 
     const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
     return success(res, cart, 'Cart merged successfully');
-  });
-
-  checkout = asyncHandler(async (req, res) => {
-    const userId = req.user ? req.user.id : null;
-    const cart = req.user
-      ? await cartService.getUserCart(userId)
-      : await cartService.getGuestCart(req.session);
-
-    if (!cart.items || cart.items.length === 0) {
-      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
-    }
-
-    const order = await orderService.createOrderFromCart({
-      userId,
-      cart,
-      checkoutInput: req.body,
-    });
-
-    if (req.user) {
-      await cartService.clearUserCart(userId);
-    } else {
-      cartService.clearGuestCart(req.session);
-    }
-
-    return success(res, order, 'Checkout completed successfully', StatusCodes.CREATED);
-  });
-
-  /**
-   * Checkout current cart and create an order
-   * @route POST /api/v1/cart/checkout
-   */
-  checkout = asyncHandler(async (req, res) => {
-    const order = await cartService.checkout({
-      userId: req.user?.id || null,
-      session: req.session,
-      checkoutInput: req.body,
-    });
-
-    return success(res, order, 'Checkout completed successfully', 201);
   });
 
   /**

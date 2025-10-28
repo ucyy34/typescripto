@@ -138,17 +138,13 @@ class RecommendationService {
     return `recommendations:cart:${userKey}:${categoryKey}:${excludeKey}:${limit}`;
   }
 
-  async handleOrderCompletedEvent(event) {
+  async recordOrderCompletion(event) {
     if (!event || !event.userId) {
       return;
     }
 
-    const pattern = `recommendations:cart:${event.userId}:*`;
-    await cache.delPattern(pattern);
+    await cache.delPattern(`recommendations:cart:${event.userId}:*`);
   }
 }
 
-const recommendationService = new RecommendationService();
-
-module.exports = recommendationService;
-module.exports.RecommendationService = RecommendationService;
+module.exports = new RecommendationService();

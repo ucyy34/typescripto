@@ -1,55 +1,44 @@
-'use strict';
-
-const { ORDER_EVENTS } = require('../events/order.events');
-const eventBus = require('../events/eventBus');
 const logger = require('../utils/logger');
 
 class NotificationService {
-  constructor({ bus = eventBus, log = logger } = {}) {
-    this.bus = bus;
-    this.logger = log;
-    this.sent = [];
+  constructor() {
+    this.transport = {
+      async send(notification) {
+        logger.info('Notification dispatched', notification);
+      },
+    };
   }
 
-  register() {
-    this.bus.subscribe(ORDER_EVENTS.PAID, (payload) => this.handlePaymentSuccess(payload), {
-      workerId: 'notification-paid',
-      concurrency: 3,
+  setTransport(transport) {
+    this.transport = transport;
+  }
+
+  async handleOrderPaid(event) {
+    if (!event) {
+      return null;
+    }
+
+    return this.transport.send({
+      type: 'order-paid',
+      orderId: event.orderId,
+      userId: event.userId,
+      message: 'Payment completed successfully',
     });
+  }
 
-    this.bus.subscribe(ORDER_EVENTS.FAILED, (payload) => this.handlePaymentFailure(payload), {
-      workerId: 'notification-failed',
-      concurrency: 3,
+  async handleOrderFailed(event) {
+    if (!event) {
+      return null;
+    }
+
+    return this.transport.send({
+      type: 'order-failed',
+      orderId: event.orderId,
+      userId: event.userId,
+      reason: event.reason || 'Payment failed',
+      message: 'Payment attempt failed',
     });
-
-    this.bus.subscribe(ORDER_EVENTS.SHIPPED, (payload) => this.handleShipped(payload), {
-      workerId: 'notification-shipped',
-      concurrency: 2,
-    });
-  }
-
-  async handlePaymentSuccess(payload) {
-    const message = `Payment received for order ${payload.orderId}`;
-    await this.logNotification(payload.userId, message, payload);
-  }
-
-  async handlePaymentFailure(payload) {
-    const message = `Payment failed for order ${payload.orderId}`;
-    await this.logNotification(payload.userId, message, payload);
-  }
-
-  async handleShipped(payload) {
-    const message = `Order ${payload.orderId} shipped`;
-    await this.logNotification(payload.userId, message, payload);
-  }
-
-  async logNotification(userId, message, payload) {
-    this.logger.info('[NotificationService] %s', message, {
-      userId,
-      payload,
-    });
-    this.sent.push({ userId, message, payload });
   }
 }
 
-module.exports = NotificationService;
+module.exports = new NotificationService();
