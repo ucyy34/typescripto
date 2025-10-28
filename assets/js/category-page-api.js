@@ -447,47 +447,22 @@ class CategoryPageAPI {
         }
 
         try {
-            if (AuthManager?.isLoggedIn()) {
-                const response = await this.apiClient.post('/cart/items', {
-                    product_id: productId,
-                    quantity: 1,
-                });
-
-                if (response.success) {
-                    this.showToast('Ürün sepetinize eklendi!');
-                    window.updateCartCount?.();
-                    return;
-                }
+            if (!window.cartManager) {
+                throw new Error('Cart system unavailable');
             }
 
-            this.addToLocalCart(product);
+            const success = await window.cartManager.addItem(productId, product, 1);
+
+            if (!success) {
+                throw new Error('Failed to add product to cart');
+            }
+
             this.showToast('Ürün sepetinize eklendi!');
+            await window.updateCartCount?.();
         } catch (error) {
             console.error('[Category Page API] Failed to add to cart:', error);
-            this.addToLocalCart(product);
-            this.showToast('Ürün sepetinize eklendi!');
+            this.showToast('Ürün sepete eklenemedi.');
         }
-    }
-
-    addToLocalCart(product) {
-        const cartKey = 'localCartItems';
-        const existing = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        const current = existing.find((item) => item.id === product.id);
-
-        if (current) {
-            current.quantity += 1;
-        } else {
-            existing.push({
-                id: product.id,
-                title: product.title,
-                price: product.price,
-                image: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null,
-                quantity: 1,
-                stock: product.stock,
-            });
-        }
-
-        localStorage.setItem(cartKey, JSON.stringify(existing));
     }
 
     showToast(message) {

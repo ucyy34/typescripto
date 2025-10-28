@@ -6,6 +6,7 @@
 const { Op } = require('sequelize');
 const { Product, Store, Category, WishlistItem } = require('../models');
 const { cache } = require('../config/redis');
+const logger = require('../utils/logger');
 
 const CACHE_TTL_SECONDS = 60 * 3;
 
@@ -139,7 +140,16 @@ class RecommendationService {
   }
 
   async recordOrderCompletion(event) {
-    if (!event || !event.userId) {
+    if (!event) {
+      return;
+    }
+
+    logger.info('[Recommendation] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId || null,
+    });
+
+    if (!event.userId) {
       return;
     }
 

@@ -457,58 +457,24 @@ class ProductDetailAPI {
                 values: Array.from(set || []),
             }));
 
-            // Try to add to backend cart if user is logged in
-            if (AuthManager.isLoggedIn()) {
-                const response = await this.apiClient.post('/cart/items', {
-                    product_id: this.productId,
-                    quantity: this.quantity,
-                    variants: variantsSelected // Backend currently ignores extra fields; kept for future support
-                });
+            if (!window.cartManager) {
+                throw new Error('Cart system unavailable');
+            }
 
-                if (response.success) {
-                    this.showSuccessMessage(`Added ${this.quantity} item(s) to cart!`);
-                    // Update cart count
-                    if (window.updateCartCount) {
-                        window.updateCartCount();
-                    }
-                } else {
-                    // Fallback to localStorage
-                    this.addToLocalCart(variantsSelected);
-                }
-            } else {
-                // User not logged in, use localStorage
-                this.addToLocalCart(variantsSelected);
+            const success = await window.cartManager.addItem(this.productId, this.product, this.quantity);
+
+            if (!success) {
+                throw new Error('Failed to add to cart');
+            }
+
+            this.showSuccessMessage(`Added ${this.quantity} item(s) to cart!`);
+
+            if (window.updateCartCount) {
+                await window.updateCartCount();
             }
         } catch (error) {
             console.error('[Product Detail API] Error adding to cart:', error);
             this.showError('Failed to add product to cart');
-        }
-    }
-
-    addToLocalCart(variantsSelected = []) {
-        let cart = JSON.parse(localStorage.getItem('cart')) || [];
-
-        // Check if product already in cart
-        const existingItem = cart.find(item => item.product_id === this.productId);
-
-        if (existingItem) {
-            existingItem.quantity += this.quantity;
-        } else {
-            cart.push({
-                product_id: this.productId,
-                product: this.product,
-                quantity: this.quantity,
-                price: parseFloat(this.product.price),
-                variants: variantsSelected
-            });
-        }
-
-        localStorage.setItem('cart', JSON.stringify(cart));
-        this.showSuccessMessage(`Added ${this.quantity} item(s) to cart!`);
-
-        // Update cart count
-        if (window.updateCartCount) {
-            window.updateCartCount();
         }
     }
 

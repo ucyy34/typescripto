@@ -495,48 +495,23 @@ class CategoryLandingPage {
                 return;
             }
 
-            if (typeof AuthManager !== 'undefined' && AuthManager.isLoggedIn()) {
-                const response = await this.apiClient.post('/cart/items', {
-                    product_id: productId,
-                    quantity: 1,
-                });
-
-                if (response.success) {
-                    this.showToast('Ürün sepetinize eklendi!');
-                    if (window.updateCartCount) {
-                        window.updateCartCount();
-                    }
-                    return;
-                }
+            if (!window.cartManager) {
+                throw new Error('Cart system unavailable');
             }
 
-            this.addToLocalCart(product);
+            const success = await window.cartManager.addItem(productId, product, 1);
+
+            if (!success) {
+                throw new Error('Failed to add product to cart');
+            }
+
             this.showToast('Ürün sepetinize eklendi!');
+            if (window.updateCartCount) {
+                await window.updateCartCount();
+            }
         } catch (error) {
             console.error('[Category Landing] addToCart error:', error);
             this.showToast('Ürün sepete eklenemedi.');
-        }
-    }
-
-    addToLocalCart(product) {
-        try {
-            const cart = JSON.parse(localStorage.getItem('guestCart') || '[]');
-            const existing = cart.find((item) => item.id === product.id);
-            if (existing) {
-                existing.quantity = Math.min((existing.quantity || 1) + 1, product.stock || 1);
-            } else {
-                cart.push({
-                    id: product.id,
-                    title: product.title,
-                    price: product.price,
-                    image: Array.isArray(product.images) && product.images.length ? product.images[0] : null,
-                    quantity: 1,
-                    stock: product.stock,
-                });
-            }
-            localStorage.setItem('guestCart', JSON.stringify(cart));
-        } catch (error) {
-            console.warn('[Category Landing] addToLocalCart failed:', error);
         }
     }
 

@@ -4,10 +4,13 @@
  * Supports both guest (session) and user (database) carts
  */
 
-const { Cart, Product, Store, Category } = require('../models');
+const { Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const orderService = require('./order.service');
+const { redisClient } = require('../config/redis');
+
+const GUEST_CART_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
@@ -23,281 +26,104 @@ class CartService {
     };
     this.debugEnabled = process.env.NODE_ENV !== 'production';
   }
-  /**
-   * Get user's cart with populated product details
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} Cart with items and totals
-   */
-  async getUserCart(userId) {
-    // Find or create cart for user
-    const cart = await Cart.findOrCreateForUser(userId);
-
-    // Get cart with populated product details
-    const cartWithDetails = await this.populateCartItems(cart.items);
+  async getCart(userId, guestId) {
+    const key = this._resolveCartKey(userId, guestId);
+    const items = await this._getRawCartEntries(key);
+    const cartWithDetails = await this.populateCartItems(items);
 
     if (cartWithDetails.missingProductIds.length > 0) {
-      await this._pruneMissingProductsFromUserCart(cart, cartWithDetails.missingProductIds);
-    }
-
-    return {
-      id: cart.id,
-      items: cartWithDetails.items,
-      totals: cartWithDetails.totals,
-      updated_at: cart.updated_at,
-    };
-  }
-
-  /**
-   * Get guest cart from session
-   * @param {Object} session - Express session
-   * @returns {Promise<Object>} Cart with items and totals
-   */
-  async getGuestCart(session) {
-    const guestCart = session.cart || { items: [] };
-    const cartWithDetails = await this.populateCartItems(guestCart.items);
-
-    if (cartWithDetails.missingProductIds.length > 0) {
-      this._pruneMissingProductsFromSession(session, cartWithDetails.missingProductIds);
+      await this._pruneMissingProducts(key, cartWithDetails.missingProductIds);
     }
 
     return {
       items: cartWithDetails.items,
       totals: cartWithDetails.totals,
+      updated_at: new Date().toISOString(),
+      context: userId
+        ? { type: 'user', id: userId }
+        : { type: 'guest', id: guestId },
     };
   }
 
-  /**
-   * Add item to user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @param {number} quantity - Quantity to add
-   * @returns {Promise<Object>} Updated cart
-   */
-  async addItemToUserCart(userId, productId, quantity) {
-    // Validate product and stock
-    const product = await this.validateProductAndStock(productId, quantity);
+  async addItem(userId, guestId, productId, quantity) {
+    const key = this._resolveCartKey(userId, guestId);
+    const existing = await redisClient.hget(key, productId);
+    const currentQuantity = existing ? parseInt(existing, 10) || 0 : 0;
+    const newQuantity = currentQuantity + quantity;
 
-    // Get or create cart
-    const cart = await Cart.findOrCreateForUser(userId);
-
-    // Check if item already exists
-    const items = cart.items || [];
-    const existingItem = items.find((item) => item.product_id === productId);
-
-    if (existingItem) {
-      // Update quantity
-      const newQuantity = existingItem.quantity + quantity;
-      await this.validateProductAndStock(productId, newQuantity);
-      existingItem.quantity = newQuantity;
-    } else {
-      // Add new item
-      items.push({ product_id: productId, quantity });
+    if (newQuantity <= 0) {
+      await redisClient.hdel(key, productId);
+      return this.getCart(userId, guestId);
     }
 
-    // Persist items reliably (ensure JSONB update is detected)
-    cart.items = items;
-    await cart.save({ fields: ['items'] });
+    await this.validateProductAndStock(productId, newQuantity);
 
-    const result = await this.getUserCart(userId);
-    return result;
+    await redisClient.hset(key, productId, newQuantity);
+    await this._ensureGuestExpiration(userId, key);
+
+    return this.getCart(userId, guestId);
   }
 
-  /**
-   * Add item to guest cart (session)
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @param {number} quantity - Quantity to add
-   * @returns {Promise<Object>} Updated cart
-   */
-  async addItemToGuestCart(session, productId, quantity) {
-    // Validate product and stock
+  async updateItem(userId, guestId, productId, quantity) {
+    const key = this._resolveCartKey(userId, guestId);
+
+    if (quantity <= 0) {
+      await redisClient.hdel(key, productId);
+      return this.getCart(userId, guestId);
+    }
+
     await this.validateProductAndStock(productId, quantity);
+    await redisClient.hset(key, productId, quantity);
+    await this._ensureGuestExpiration(userId, key);
 
-    // Initialize guest cart if not exists
-    if (!session.cart) {
-      session.cart = { items: [] };
-    }
-
-    const items = session.cart.items;
-    const existingItem = items.find((item) => item.product_id === productId);
-
-    if (existingItem) {
-      const newQuantity = existingItem.quantity + quantity;
-      await this.validateProductAndStock(productId, newQuantity);
-      existingItem.quantity = newQuantity;
-    } else {
-      items.push({ product_id: productId, quantity });
-    }
-
-    session.cart.items = items;
-
-    return this.getGuestCart(session);
+    return this.getCart(userId, guestId);
   }
 
-  /**
-   * Update item quantity in user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @param {number} quantity - New quantity
-   * @returns {Promise<Object>} Updated cart
-   */
-  async updateUserCartItem(userId, productId, quantity) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (!cart) {
-      throw new ApiError('Cart not found', StatusCodes.NOT_FOUND);
-    }
-
-    const items = cart.items || [];
-    const item = items.find((i) => i.product_id === productId);
-
-    if (!item) {
-      throw new ApiError('Item not found in cart', StatusCodes.NOT_FOUND);
-    }
-
-    if (quantity === 0) {
-      // Remove item
-      cart.items = items.filter((i) => i.product_id !== productId);
-    } else {
-      // Validate stock
-      await this.validateProductAndStock(productId, quantity);
-      item.quantity = quantity;
-      cart.items = items;
-    }
-
-    await cart.save();
-    return this.getUserCart(userId);
+  async removeItem(userId, guestId, productId) {
+    const key = this._resolveCartKey(userId, guestId);
+    await redisClient.hdel(key, productId);
+    return this.getCart(userId, guestId);
   }
 
-  /**
-   * Update item quantity in guest cart
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @param {number} quantity - New quantity
-   * @returns {Promise<Object>} Updated cart
-   */
-  async updateGuestCartItem(session, productId, quantity) {
-    if (!session.cart || !session.cart.items) {
-      throw new ApiError('Cart is empty', StatusCodes.NOT_FOUND);
-    }
-
-    const items = session.cart.items;
-    const item = items.find((i) => i.product_id === productId);
-
-    if (!item) {
-      throw new ApiError('Item not found in cart', StatusCodes.NOT_FOUND);
-    }
-
-    if (quantity === 0) {
-      session.cart.items = items.filter((i) => i.product_id !== productId);
-    } else {
-      await this.validateProductAndStock(productId, quantity);
-      item.quantity = quantity;
-    }
-
-    return this.getGuestCart(session);
-  }
-
-  /**
-   * Remove item from user cart
-   * @param {string} userId - User ID
-   * @param {string} productId - Product ID
-   * @returns {Promise<Object>} Updated cart
-   */
-  async removeItemFromUserCart(userId, productId) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (!cart) {
-      throw new ApiError('Cart not found', StatusCodes.NOT_FOUND);
-    }
-
-    cart.items = (cart.items || []).filter((item) => item.product_id !== productId);
-    await cart.save();
-
-    return this.getUserCart(userId);
-  }
-
-  /**
-   * Remove item from guest cart
-   * @param {Object} session - Express session
-   * @param {string} productId - Product ID
-   * @returns {Promise<Object>} Updated cart
-   */
-  async removeItemFromGuestCart(session, productId) {
-    if (!session.cart) {
-      throw new ApiError('Cart is empty', StatusCodes.NOT_FOUND);
-    }
-
-    session.cart.items = (session.cart.items || []).filter((item) => item.product_id !== productId);
-
-    return this.getGuestCart(session);
-  }
-
-  /**
-   * Clear user cart
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} Empty cart
-   */
-  async clearUserCart(userId) {
-    const cart = await Cart.findOne({ where: { user_id: userId } });
-    if (cart) {
-      cart.items = [];
-      await cart.save();
-    }
-
+  async clearCart(userId, guestId) {
+    const key = this._resolveCartKey(userId, guestId);
+    await redisClient.del(key);
     return { items: [], totals: { subtotal: 0, item_count: 0 } };
   }
 
-  /**
-   * Clear guest cart
-   * @param {Object} session - Express session
-   * @returns {Object} Empty cart
-   */
-  clearGuestCart(session) {
-    session.cart = { items: [] };
-    return { items: [], totals: { subtotal: 0, item_count: 0 } };
-  }
+  async mergeGuestCartToUser(userId, guestId) {
+    if (!guestId) {
+      return this.getCart(userId, null);
+    }
 
-  /**
-   * Merge guest cart to user cart (after login)
-   * @param {string} userId - User ID
-   * @param {Object} session - Express session with guest cart
-   * @returns {Promise<Object>} Merged cart
-   */
-  async mergeGuestCartToUser(userId, session) {
-    const guestItems = session.cart?.items || [];
+    const guestKey = this._resolveCartKey(null, guestId);
+    const guestItems = await this._getRawCartEntries(guestKey);
+
     if (guestItems.length === 0) {
-      return this.getUserCart(userId);
+      return this.getCart(userId, null);
     }
 
-    const userCart = await Cart.findOrCreateForUser(userId);
-    const userItems = userCart.items || [];
+    const userKey = this._resolveCartKey(userId, null);
+    const userRaw = await redisClient.hgetall(userKey);
+    const pipeline = redisClient.multi();
 
-    // Merge items
-    for (const guestItem of guestItems) {
-      const existingItem = userItems.find((item) => item.product_id === guestItem.product_id);
+    for (const item of guestItems) {
+      const existing = userRaw?.[item.product_id];
+      const currentQuantity = existing ? parseInt(existing, 10) || 0 : 0;
+      const newQuantity = currentQuantity + item.quantity;
 
-      if (existingItem) {
-        // Add quantities
-        const newQuantity = existingItem.quantity + guestItem.quantity;
-        await this.validateProductAndStock(guestItem.product_id, newQuantity);
-        existingItem.quantity = newQuantity;
-      } else {
-        // Add guest item to user cart
-        await this.validateProductAndStock(guestItem.product_id, guestItem.quantity);
-        userItems.push(guestItem);
-      }
+      await this.validateProductAndStock(item.product_id, newQuantity);
+      pipeline.hset(userKey, item.product_id, newQuantity);
     }
 
-    userCart.items = userItems;
-    await userCart.save();
+    await pipeline.exec();
+    await redisClient.del(guestKey);
 
-    // Clear guest cart
-    session.cart = { items: [] };
-
-    return this.getUserCart(userId);
+    return this.getCart(userId, null);
   }
 
-  async checkout({ userId, session, checkoutInput }) {
-    const cart = userId ? await this.getUserCart(userId) : await this.getGuestCart(session);
+  async checkout({ userId, guestId, checkoutInput = {} }) {
+    const cart = await this.getCart(userId, guestId);
 
     if (!cart.items || cart.items.length === 0) {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
@@ -325,12 +151,53 @@ class CartService {
     const order = await orderService.createOrder(userId || null, orderPayload);
 
     if (userId) {
-      await this.clearUserCart(userId);
-    } else {
-      this.clearGuestCart(session);
+      await this.clearCart(userId, null);
+    } else if (guestId) {
+      await this.clearCart(null, guestId);
     }
 
     return order;
+  }
+
+  _resolveCartKey(userId, guestId) {
+    if (userId) {
+      return `cart:user:${userId}`;
+    }
+
+    if (guestId) {
+      return `cart:guest:${guestId}`;
+    }
+
+    throw new ApiError('Guest identifier is required for cart operations', StatusCodes.BAD_REQUEST);
+  }
+
+  async _getRawCartEntries(key) {
+    const raw = await redisClient.hgetall(key);
+    const entries = Object.entries(raw || {});
+
+    return entries
+      .map(([productId, qty]) => ({
+        product_id: productId,
+        quantity: Number.parseInt(qty, 10) || 0,
+      }))
+      .filter((item) => item.quantity > 0);
+  }
+
+  async _ensureGuestExpiration(userId, key) {
+    if (userId) {
+      return;
+    }
+
+    await redisClient.expire(key, GUEST_CART_TTL_SECONDS);
+  }
+
+  async _pruneMissingProducts(key, missingProductIds) {
+    if (!missingProductIds || missingProductIds.length === 0) {
+      return;
+    }
+
+    await redisClient.hdel(key, ...missingProductIds);
+    this._debug(`Pruned ${missingProductIds.length} missing products from ${key}`);
   }
 
   /**
@@ -537,35 +404,6 @@ class CartService {
     }
   }
 
-  async _pruneMissingProductsFromUserCart(cart, missingProductIds) {
-    if (!cart || !missingProductIds || missingProductIds.length === 0) {
-      return;
-    }
-
-    const items = cart.items || [];
-    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (filtered.length === items.length) {
-      return;
-    }
-
-    cart.items = filtered;
-    await cart.save({ fields: ['items'] });
-    this._debug(`Pruned ${items.length - filtered.length} missing products from user cart ${cart.id}`);
-  }
-
-  _pruneMissingProductsFromSession(session, missingProductIds) {
-    if (!session || !session.cart || !Array.isArray(session.cart.items)) {
-      return;
-    }
-
-    const before = session.cart.items.length;
-    session.cart.items = session.cart.items.filter((item) => !missingProductIds.includes(item.product_id));
-
-    if (session.cart.items.length !== before) {
-      this._debug(`Pruned ${before - session.cart.items.length} missing products from guest cart`);
-    }
-  }
 }
 
 module.exports = new CartService();

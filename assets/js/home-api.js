@@ -401,38 +401,6 @@ async function addToCart(productId) {
 }
 
 /**
- * Add product to localStorage cart
- */
-function addToLocalCart(product) {
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
-
-    // Check if product already exists in cart
-    const existingIndex = cart.findIndex(item => item.product_id === product.id);
-
-    if (existingIndex > -1) {
-        // Increase quantity
-        cart[existingIndex].quantity++;
-    } else {
-        // Add new item
-        cart.push({
-            product_id: product.id,
-            product: {
-                id: product.id,
-                title: product.title,
-                price: product.price,
-                images: product.images,
-                stock: product.stock,
-                store: product.store
-            },
-            quantity: 1,
-            price: product.price
-        });
-    }
-
-    localStorage.setItem('cart', JSON.stringify(cart));
-}
-
-/**
  * Show success feedback when adding to cart
  */
 function showAddToCartSuccess(button, originalText) {
@@ -471,12 +439,11 @@ async function updateCartCount() {
         }, 200);
     } catch (error) {
         console.error('Error updating cart count:', error);
-        // Fallback to localStorage
-        const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-        cartCountEl.textContent = totalItems;
+        cartCountEl.textContent = '0';
     }
 }
+
+window.updateCartCount = updateCartCount;
 
 /**
  * Show toast notification
@@ -580,51 +547,14 @@ async function addToCart(productId) {
 
 
 
-        // Check if user is logged in
+        const success = await window.cartManager.addItem(productId, product, 1);
 
-        const isLoggedIn = localStorage.getItem('accessToken');
-
-
-
-        if (isLoggedIn) {
-
-            // Add to backend cart
-
-            const apiClient = new ApiClient();
-
-            const cartResponse = await apiClient.post('/cart/items', {
-
-                product_id: productId,
-
-                quantity: 1
-
-            });
-
-
-
-            if (cartResponse.success) {
-
-                showAddToCartSuccess(button, originalText);
-
-                updateCartCount();
-
-            } else {
-
-                throw new Error(cartResponse.message || 'Failed to add to cart');
-
-            }
-
-        } else {
-
-            // Add to localStorage cart
-
-            addToLocalCart(product);
-
-            showAddToCartSuccess(button, originalText);
-
-            updateCartCount();
-
+        if (!success) {
+            throw new Error('Failed to add to cart');
         }
+
+        showAddToCartSuccess(button, originalText);
+        await window.updateCartCount?.();
 
     } catch (error) {
 
@@ -649,70 +579,6 @@ async function addToCart(productId) {
         alert('Failed to add product to cart. Please try again.');
 
     }
-
-}
-
-
-
-/**
-
- * Add product to localStorage cart
-
- */
-
-function addToLocalCart(product) {
-
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
-
-
-
-    // Check if product already exists in cart
-
-    const existingIndex = cart.findIndex(item => item.product_id === product.id);
-
-
-
-    if (existingIndex > -1) {
-
-        // Increase quantity
-
-        cart[existingIndex].quantity++;
-
-    } else {
-
-        // Add new item
-
-        cart.push({
-
-            product_id: product.id,
-
-            product: {
-
-                id: product.id,
-
-                title: product.title,
-
-                price: product.price,
-
-                images: product.images,
-
-                stock: product.stock,
-
-                store: product.store
-
-            },
-
-            quantity: 1,
-
-            price: product.price
-
-        });
-
-    }
-
-
-
-    localStorage.setItem('cart', JSON.stringify(cart));
 
 }
 
@@ -751,50 +617,6 @@ function showAddToCartSuccess(button, originalText) {
     // Show toast notification
 
     showToast('Product added to cart!', 'success');
-
-}
-
-
-
-/**
-
- * Update cart count in header
-
- */
-
-function updateCartCount() {
-
-    const cartCountEl = document.querySelector('.cart-count');
-
-    if (!cartCountEl) return;
-
-
-
-    let totalItems = 0;
-
-
-
-    // Check localStorage cart
-
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
-
-    totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-
-
-    cartCountEl.textContent = totalItems;
-
-
-
-    // Animate the count
-
-    cartCountEl.style.transform = 'scale(1.3)';
-
-    setTimeout(() => {
-
-        cartCountEl.style.transform = 'scale(1)';
-
-    }, 200);
 
 }
 

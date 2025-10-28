@@ -61,77 +61,20 @@ class CheckoutPageAPI {
 
     async loadCart() {
         try {
-            console.log('[Checkout Page API] Loading cart...');
+            console.log('[Checkout Page API] Loading cart from API...');
+            this.cart = await window.cartManager.getCart(true);
+            console.log('[Checkout Page API] Cart loaded:', this.cart.length, 'items');
 
-            if (this.isLoggedIn) {
-                // Try to load from backend for logged-in users
-                try {
-                    const response = await this.apiClient.get('/cart');
-
-                    if (response.success && response.data && response.data.items && response.data.items.length > 0) {
-                        this.cart = response.data.items;
-                        console.log('[Checkout Page API] Cart loaded from backend:', this.cart.length, 'items');
-                    } else {
-                        // Fallback to localStorage
-                        this.loadLocalCart();
-                    }
-                } catch (error) {
-                    console.warn('[Checkout Page API] Backend cart failed, using localStorage');
-                    this.loadLocalCart();
-                }
-            } else {
-                // Guest checkout - load from localStorage only
-                this.loadLocalCart();
-            }
-
-            if (this.cart.length === 0) {
+            if (!Array.isArray(this.cart) || this.cart.length === 0) {
                 alert('Your cart is empty');
                 window.location.href = 'cart.html';
             }
         } catch (error) {
             console.error('[Checkout Page API] Error loading cart:', error);
-            // Fallback to localStorage
-            this.loadLocalCart();
-
-            if (this.cart.length === 0) {
-                alert('Your cart is empty');
-                window.location.href = 'cart.html';
-            }
+            this.cart = [];
+            alert('Your cart is empty');
+            window.location.href = 'cart.html';
         }
-    }
-
-    loadLocalCart() {
-        const localCart = JSON.parse(localStorage.getItem('cart')) || [];
-        console.log('[Checkout Page API] Raw localStorage cart:', localCart);
-
-        this.cart = localCart.map(item => {
-            // Ensure product data exists
-            if (!item.product && item.product_id) {
-                console.warn('[Checkout Page API] Product data missing, using fallback');
-                return {
-                    product_id: item.product_id,
-                    product: {
-                        id: item.product_id,
-                        title: item.title || 'Unknown Product',
-                        price: item.price || 0,
-                        images: item.images || [],
-                        stock: item.stock || 0,
-                        store: item.store || null
-                    },
-                    quantity: item.quantity || 1,
-                    price: parseFloat(item.price || 0)
-                };
-            }
-
-            return {
-                product_id: item.product_id,
-                product: item.product,
-                quantity: item.quantity || 1,
-                price: parseFloat(item.price || item.product?.price || 0)
-            };
-        }).filter(item => item.product_id);
-
-        console.log('[Checkout Page API] Cart loaded from localStorage:', this.cart.length, 'items');
     }
 
     renderCheckout() {
@@ -1055,7 +998,7 @@ class CheckoutPageAPI {
         logoutBtn.addEventListener('click', () => this.handleCheckoutLogout());
     }
 
-    handleCheckoutLogout() {
+    async handleCheckoutLogout() {
         AuthManager.logout(false);
         this.isLoggedIn = false;
         this.user = null;
@@ -1064,7 +1007,7 @@ class CheckoutPageAPI {
         this.clearAuthMessage('login');
         this.clearAuthMessage('register');
 
-        this.loadLocalCart();
+        await this.loadCart();
         this.renderOrderSummary();
         this.prefillContactInfo(true);
         this.clearShippingAddressFields(false);
@@ -1348,7 +1291,8 @@ class CheckoutPageAPI {
                 }));
 
                 // Clear cart
-                localStorage.removeItem('cart');
+                await window.cartManager.clearCart();
+                this.cart = [];
 
                 // Redirect to success page
                 console.log('[Checkout Page API] Redirecting to order-success.html with order ID:', firstOrderId);

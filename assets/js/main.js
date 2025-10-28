@@ -7,7 +7,6 @@
 class DostanWebApp {
     constructor() {
         this.currentTheme = localStorage.getItem('theme') || 'light';
-        this.cart = JSON.parse(localStorage.getItem('cart')) || [];
         this.wishlist = [];
         this.wishlistUnsubscribe = null;
         this.wishlistClickHandlerAttached = false;
@@ -526,26 +525,35 @@ class DostanWebApp {
 
     // Cart System - DEPRECATED: Now using CartManager from cart-manager.js
     setupCartSystem() {
-        // Disabled: CartManager and home-api.js handle cart operations now
-        // This old system only saved {id, quantity} without product details
-        console.log('[DostanWebApp] Cart system deprecated - using CartManager');
+        if (!window.cartManager) {
+            console.warn('[DostanWebApp] CartManager not available - cart count disabled');
+            return;
+        }
+
+        if (typeof window.updateCartCount !== 'function') {
+            window.updateCartCount = () => this.updateCartUI();
+        }
+        this.updateCartUI();
     }
 
-    addToCart(productId) {
-        // Deprecated: Use window.cartManager or home-api.js addToCart() instead
+    addToCart() {
         console.warn('[DostanWebApp] addToCart deprecated - use window.cartManager');
     }
 
-    saveCart() {
-        localStorage.setItem('cart', JSON.stringify(this.cart));
-    }
-
-    updateCartUI() {
-        const cartCount = this.cart.reduce((total, item) => total + item.quantity, 0);
+    async updateCartUI() {
         const cartBadge = document.querySelector('.cart-count');
-        if (cartBadge) {
+        if (!cartBadge || !window.cartManager) {
+            return;
+        }
+
+        try {
+            const cartCount = await window.cartManager.getCartCount();
             cartBadge.textContent = cartCount;
             cartBadge.style.display = cartCount > 0 ? 'block' : 'none';
+        } catch (error) {
+            console.warn('[DostanWebApp] Failed to update cart UI', error);
+            cartBadge.textContent = '0';
+            cartBadge.style.display = 'none';
         }
     }
 

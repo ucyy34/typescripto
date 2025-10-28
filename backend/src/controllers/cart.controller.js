@@ -15,15 +15,10 @@ class CartController {
    * @route GET /api/v1/cart
    */
   getCart = asyncHandler(async (req, res) => {
-    let cart;
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
 
-    if (req.user) {
-      // Authenticated user - get from database
-      cart = await cartService.getUserCart(req.user.id);
-    } else {
-      // Guest user - get from session
-      cart = await cartService.getGuestCart(req.session);
-    }
+    const cart = await cartService.getCart(userId, guestId);
 
     return success(res, cart, 'Cart retrieved successfully');
   });
@@ -35,17 +30,16 @@ class CartController {
   checkout = asyncHandler(async (req, res) => {
     const checkoutInput = req.body || {};
     const userId = req.user ? req.user.id : null;
+    const guestId = req.guestId || null;
 
-    const cart = req.user
-      ? await cartService.getUserCart(userId)
-      : await cartService.getGuestCart(req.session);
+    const cart = await cartService.getCart(userId, guestId);
 
     const order = await orderService.createFromCart(userId, cart, checkoutInput);
 
-    if (req.user) {
-      await cartService.clearUserCart(userId);
-    } else {
-      cartService.clearGuestCart(req.session);
+    if (userId) {
+      await cartService.clearCart(userId, null);
+    } else if (guestId) {
+      await cartService.clearCart(null, guestId);
     }
 
     return success(res, order, 'Checkout completed successfully', 201);
@@ -57,13 +51,10 @@ class CartController {
    */
   addItem = asyncHandler(async (req, res) => {
     const { product_id, quantity } = req.body;
-    let cart;
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
 
-    if (req.user) {
-      cart = await cartService.addItemToUserCart(req.user.id, product_id, quantity);
-    } else {
-      cart = await cartService.addItemToGuestCart(req.session, product_id, quantity);
-    }
+    const cart = await cartService.addItem(userId, guestId, product_id, quantity);
 
     return success(res, cart, 'Item added to cart successfully', 201);
   });
@@ -75,13 +66,10 @@ class CartController {
   updateItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body;
-    let cart;
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
 
-    if (req.user) {
-      cart = await cartService.updateUserCartItem(req.user.id, productId, quantity);
-    } else {
-      cart = await cartService.updateGuestCartItem(req.session, productId, quantity);
-    }
+    const cart = await cartService.updateItem(userId, guestId, productId, quantity);
 
     return success(res, cart, 'Cart item updated successfully');
   });
@@ -92,13 +80,10 @@ class CartController {
    */
   removeItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
-    let cart;
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
 
-    if (req.user) {
-      cart = await cartService.removeItemFromUserCart(req.user.id, productId);
-    } else {
-      cart = await cartService.removeItemFromGuestCart(req.session, productId);
-    }
+    const cart = await cartService.removeItem(userId, guestId, productId);
 
     return success(res, cart, 'Item removed from cart successfully');
   });
@@ -108,13 +93,10 @@ class CartController {
    * @route DELETE /api/v1/cart
    */
   clearCart = asyncHandler(async (req, res) => {
-    let cart;
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
 
-    if (req.user) {
-      cart = await cartService.clearUserCart(req.user.id);
-    } else {
-      cart = cartService.clearGuestCart(req.session);
-    }
+    const cart = await cartService.clearCart(userId, guestId);
 
     return success(res, cart, 'Cart cleared successfully');
   });
@@ -128,7 +110,9 @@ class CartController {
       return success(res, { items: [], totals: { subtotal: 0, item_count: 0 } }, 'No user logged in');
     }
 
-    const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
+    const guestId = req.guestId || null;
+
+    const cart = await cartService.mergeGuestCartToUser(req.user.id, guestId);
     return success(res, cart, 'Cart merged successfully');
   });
 
@@ -139,12 +123,10 @@ class CartController {
   getRecommendations = asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 6, 20);
 
-    let cart;
-    if (req.user) {
-      cart = await cartService.getUserCart(req.user.id);
-    } else {
-      cart = await cartService.getGuestCart(req.session);
-    }
+    const userId = req.user?.id || null;
+    const guestId = req.guestId || null;
+
+    const cart = await cartService.getCart(userId, guestId);
 
     const recommendations = await recommendationService.getCartRecommendations({
       cartItems: cart.items || [],

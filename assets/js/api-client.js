@@ -132,6 +132,7 @@ class ApiClient {
       const config = {
         ...options,
         headers: this.buildHeaders(options.headers),
+        credentials: options.credentials || 'include',
         signal: controller.signal,
       };
 
