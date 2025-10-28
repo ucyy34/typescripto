@@ -52,6 +52,27 @@ class OrderController {
     return success(res, order, `Order status updated to ${req.body.status}`);
   });
 
+  markPaid = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderPaid(req.params.id, {
+      transactionId: req.body.transaction_id,
+      paymentDetails: req.body.payment_details,
+    });
+    return success(res, order, 'Order marked as paid');
+  });
+
+  markShipped = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderShipped(req.params.id, {
+      trackingNumber: req.body.tracking_number,
+      carrier: req.body.carrier,
+    });
+    return success(res, order, 'Order marked as shipped');
+  });
+
+  markCompleted = asyncHandler(async (req, res) => {
+    const order = await orderService.markOrderCompleted(req.params.id);
+    return success(res, order, 'Order marked as completed');
+  });
+
   /**
    * Get all orders (admin)
    * @route GET /api/v1/orders/admin

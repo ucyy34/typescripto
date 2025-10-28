@@ -14,6 +14,9 @@ const {
   updateOrderStatusSchema,
   orderIdParamSchema,
   orderQuerySchema,
+  markPaidSchema,
+  markShippedSchema,
+  markCompletedSchema,
 } = require('../validators/order.validator');
 
 /**
@@ -57,6 +60,33 @@ router.patch(
   validateParams(orderIdParamSchema),
   validate(updateOrderStatusSchema),
   orderController.updateOrderStatus
+);
+
+router.post(
+  '/:id/mark-paid',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markPaidSchema),
+  orderController.markPaid
+);
+
+router.post(
+  '/:id/mark-shipped',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markShippedSchema),
+  orderController.markShipped
+);
+
+router.post(
+  '/:id/mark-completed',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markCompletedSchema),
+  orderController.markCompleted
 );
 
 module.exports = router;

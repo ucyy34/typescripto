@@ -4,6 +4,7 @@
  */
 
 const Joi = require('joi');
+const { shippingAddressSchema } = require('./order.validator');
 
 /**
  * Add item to cart validation
@@ -40,8 +41,33 @@ const productIdParamSchema = Joi.object({
   }),
 });
 
+const checkoutSchema = Joi.object({
+  store_id: Joi.string().uuid().optional(),
+  shipping_address: shippingAddressSchema.required(),
+  billing_address: shippingAddressSchema.optional(),
+  payment_method: Joi.string()
+    .valid(
+      'card',
+      'credit_card',
+      'debit_card',
+      'paypal',
+      'apple',
+      'google',
+      'crypto',
+      'bank_transfer',
+      'cash_on_delivery'
+    )
+    .default('credit_card'),
+  customer_note: Joi.string().max(1000).allow('', null),
+  provider: Joi.string().optional(),
+  shouldFail: Joi.boolean().optional(),
+  amount: Joi.number().positive().optional(),
+  currency: Joi.string().length(3).optional(),
+});
+
 module.exports = {
   addItemSchema,
   updateItemSchema,
   productIdParamSchema,
+  checkoutSchema,
 };

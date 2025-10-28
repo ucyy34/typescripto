@@ -9,6 +9,7 @@ const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const commissionService = require('./commission.service');
+const { ORDER_EVENTS, publishOrderEvent } = require('../events/order.events');
 
 class OrderService {
   /**
@@ -119,12 +120,57 @@ class OrderService {
         // Don't fail order creation if commission fails
       }
 
+      await publishOrderEvent(ORDER_EVENTS.CREATED, {
+        orderId: order.id,
+        userId,
+        amount: total,
+        status: order.status,
+        currency: order.currency,
+      });
+
       // Return order with items
       return this.getOrderById(order.id, userId);
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  async createOrderFromCart({ userId, cart, checkoutInput }) {
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const firstItemStoreId = cart.items[0]?.store?.id || cart.items[0]?.store_id;
+    const storeId = checkoutInput.store_id || firstItemStoreId;
+
+    if (!storeId) {
+      throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
+    }
+
+    const items = cart.items.map((item) => ({
+      product_id: item.product_id || item.id,
+      quantity: item.quantity,
+    }));
+
+    const orderPayload = {
+      store_id: storeId,
+      items,
+      shipping_address: checkoutInput.shipping_address,
+      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+      payment_method: checkoutInput.payment_method,
+      customer_note: checkoutInput.customer_note,
+    };
+
+    const order = await this.createOrder(userId, orderPayload);
+
+    await publishOrderEvent(ORDER_EVENTS.CHECKED_OUT, {
+      orderId: order.id,
+      userId,
+      cartId: cart.id || null,
+    });
+
+    return order;
   }
 
   /**
@@ -386,6 +432,96 @@ class OrderService {
     await order.save();
 
     return this.getOrderById(orderId, userId, role);
+  }
+
+  async markOrderPaid(orderId, context = {}) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.status = 'paid';
+    order.payment_status = 'paid';
+    order.paid_at = new Date();
+    if (context.transactionId) {
+      order.payment_transaction_id = context.transactionId;
+    }
+    if (context.paymentDetails) {
+      order.payment_details = context.paymentDetails;
+    }
+
+    await order.save();
+
+    await publishOrderEvent(ORDER_EVENTS.PAID, {
+      orderId: order.id,
+      userId: order.user_id,
+      status: order.status,
+      amount: order.total,
+    });
+
+    return order;
+  }
+
+  async markOrderFailed(orderId, errorMessage) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.payment_status = 'failed';
+    order.cancellation_reason = errorMessage;
+    await order.save();
+
+    await publishOrderEvent(ORDER_EVENTS.FAILED, {
+      orderId: order.id,
+      userId: order.user_id,
+      error: errorMessage,
+    });
+
+    return order;
+  }
+
+  async markOrderShipped(orderId, context = {}) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.status = 'shipped';
+    order.tracking_number = context.trackingNumber || context.tracking_number || order.tracking_number;
+    order.carrier = context.carrier || order.carrier;
+    order.shipped_at = new Date();
+
+    await order.save();
+
+    await publishOrderEvent(ORDER_EVENTS.SHIPPED, {
+      orderId: order.id,
+      userId: order.user_id,
+      trackingNumber: order.tracking_number,
+      carrier: order.carrier,
+    });
+
+    return order;
+  }
+
+  async markOrderCompleted(orderId) {
+    const order = await Order.findByPk(orderId);
+    if (!order) {
+      throw new ApiError('Order not found', StatusCodes.NOT_FOUND);
+    }
+
+    order.status = 'delivered';
+    order.delivered_at = new Date();
+
+    await order.save();
+
+    await publishOrderEvent(ORDER_EVENTS.COMPLETED, {
+      orderId: order.id,
+      userId: order.user_id,
+      status: order.status,
+    });
+
+    return order;
   }
 
   /**

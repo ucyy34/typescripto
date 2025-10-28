@@ -6,10 +6,30 @@
 const { Op } = require('sequelize');
 const { Product, Store, Category, WishlistItem } = require('../models');
 const { cache } = require('../config/redis');
+const eventBus = require('../events/eventBus');
+const { ORDER_EVENTS } = require('../events/order.events');
+const logger = require('../utils/logger');
 
 const CACHE_TTL_SECONDS = 60 * 3;
 
 class RecommendationService {
+  constructor() {
+    this.initialized = false;
+    this.registerConsumers();
+  }
+
+  registerConsumers() {
+    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
+      return;
+    }
+
+    eventBus.subscribe(ORDER_EVENTS.COMPLETED, async (payload) => {
+      await this.recordOrderCompletion(payload);
+    });
+
+    this.initialized = true;
+  }
+
   async getCartRecommendations({ cartItems = [], userId = null, limit = 6 }) {
     const categories = [
       ...new Set(
@@ -136,6 +156,28 @@ class RecommendationService {
     const excludeKey = excludeIds.sort().join(',') || 'none';
     const userKey = userId || 'guest';
     return `recommendations:cart:${userKey}:${categoryKey}:${excludeKey}:${limit}`;
+  }
+
+  async recordOrderCompletion(payload) {
+    if (!payload || !payload.userId) {
+      logger.info('Skipping recommendation update for anonymous completion');
+      return;
+    }
+
+    const cacheKey = `recommendations:history:${payload.userId}`;
+    await cache.set(
+      cacheKey,
+      {
+        lastCompletedOrderId: payload.orderId,
+        completedAt: payload.timestamp || new Date().toISOString(),
+      },
+      CACHE_TTL_SECONDS
+    );
+
+    logger.info('Recorded order completion for recommendations', {
+      userId: payload.userId,
+      orderId: payload.orderId,
+    });
   }
 }
 

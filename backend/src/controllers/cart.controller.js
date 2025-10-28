@@ -4,9 +4,11 @@
  */
 
 const cartService = require('../services/cart.service');
+const orderService = require('../services/order.service');
 const { success } = require('../utils/response');
-const { asyncHandler } = require('../middlewares/errorHandler');
+const { asyncHandler, ApiError } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
+const { StatusCodes } = require('http-status-codes');
 
 class CartController {
   /**
@@ -106,6 +108,31 @@ class CartController {
 
     const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
     return success(res, cart, 'Cart merged successfully');
+  });
+
+  checkout = asyncHandler(async (req, res) => {
+    const userId = req.user ? req.user.id : null;
+    const cart = req.user
+      ? await cartService.getUserCart(userId)
+      : await cartService.getGuestCart(req.session);
+
+    if (!cart.items || cart.items.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const order = await orderService.createOrderFromCart({
+      userId,
+      cart,
+      checkoutInput: req.body,
+    });
+
+    if (req.user) {
+      await cartService.clearUserCart(userId);
+    } else {
+      cartService.clearGuestCart(req.session);
+    }
+
+    return success(res, order, 'Checkout completed successfully', StatusCodes.CREATED);
   });
 
   /**
