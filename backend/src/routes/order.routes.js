@@ -14,6 +14,10 @@ const {
   updateOrderStatusSchema,
   orderIdParamSchema,
   orderQuerySchema,
+  markPaidSchema,
+  markShippedSchema,
+  markCompletedSchema,
+  markFailedSchema,
 } = require('../validators/order.validator');
 
 /**
@@ -44,6 +48,42 @@ router.get('/admin', authenticate, requireAdmin, validateQuery(orderQuerySchema)
  * @access  Private (authenticated users - own orders only)
  */
 router.get('/:id', authenticate, validateParams(orderIdParamSchema), orderController.getOrder);
+
+router.post(
+  '/:id/mark-paid',
+  authenticate,
+  requireAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markPaidSchema),
+  orderController.markPaid
+);
+
+router.post(
+  '/:id/mark-shipped',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markShippedSchema),
+  orderController.markShipped
+);
+
+router.post(
+  '/:id/mark-completed',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markCompletedSchema),
+  orderController.markCompleted
+);
+
+router.post(
+  '/:id/mark-failed',
+  authenticate,
+  requireAdmin,
+  validateParams(orderIdParamSchema),
+  validate(markFailedSchema),
+  orderController.markFailed
+);
 
 /**
  * @route   PATCH /api/v1/orders/:id/status

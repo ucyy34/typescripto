@@ -112,4 +112,19 @@ module.exports = {
   orderIdParamSchema,
   storeIdParamSchema,
   orderQuerySchema,
+  markPaidSchema: Joi.object({
+    transaction_id: Joi.string().max(255).optional(),
+    details: Joi.object().optional(),
+  }),
+  markShippedSchema: Joi.object({
+    tracking_number: Joi.string().max(100).required(),
+    carrier: Joi.string().max(100).required(),
+    shipped_at: Joi.date().optional(),
+  }),
+  markCompletedSchema: Joi.object({
+    delivered_at: Joi.date().optional(),
+  }),
+  markFailedSchema: Joi.object({
+    reason: Joi.string().max(500).optional(),
+  }),
 };

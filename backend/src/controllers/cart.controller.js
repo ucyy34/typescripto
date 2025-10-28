@@ -4,9 +4,11 @@
  */
 
 const cartService = require('../services/cart.service');
+const orderService = require('../services/order.service');
 const { success } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
+const { publishCartEvent, CART_EVENTS } = require('../events/cart.events');
 
 class CartController {
   /**
@@ -106,6 +108,48 @@ class CartController {
 
     const cart = await cartService.mergeGuestCartToUser(req.user.id, req.session);
     return success(res, cart, 'Cart merged successfully');
+  });
+
+  /**
+   * Checkout cart and create order
+   * @route POST /api/v1/cart/checkout
+   */
+  checkout = asyncHandler(async (req, res) => {
+    const checkoutPayload = req.body || {};
+    const isAuthenticated = Boolean(req.user);
+    const userId = req.user ? req.user.id : null;
+
+    const cart = isAuthenticated
+      ? await cartService.getUserCart(userId)
+      : await cartService.getGuestCart(req.session);
+
+    const order = await orderService.createFromCart({
+      userId,
+      cartItems: cart.items,
+      checkout: {
+        ...checkoutPayload,
+        metadata: {
+          ...(checkoutPayload.metadata || {}),
+          cartId: cart.id || null,
+          guest: !isAuthenticated,
+        },
+      },
+    });
+
+    if (isAuthenticated) {
+      await cartService.clearUserCart(userId);
+    } else {
+      cartService.clearGuestCart(req.session);
+    }
+
+    await publishCartEvent(CART_EVENTS.CHECKED_OUT, {
+      cartId: cart.id || null,
+      orderId: order.id,
+      userId,
+      guest: !isAuthenticated,
+    });
+
+    return success(res, order, 'Checkout completed successfully', 201);
   });
 
   /**

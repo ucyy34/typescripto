@@ -36,9 +36,12 @@ const shippingRoutes = require('./routes/shipping.routes');
 const reviewRoutes = require('./routes/review.routes');
 const campaignRoutes = require('./routes/campaign.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
+const initializeWorkers = require('./workers');
 
 // Create Express app
 const app = express();
+
+initializeWorkers();
 
 // Security middleware
 // Configure CSP for local development

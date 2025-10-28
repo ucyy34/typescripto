@@ -115,6 +115,28 @@ class RecommendationService {
     return recommendations;
   }
 
+  async recordOrderCompletion({ userId, items = [] }) {
+    if (!userId || !items.length) {
+      return null;
+    }
+
+    const productIds = items
+      .map((item) => item.productId || item.product_id)
+      .filter(Boolean);
+
+    if (productIds.length === 0) {
+      return null;
+    }
+
+    const cacheKey = `recommendations:orders:${userId}`;
+    const payload = {
+      lastPurchased: productIds,
+      updatedAt: new Date().toISOString(),
+    };
+    await cache.set(cacheKey, payload, CACHE_TTL_SECONDS);
+    return payload;
+  }
+
   _serializeProduct(product) {
     return {
       id: product.id,
