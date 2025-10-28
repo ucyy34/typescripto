@@ -39,6 +39,24 @@ class NotificationService {
       message: 'Payment attempt failed',
     });
   }
+
+  async handleOrderCompleted(event) {
+    if (!event) {
+      return null;
+    }
+
+    logger.info('[Notification] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId,
+    });
+
+    return this.transport.send({
+      type: 'order-completed',
+      orderId: event.orderId,
+      userId: event.userId,
+      message: 'Order delivered successfully',
+    });
+  }
 }
 
 module.exports = new NotificationService();

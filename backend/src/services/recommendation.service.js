@@ -6,6 +6,7 @@
 const { Op } = require('sequelize');
 const { Product, Store, Category, WishlistItem } = require('../models');
 const { cache } = require('../config/redis');
+const logger = require('../utils/logger');
 
 const CACHE_TTL_SECONDS = 60 * 3;
 
@@ -142,6 +143,11 @@ class RecommendationService {
     if (!event || !event.userId) {
       return;
     }
+
+    logger.info('[Recommendation] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId,
+    });
 
     await cache.delPattern(`recommendations:cart:${event.userId}:*`);
   }

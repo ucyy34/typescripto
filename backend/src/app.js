@@ -13,13 +13,13 @@ const cors = require('cors');
 const compression = require('compression');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
 // path already required above
 
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
 const { sequelize } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
+const { attachGuestId } = require('./middlewares/guest.middleware');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -98,19 +98,8 @@ app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 app.use(cookieParser()); // Parse cookies
 
-// Session middleware (for guest cart)
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'dostan-marketplace-session-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    },
-  })
-);
+// Guest identification middleware (replaces express-session cart storage)
+app.use(attachGuestId);
 
 // Compression middleware (gzip)
 app.use(compression());
