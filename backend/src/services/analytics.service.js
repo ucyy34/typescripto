@@ -1,5 +1,4 @@
 const logger = require('../utils/logger');
-const { ORDER_EVENTS } = require('../events/order.events');
 
 class AnalyticsService {
   async track(eventType, payload) {
@@ -9,9 +8,9 @@ class AnalyticsService {
   async handleOrderEvent(eventType, payload) {
     await this.track(eventType, payload);
 
-    if (eventType === ORDER_EVENTS.ORDER_COMPLETED) {
-      logger.info('[Analytics] order.completed event processed', {
-        orderId: payload?.orderId || null,
+    if (eventType === 'order.completed' || eventType?.type === 'order.completed') {
+      logger.info('[Analytics] order.completed handled', {
+        orderId: payload?.orderId,
         userId: payload?.userId || null,
       });
     }

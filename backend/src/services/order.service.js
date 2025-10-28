@@ -479,7 +479,7 @@ class OrderService {
     await publishOrderCompleted(
       serializeOrderForEvent(order, {
         status: 'completed',
-        lifecycle: 'auto-complete-after-payment',
+        completedAt: new Date().toISOString(),
       })
     );
 

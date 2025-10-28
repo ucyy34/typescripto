@@ -1,20 +1,23 @@
 /**
  * Cart Service
- * Redis-backed cart management for guest and authenticated users
+ * Business logic for shopping cart management backed by Redis
  */
 
 const { Product, Store, Category } = require('../models');
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
-const orderService = require('./order.service');
 const { redisClient } = require('../config/redis');
+const orderService = require('./order.service');
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
 const DEFAULT_CACHE_MAX_ITEMS = 500;
-const CART_USER_PREFIX = 'cart:user:';
-const CART_GUEST_PREFIX = 'cart:guest:';
-const GUEST_CART_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
+const CART_KEY_PREFIX = 'cart';
+const USER_CART_PREFIX = `${CART_KEY_PREFIX}:user:`;
+const GUEST_CART_PREFIX = `${CART_KEY_PREFIX}:guest:`;
+const USER_CART_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const GUEST_CART_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 class CartService {
   constructor() {
@@ -27,161 +30,182 @@ class CartService {
     this.debugEnabled = process.env.NODE_ENV !== 'production';
   }
 
-  _resolveKey(userId, guestId) {
-    if (userId) {
-      return `${CART_USER_PREFIX}${userId}`;
-    }
+  /**
+   * Retrieve cart for a user or guest based on identifiers
+   * @param {string|null} userId
+   * @param {string|null} guestId
+   */
+  async getCart(userId = null, guestId = null) {
+    const key = this._resolveCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
+    const { items, metadata } = await this._loadCartState(key);
 
-    if (guestId) {
-      return `${CART_GUEST_PREFIX}${guestId}`;
-    }
-
-    throw new ApiError('Cart context is required', StatusCodes.BAD_REQUEST);
-  }
-
-  async _readCartEntries(key) {
-    const raw = await redisClient.hgetall(key);
-    if (!raw || Object.keys(raw).length === 0) {
-      return [];
-    }
-
-    const invalidIds = [];
-    const items = Object.entries(raw)
-      .map(([productId, storedValue]) => {
-        const parsed = parseInt(storedValue, 10);
-        if (!Number.isInteger(parsed) || parsed <= 0) {
-          invalidIds.push(productId);
-          return null;
-        }
-
-        return { product_id: productId, quantity: parsed };
-      })
-      .filter(Boolean);
-
-    if (invalidIds.length > 0) {
-      await redisClient.hdel(key, ...invalidIds);
-      this._debug(`Pruned invalid cart entries for ${key}: ${invalidIds.join(', ')}`);
-    }
-
-    return items;
-  }
-
-  async _removeMissingProducts(key, missingProductIds) {
-    if (!missingProductIds || missingProductIds.length === 0) {
-      return;
-    }
-
-    await redisClient.hdel(key, ...missingProductIds);
-    this._debug(`Removed ${missingProductIds.length} missing products from ${key}`);
-  }
-
-  async _applyGuestTtl(userId, key) {
-    if (!userId && GUEST_CART_TTL_SECONDS > 0) {
-      await redisClient.expire(key, GUEST_CART_TTL_SECONDS);
-    }
-  }
-
-  async getCart(userId, guestId) {
-    const key = this._resolveKey(userId, guestId);
-    const rawItems = await this._readCartEntries(key);
-
-    if (rawItems.length === 0) {
-      return {
-        items: [],
-        totals: { subtotal: 0, item_count: 0 },
-      };
-    }
-
-    const cartWithDetails = await this.populateCartItems(rawItems);
+    const cartWithDetails = await this.populateCartItems(items);
 
     if (cartWithDetails.missingProductIds.length > 0) {
-      await this._removeMissingProducts(key, cartWithDetails.missingProductIds);
+      await this._pruneMissingProductsInStorage({
+        key,
+        items,
+        missingProductIds: cartWithDetails.missingProductIds,
+        ttl,
+      });
     }
 
     return {
       items: cartWithDetails.items,
       totals: cartWithDetails.totals,
+      updated_at: metadata?.updated_at || null,
     };
   }
 
-  async addItem(userId, guestId, productId, quantity = 1) {
-    const key = this._resolveKey(userId, guestId);
+  /**
+   * Add item to cart for user or guest
+   */
+  async addItem(userId, guestId, productId, quantity) {
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
+
     await this.validateProductAndStock(productId, quantity);
 
-    const current = parseInt(await redisClient.hget(key, productId), 10) || 0;
-    const newQuantity = current + quantity;
+    const { items } = await this._loadCartState(key);
+    const existing = items.find((item) => item.product_id === productId);
 
-    await this.validateProductAndStock(productId, newQuantity);
-    await redisClient.hset(key, productId, newQuantity);
-    await this._applyGuestTtl(userId, key);
+    if (existing) {
+      const newQuantity = existing.quantity + quantity;
+      await this.validateProductAndStock(productId, newQuantity);
+      existing.quantity = newQuantity;
+    } else {
+      items.push({ product_id: productId, quantity });
+    }
 
+    await this._persistCartState(key, items, ttl);
     return this.getCart(userId, guestId);
   }
 
+  /**
+   * Update item quantity in cart
+   */
   async updateItem(userId, guestId, productId, quantity) {
-    const key = this._resolveKey(userId, guestId);
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
 
-    if (quantity <= 0) {
-      await redisClient.hdel(key, productId);
+    const { items } = await this._loadCartState(key);
+    const existing = items.find((item) => item.product_id === productId);
+
+    if (!existing) {
+      throw new ApiError('Item not found in cart', StatusCodes.NOT_FOUND);
+    }
+
+    if (quantity === 0) {
+      const filtered = items.filter((item) => item.product_id !== productId);
+      await this._persistCartState(key, filtered, ttl);
       return this.getCart(userId, guestId);
     }
 
     await this.validateProductAndStock(productId, quantity);
-    await redisClient.hset(key, productId, quantity);
-    await this._applyGuestTtl(userId, key);
-
+    existing.quantity = quantity;
+    await this._persistCartState(key, items, ttl);
     return this.getCart(userId, guestId);
   }
 
+  /**
+   * Remove item from cart
+   */
   async removeItem(userId, guestId, productId) {
-    const key = this._resolveKey(userId, guestId);
-    await redisClient.hdel(key, productId);
+    const key = this._requireCartKey(userId, guestId);
+    const ttl = this._resolveCartTtl(userId);
+
+    const { items } = await this._loadCartState(key);
+    const filtered = items.filter((item) => item.product_id !== productId);
+
+    await this._persistCartState(key, filtered, ttl);
     return this.getCart(userId, guestId);
   }
 
-  async clearCart(userId, guestId) {
-    const key = this._resolveKey(userId, guestId);
-    await redisClient.del(key);
-    return {
-      items: [],
-      totals: { subtotal: 0, item_count: 0 },
-    };
+  /**
+   * Clear cart contents
+   */
+  async clearCart(userId = null, guestId = null) {
+    const key = this._resolveCartKey(userId, guestId);
+    if (key) {
+      await redisClient.del(key);
+    }
+
+    return { items: [], totals: { subtotal: 0, item_count: 0 } };
   }
 
+  /**
+   * Merge guest cart items into authenticated user's cart
+   */
   async mergeGuestCartToUser(userId, guestId) {
+    if (!userId) {
+      throw new ApiError('User ID is required to merge carts', StatusCodes.BAD_REQUEST);
+    }
+
     if (!guestId) {
       return this.getCart(userId, null);
     }
 
-    const guestKey = this._resolveKey(null, guestId);
-    const guestItems = await this._readCartEntries(guestKey);
+    const userKey = this._requireCartKey(userId, null);
+    const guestKey = this._resolveCartKey(null, guestId);
 
+    const { items: guestItems } = await this._loadCartState(guestKey);
     if (guestItems.length === 0) {
-      await redisClient.del(guestKey);
       return this.getCart(userId, null);
     }
 
-    const userKey = this._resolveKey(userId, null);
+    const ttl = this._resolveCartTtl(userId);
+    const { items: userItems } = await this._loadCartState(userKey);
+    const merged = [...userItems];
 
-    for (const item of guestItems) {
-      const existing = parseInt(await redisClient.hget(userKey, item.product_id), 10) || 0;
-      const mergedQuantity = existing + item.quantity;
-      await this.validateProductAndStock(item.product_id, mergedQuantity);
-      await redisClient.hset(userKey, item.product_id, mergedQuantity);
+    for (const guestItem of guestItems) {
+      const existing = merged.find((item) => item.product_id === guestItem.product_id);
+      const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
+      await this.validateProductAndStock(guestItem.product_id, newQuantity);
+
+      if (existing) {
+        existing.quantity = newQuantity;
+      } else {
+        merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
+      }
     }
 
-    await redisClient.del(guestKey);
+    await this._persistCartState(userKey, merged, ttl);
+
+    if (guestKey) {
+      await redisClient.del(guestKey);
+    }
+
     return this.getCart(userId, null);
   }
 
-  async checkout({ userId, guestId, checkoutInput }) {
+  async checkout({ userId = null, guestId = null, checkoutInput = {} }) {
     const cart = await this.getCart(userId, guestId);
 
     if (!cart.items || cart.items.length === 0) {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const order = await orderService.createFromCart(userId || null, cart, checkoutInput || {});
+    const orderStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
+    if (!orderStoreId) {
+      throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
+    }
+
+    const items = cart.items.map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    }));
+
+    const orderPayload = {
+      store_id: orderStoreId,
+      items,
+      shipping_address: checkoutInput.shipping_address,
+      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+      payment_method: checkoutInput.payment_method,
+      customer_note: checkoutInput.customer_note,
+    };
+
+    const order = await orderService.createOrder(userId || null, orderPayload);
 
     if (userId) {
       await this.clearCart(userId, null);
@@ -192,6 +216,9 @@ class CartService {
     return order;
   }
 
+  /**
+   * Validate product exists, is available, and has sufficient stock
+   */
   async validateProductAndStock(productId, quantity) {
     const product = await Product.findByPk(productId, {
       include: [{ model: Store, as: 'store', attributes: ['status'] }],
@@ -210,6 +237,9 @@ class CartService {
     return product;
   }
 
+  /**
+   * Populate cart items with product details and calculate totals
+   */
   async populateCartItems(items) {
     if (!items || items.length === 0) {
       return {
@@ -319,6 +349,84 @@ class CartService {
     }
 
     return orderedProducts;
+  }
+
+  _resolveCartKey(userId, guestId) {
+    if (userId) {
+      return `${USER_CART_PREFIX}${userId}`;
+    }
+
+    if (guestId) {
+      return `${GUEST_CART_PREFIX}${guestId}`;
+    }
+
+    return null;
+  }
+
+  _requireCartKey(userId, guestId) {
+    const key = this._resolveCartKey(userId, guestId);
+    if (!key) {
+      throw new ApiError('Guest session missing', StatusCodes.BAD_REQUEST);
+    }
+    return key;
+  }
+
+  _resolveCartTtl(userId) {
+    return userId ? USER_CART_TTL_SECONDS : GUEST_CART_TTL_SECONDS;
+  }
+
+  async _loadCartState(key) {
+    if (!key) {
+      return { key: null, items: [], metadata: {} };
+    }
+
+    const data = await redisClient.hgetall(key);
+    if (!data || Object.keys(data).length === 0) {
+      return { key, items: [], metadata: {} };
+    }
+
+    let items = [];
+    if (data.items) {
+      try {
+        const parsed = JSON.parse(data.items);
+        items = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        console.warn(`[CartService] Failed to parse cart data for ${key}`, error);
+        items = [];
+      }
+    }
+
+    return { key, items, metadata: data };
+  }
+
+  async _persistCartState(key, items, ttlSeconds) {
+    if (!key) {
+      return;
+    }
+
+    await redisClient.hset(key, {
+      items: JSON.stringify(items),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (ttlSeconds) {
+      await redisClient.expire(key, ttlSeconds);
+    }
+  }
+
+  async _pruneMissingProductsInStorage({ key, items, missingProductIds, ttl }) {
+    if (!key || !Array.isArray(items) || !missingProductIds || missingProductIds.length === 0) {
+      return;
+    }
+
+    const filtered = items.filter((item) => !missingProductIds.includes(item.product_id));
+
+    if (filtered.length === items.length) {
+      return;
+    }
+
+    await this._persistCartState(key, filtered, ttl);
+    this._debug(`Pruned ${items.length - filtered.length} missing products from cart ${key}`);
   }
 
   _getCachedProduct(id, now) {

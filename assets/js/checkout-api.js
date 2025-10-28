@@ -61,19 +61,31 @@ class CheckoutPageAPI {
 
     async loadCart() {
         try {
-            console.log('[Checkout Page API] Loading cart from API...');
-            this.cart = await window.cartManager.getCart(true);
+            console.log('[Checkout Page API] Loading cart...');
 
-            if (!Array.isArray(this.cart) || this.cart.length === 0) {
-                alert('Your cart is empty');
-                window.location.href = 'cart.html';
-                return;
+            const response = await this.apiClient.get('/cart', {}, { useCache: false });
+
+            if (response.success && response.data) {
+                const items = Array.isArray(response.data.items) ? response.data.items : [];
+                if (window.cartManager && typeof window.cartManager.normalizeBackendItem === 'function') {
+                    this.cart = items.map(item => window.cartManager.normalizeBackendItem(item)).filter(Boolean);
+                } else {
+                    this.cart = items;
+                }
+                console.log('[Checkout Page API] Cart loaded from API:', this.cart.length, 'items');
+            } else {
+                this.cart = [];
+                console.warn('[Checkout Page API] Cart API responded without items');
             }
 
-            console.log('[Checkout Page API] Cart loaded:', this.cart.length, 'items');
+            if (this.cart.length === 0) {
+                alert('Your cart is empty');
+                window.location.href = 'cart.html';
+            }
         } catch (error) {
             console.error('[Checkout Page API] Error loading cart:', error);
-            alert('Could not load your cart. Please try again.');
+            this.cart = [];
+            alert('Your cart is empty');
             window.location.href = 'cart.html';
         }
     }
@@ -996,14 +1008,10 @@ class CheckoutPageAPI {
         if (!logoutBtn || logoutBtn.dataset.bound === 'true') return;
 
         logoutBtn.dataset.bound = 'true';
-        logoutBtn.addEventListener('click', () => {
-            this.handleCheckoutLogout().catch(error => {
-                console.error('[Checkout Page API] Logout handler error:', error);
-            });
-        });
+        logoutBtn.addEventListener('click', () => this.handleCheckoutLogout());
     }
 
-    async handleCheckoutLogout() {
+    handleCheckoutLogout() {
         AuthManager.logout(false);
         this.isLoggedIn = false;
         this.user = null;
@@ -1012,7 +1020,7 @@ class CheckoutPageAPI {
         this.clearAuthMessage('login');
         this.clearAuthMessage('register');
 
-        this.cart = await window.cartManager.getCart(true);
+        this.loadLocalCart();
         this.renderOrderSummary();
         this.prefillContactInfo(true);
         this.clearShippingAddressFields(false);
@@ -1202,7 +1210,7 @@ class CheckoutPageAPI {
                 submitBtn.textContent = '⏳ Processing...';
             }
 
-            // Prepare order payload for unified checkout endpoint
+            // Prepare order data
             console.log('[Checkout Page API] Raw shipping address:', this.shippingAddress);
 
             const shippingAddress = {
@@ -1216,58 +1224,66 @@ class CheckoutPageAPI {
                 country: this.shippingAddress.country || 'Turkey'
             };
 
-            const billingSource = this.useSameAddress ? this.shippingAddress : this.billingAddress || {};
-            const billingAddress = {
-                full_name: `${billingSource.firstName || billingSource.full_name || ''} ${billingSource.lastName || ''}`.trim() || shippingAddress.full_name,
-                phone: billingSource.phone || shippingAddress.phone,
-                address_line1: billingSource.address || billingSource.address_line1 || shippingAddress.address_line1,
-                address_line2: billingSource.district || billingSource.address2 || shippingAddress.address_line2,
-                city: billingSource.city || shippingAddress.city,
-                state: billingSource.district || billingSource.state || shippingAddress.state,
-                postal_code: billingSource.postalCode || shippingAddress.postal_code,
-                country: billingSource.country || shippingAddress.country
-            };
-
             const orderData = {
                 shipping_address: shippingAddress,
-                billing_address: billingAddress,
-                payment_method: this.paymentMethod || 'card'
+                billing_address: shippingAddress,
+                payment_method: this.paymentMethod || 'bank_transfer'
             };
 
+            // Add coupon info if applied
             if (this.appliedCoupon && this.couponDiscount > 0) {
                 orderData.coupon_code = this.appliedCoupon.code;
                 orderData.coupon_discount = this.couponDiscount;
             }
 
-            const primaryStoreId = this.cart[0]?.product?.store?.id || this.cart[0]?.store_id || this.cart[0]?.product?.store_id;
+            console.log('[Checkout Page API] Prepared order data:', JSON.stringify(orderData, null, 2));
+
+            const primaryStoreId = this.cart[0]?.product?.store_id
+                || this.cart[0]?.product?.store?.id
+                || this.cart[0]?.store_id
+                || null;
+
             if (primaryStoreId) {
                 orderData.store_id = primaryStoreId;
             }
 
-            console.log('[Checkout Page API] Prepared checkout payload:', JSON.stringify(orderData, null, 2));
-
             const checkoutResponse = await this.apiClient.post('/cart/checkout', orderData);
 
-            if (checkoutResponse.success) {
-                const orderPayload = checkoutResponse.data || {};
-                const orderId = orderPayload.id || orderPayload.order?.id || orderPayload.orderId || 'unknown';
+            if (checkoutResponse.success && checkoutResponse.data) {
+                console.log('[Checkout Page API] Checkout completed successfully');
 
-                localStorage.setItem('lastOrder', JSON.stringify({
-                    items: this.cart,
-                    total: this.orderTotal,
-                    subtotal: this.orderSubtotal,
-                    shipping: this.orderShipping,
-                    tax: this.orderTax
-                }));
+                const orderId = checkoutResponse.data.id
+                    || checkoutResponse.data.order?.id
+                    || checkoutResponse.data.order_id
+                    || 'unknown';
 
-                await window.cartManager.getCart(true);
-                this.cart = [];
+                try {
+                    sessionStorage.setItem('lastOrder', JSON.stringify({
+                        items: this.cart,
+                        total: this.orderTotal,
+                        subtotal: this.orderSubtotal,
+                        shipping: this.orderShipping,
+                        tax: this.orderTax
+                    }));
+                } catch (storageError) {
+                    console.warn('[Checkout Page API] Failed to persist order summary in sessionStorage', storageError);
+                }
+
+                if (window.cartManager && typeof window.cartManager.invalidateCache === 'function') {
+                    window.cartManager.invalidateCache();
+                    try {
+                        await window.cartManager.getCart(true);
+                    } catch (_) {
+                        // Ignore errors refreshing cart cache
+                    }
+                }
 
                 console.log('[Checkout Page API] Redirecting to order-success.html with order ID:', orderId);
                 window.location.href = `order-success.html?orderId=${orderId}`;
             } else {
-                alert(checkoutResponse.message || 'Order could not be completed.');
-                console.error('[Checkout Page API] Checkout error:', checkoutResponse);
+                const message = checkoutResponse.message || 'Checkout failed. Please try again.';
+                alert(message);
+                console.error('[Checkout Page API] Checkout failed:', checkoutResponse);
             }
         } catch (error) {
             console.error('[Checkout Page API] Error placing order:', error);

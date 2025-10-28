@@ -174,8 +174,8 @@
             try {
                 document.getElementById('orderNumber').textContent = orderId.substring(0, 8).toUpperCase();
 
-                // Get order from localStorage cart (since it was just created)
-                const cart = JSON.parse(localStorage.getItem('lastOrder')) || [];
+                // Get order from session storage cart (since it was just created)
+                const cart = JSON.parse(sessionStorage.getItem('lastOrder')) || [];
 
                 const itemsContainer = document.getElementById('orderItems');
                 if (cart && cart.items && cart.items.length > 0) {
@@ -205,9 +205,9 @@
                     itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">No items found</p>';
                 }
 
-                // Clear localStorage order
+                // Clear session storage snapshot
                 setTimeout(() => {
-                    localStorage.removeItem('lastOrder');
+                    sessionStorage.removeItem('lastOrder');
                 }, 10000);
 
             } catch (error) {

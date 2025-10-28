@@ -46,7 +46,7 @@ class NotificationService {
     }
 
     logger.info('Notification dispatched for order completion', {
-      orderId: event.orderId || null,
+      orderId: event.orderId,
       userId: event.userId || null,
     });
 
@@ -54,7 +54,7 @@ class NotificationService {
       type: 'order-completed',
       orderId: event.orderId,
       userId: event.userId,
-      message: 'Order lifecycle completed successfully',
+      message: 'Order has been completed successfully',
     });
   }
 }

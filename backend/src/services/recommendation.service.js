@@ -140,18 +140,16 @@ class RecommendationService {
   }
 
   async recordOrderCompletion(event) {
-    if (!event) {
+    if (!event || !event.userId) {
       return;
     }
 
-    logger.info('[RecommendationService] order.completed received', {
-      orderId: event.orderId || null,
-      userId: event.userId || null,
+    logger.info('[Recommendation] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId,
     });
 
-    if (event.userId) {
-      await cache.delPattern(`recommendations:cart:${event.userId}:*`);
-    }
+    await cache.delPattern(`recommendations:cart:${event.userId}:*`);
   }
 }
 

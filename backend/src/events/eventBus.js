@@ -4,7 +4,6 @@
  */
 
 const { EventEmitter } = require('events');
-const eventLogger = require('../utils/eventLogger');
 let Queue;
 let Worker;
 let QueueScheduler;
@@ -18,6 +17,7 @@ try {
   QueueScheduler = null;
 }
 const { redisClient } = require('../config/redis');
+const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
 

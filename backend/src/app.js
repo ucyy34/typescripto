@@ -19,6 +19,7 @@ const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
 const { sequelize } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
+const attachGuestIdentity = require('./middlewares/guestIdentity');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -96,6 +97,7 @@ app.use(
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 app.use(cookieParser()); // Parse cookies
+app.use(attachGuestIdentity);
 
 // Compression middleware (gzip)
 app.use(compression());
