@@ -17,7 +17,6 @@ const {
   markPaidSchema,
   markShippedSchema,
   markCompletedSchema,
-  markFailedSchema,
 } = require('../validators/order.validator');
 
 /**
@@ -49,10 +48,24 @@ router.get('/admin', authenticate, requireAdmin, validateQuery(orderQuerySchema)
  */
 router.get('/:id', authenticate, validateParams(orderIdParamSchema), orderController.getOrder);
 
+/**
+ * @route   PATCH /api/v1/orders/:id/status
+ * @desc    Update order status (seller or admin)
+ * @access  Private (seller/admin)
+ */
+router.patch(
+  '/:id/status',
+  authenticate,
+  requireSellerOrAdmin,
+  validateParams(orderIdParamSchema),
+  validate(updateOrderStatusSchema),
+  orderController.updateOrderStatus
+);
+
 router.post(
   '/:id/mark-paid',
   authenticate,
-  requireAdmin,
+  requireSellerOrAdmin,
   validateParams(orderIdParamSchema),
   validate(markPaidSchema),
   orderController.markPaid
@@ -74,29 +87,6 @@ router.post(
   validateParams(orderIdParamSchema),
   validate(markCompletedSchema),
   orderController.markCompleted
-);
-
-router.post(
-  '/:id/mark-failed',
-  authenticate,
-  requireAdmin,
-  validateParams(orderIdParamSchema),
-  validate(markFailedSchema),
-  orderController.markFailed
-);
-
-/**
- * @route   PATCH /api/v1/orders/:id/status
- * @desc    Update order status (seller or admin)
- * @access  Private (seller/admin)
- */
-router.patch(
-  '/:id/status',
-  authenticate,
-  requireSellerOrAdmin,
-  validateParams(orderIdParamSchema),
-  validate(updateOrderStatusSchema),
-  orderController.updateOrderStatus
 );
 
 module.exports = router;

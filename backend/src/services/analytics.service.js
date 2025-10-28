@@ -1,22 +1,35 @@
-const path = require('path');
-const fs = require('fs');
-
-const analyticsLog = path.resolve(__dirname, '..', '..', 'logs', 'analytics.log');
-
-if (!fs.existsSync(path.dirname(analyticsLog))) {
-  fs.mkdirSync(path.dirname(analyticsLog), { recursive: true });
-}
+const logger = require('../utils/logger');
+const eventBus = require('../events/eventBus');
+const { ORDER_EVENTS } = require('../events/order.events');
 
 class AnalyticsService {
-  async trackEvent(event) {
-    const record = {
-      ...event,
-      recordedAt: new Date().toISOString(),
-    };
+  constructor() {
+    this.initialized = false;
+    this.registerConsumers();
+  }
 
-    fs.appendFileSync(analyticsLog, `${JSON.stringify(record)}\n`);
-    return record;
+  registerConsumers() {
+    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
+      return;
+    }
+
+    const trackableEvents = [ORDER_EVENTS.PAID, ORDER_EVENTS.SHIPPED, ORDER_EVENTS.COMPLETED];
+
+    trackableEvents.forEach((event) => {
+      eventBus.subscribe(event, async (payload) => {
+        await this.trackEvent(event, payload);
+      });
+    });
+
+    this.initialized = true;
+  }
+
+  async trackEvent(event, payload) {
+    logger.info('Analytics event %s', event, payload);
   }
 }
 
-module.exports = new AnalyticsService();
+const analyticsService = new AnalyticsService();
+
+module.exports = analyticsService;
+module.exports.AnalyticsService = AnalyticsService;

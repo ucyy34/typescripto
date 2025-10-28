@@ -1,5 +1,4 @@
 const logger = require('../utils/logger');
-const { publishPaymentEvent, PAYMENT_EVENTS } = require('../events/payment.events');
 const { ORDER_EVENTS } = require('../events/order.events');
 const eventBus = require('../events/eventBus');
 const orderService = require('./order.service');
@@ -7,10 +6,11 @@ const orderService = require('./order.service');
 class PaymentService {
   constructor() {
     this.initialized = false;
+    this.registerConsumers();
   }
 
-  initializeSubscribers() {
-    if (this.initialized) {
+  registerConsumers() {
+    if (this.initialized || process.env.EVENT_CONSUMERS_DISABLED === 'true') {
       return;
     }
 
@@ -22,36 +22,42 @@ class PaymentService {
   }
 
   async handleOrderCreated(payload) {
-    logger.info('PaymentService: processing order.created', payload);
-    await publishPaymentEvent(PAYMENT_EVENTS.REQUESTED, {
-      orderId: payload.orderId,
-      userId: payload.userId,
-      timestamp: new Date().toISOString(),
-    });
+    const { orderId, userId } = payload;
+    logger.info('Processing payment for order %s', orderId);
+
+    try {
+      const paymentResult = await this.processPayment(payload);
+      const order = await orderService.markOrderPaid(orderId, {
+        transactionId: paymentResult.transactionId,
+        paymentDetails: paymentResult.metadata,
+      });
+
+      logger.info('Payment processed for order %s', orderId);
+      return order;
+    } catch (error) {
+      logger.error('Payment failed for order %s: %s', orderId, error.message);
+      await orderService.markOrderFailed(orderId, error.message);
+      throw error;
+    }
   }
 
-  async capturePayment(orderId, payment = {}) {
-    logger.info('PaymentService: capturing payment', { orderId, payment });
-    await publishPaymentEvent(PAYMENT_EVENTS.SUCCEEDED, {
-      orderId,
-      userId: payment.userId || null,
-      timestamp: new Date().toISOString(),
-    });
+  async processPayment(payload) {
+    if (payload.shouldFail) {
+      throw new Error('Payment rejected by provider');
+    }
 
-    return orderService.markOrderPaid(orderId, payment);
-  }
-
-  async failPayment(orderId, failure = {}) {
-    logger.warn('PaymentService: failing payment', { orderId, failure });
-    await publishPaymentEvent(PAYMENT_EVENTS.FAILED, {
-      orderId,
-      userId: failure.userId || null,
-      reason: failure.reason,
-      timestamp: new Date().toISOString(),
-    });
-
-    return orderService.markOrderFailed(orderId, failure);
+    return {
+      transactionId: `pay_${Date.now()}`,
+      metadata: {
+        provider: payload.provider || 'mock-gateway',
+        amount: payload.amount,
+        currency: payload.currency || 'TRY',
+      },
+    };
   }
 }
 
-module.exports = new PaymentService();
+const paymentService = new PaymentService();
+
+module.exports = paymentService;
+module.exports.PaymentService = PaymentService;

@@ -6,13 +6,14 @@ const ORDER_EVENTS = {
   SHIPPED: 'order.shipped',
   COMPLETED: 'order.completed',
   FAILED: 'order.failed',
+  MERGED: 'order.merged',
+  UPDATED: 'order.updated',
+  CHECKED_OUT: 'order.checkedout',
 };
 
-const publishOrderEvent = (type, payload) =>
-  eventBus.publish(type, {
-    ...payload,
-    version: payload.version || Date.now(),
-  });
+const publishOrderEvent = async (type, payload = {}, jobOptions = {}) => {
+  return eventBus.publish(type, payload, jobOptions);
+};
 
 module.exports = {
   ORDER_EVENTS,

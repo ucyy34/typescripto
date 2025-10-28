@@ -1,193 +1,186 @@
-const fs = require('fs');
-const path = require('path');
 const { EventEmitter } = require('events');
-
+const path = require('path');
+const fs = require('fs');
+const logger = require('../utils/logger');
 const { redisClient } = require('../config/redis');
 
+const EVENT_QUEUE_NAME = 'events';
+let useMemoryBus = process.env.NODE_ENV === 'test';
 let Queue;
 let Worker;
-let bullEnabled = true;
+let QueueEvents;
 
-try {
-  // Lazy require BullMQ. In CI environments where the dependency is not
-  // pre-installed we gracefully fall back to an in-memory dispatcher that
-  // keeps the API surface identical for unit tests.
-  ({ Queue, Worker } = require('bullmq'));
-} catch (error) {
-  bullEnabled = false;
+if (!useMemoryBus) {
+  try {
+    ({ Queue, Worker, QueueEvents } = require('bullmq'));
+  } catch (error) {
+    logger.warn('BullMQ dependency missing, using in-memory event bus: %s', error.message);
+    useMemoryBus = true;
+  }
 }
 
-const queueName = process.env.EVENT_QUEUE_NAME || 'events';
-const logDirectory = path.resolve(__dirname, '..', '..', 'logs');
-const logFile = path.join(logDirectory, 'events.log');
-
-if (!fs.existsSync(logDirectory)) {
-  fs.mkdirSync(logDirectory, { recursive: true });
-}
-
-const emitter = new EventEmitter();
-const inMemoryHandlers = new Map();
-const activeWorkers = new Set();
-let queueInstance = null;
-
-const ensureQueue = () => {
-  if (!bullEnabled || queueInstance) {
-    return queueInstance;
+const ensureLogFile = () => {
+  const logDir = path.join(__dirname, '../../logs');
+  const logPath = path.join(logDir, 'events.log');
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
   }
-
-  // Create a dedicated Redis connection for BullMQ so that queue operations do
-  // not interfere with the global cache client (different command buffering,
-  // etc.).
-  const connection = redisClient.duplicate();
-  queueInstance = new Queue(queueName, {
-    connection,
-    defaultJobOptions: {
-      attempts: 3,
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  });
-
-  return queueInstance;
+  if (!fs.existsSync(logPath)) {
+    fs.writeFileSync(logPath, '', 'utf8');
+  }
+  return logPath;
 };
 
-const dispatchInMemory = async (type, payload) => {
-  const handlers = inMemoryHandlers.get(type);
-  if (!handlers || handlers.length === 0) {
-    return;
-  }
+const logPath = ensureLogFile();
 
-  for (const handler of handlers) {
-    try {
-      await handler(payload);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`In-memory event handler for ${type} failed:`, error);
-    }
-  }
-};
-
-const logEvent = (type, payload) => {
-  const record = {
-    type,
-    payload,
-    timestamp: new Date().toISOString(),
-  };
-
-  fs.appendFile(logFile, `${JSON.stringify(record)}\n`, (error) => {
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to write event log:', error);
+const appendLog = (line) => {
+  fs.appendFile(logPath, `${line}\n`, (err) => {
+    if (err) {
+      logger.error('Failed to append event log: %s', err.message);
     }
   });
 };
 
-const publish = async (type, payload = {}) => {
-  const eventPayload = {
-    ...payload,
-    type,
-    timestamp: payload.timestamp || new Date().toISOString(),
-  };
-
-  logEvent(type, eventPayload);
-
-  emitter.emit(type, eventPayload);
-
-  if (bullEnabled) {
-    const queue = ensureQueue();
-    await queue.add(type, eventPayload, {
-      jobId: payload.jobId || undefined,
-    });
-  } else {
-    // Execute asynchronously to mimic queue behaviour.
-    setImmediate(() => {
-      dispatchInMemory(type, eventPayload);
-    });
+/**
+ * In-memory bus used during tests to avoid Redis dependency.
+ */
+class MemoryEventBus {
+  constructor() {
+    this.emitter = new EventEmitter();
   }
 
-  return eventPayload;
-};
+  async publish(type, payload, jobOptions = {}) {
+    const enriched = this.enrichPayload(type, payload, jobOptions);
+    appendLog(`${new Date().toISOString()} ${type} ${JSON.stringify(enriched)}`);
+    this.emitter.emit(type, enriched);
+    return enriched;
+  }
 
-const subscribe = (type, handler) => {
-  if (bullEnabled) {
-    const worker = new Worker(
-      queueName,
+  subscribe(type, handler) {
+    const wrapped = async (payload) => {
+      try {
+        await handler(payload);
+      } catch (error) {
+        logger.error('Memory bus handler for %s failed: %s', type, error.message);
+        throw error;
+      }
+    };
+
+    this.emitter.on(type, wrapped);
+
+    return () => {
+      this.emitter.off(type, wrapped);
+    };
+  }
+
+  enrichPayload(type, payload, jobOptions) {
+    const base = payload || {};
+    return {
+      ...base,
+      eventType: type,
+      timestamp: base.timestamp || new Date().toISOString(),
+      version: base.version || Date.now(),
+      metadata: {
+        retry: jobOptions.attempts ? jobOptions.attempts > 1 : false,
+        ...base.metadata,
+      },
+    };
+  }
+}
+
+/**
+ * BullMQ-backed event bus implementation for development/production.
+ */
+class BullEventBus {
+  constructor() {
+    this.handlers = new Map();
+    this.queue = new Queue(EVENT_QUEUE_NAME, {
+      connection: redisClient.duplicate(),
+    });
+    this.worker = new Worker(
+      EVENT_QUEUE_NAME,
       async (job) => {
-        if (job.name !== type) {
+        const typeHandlers = this.handlers.get(job.name);
+        if (!typeHandlers || typeHandlers.length === 0) {
+          logger.warn('No handlers registered for event %s', job.name);
           return null;
         }
-        await handler(job.data);
+
+        appendLog(`${new Date().toISOString()} ${job.name} ${JSON.stringify(job.data)}`);
+
+        for (const handler of typeHandlers) {
+          await handler(job.data, job);
+        }
         return null;
       },
       {
         connection: redisClient.duplicate(),
+        concurrency: parseInt(process.env.EVENT_WORKER_CONCURRENCY || '4', 10),
       }
     );
 
-    activeWorkers.add(worker);
+    this.worker.on('failed', (job, err) => {
+      logger.error('Event job %s failed: %s', job?.name, err?.message);
+    });
 
-    const close = async () => {
-      activeWorkers.delete(worker);
-      await worker.close();
+    this.queueEvents = new QueueEvents(EVENT_QUEUE_NAME, {
+      connection: redisClient.duplicate(),
+    });
+
+    this.queueEvents.on('failed', ({ jobId, failedReason }) => {
+      logger.error('Queue event failed for job %s: %s', jobId, failedReason);
+    });
+  }
+
+  enrichPayload(type, payload, jobOptions) {
+    const base = payload || {};
+    return {
+      ...base,
+      eventType: type,
+      timestamp: base.timestamp || new Date().toISOString(),
+      version: base.version || Date.now(),
+      metadata: {
+        retry: jobOptions.attempts ? jobOptions.attempts > 1 : false,
+        ...base.metadata,
+      },
     };
-
-    return { close };
   }
 
-  const handlers = inMemoryHandlers.get(type) || [];
-  const wrapped = async (payload) => handler(payload);
-  handlers.push(wrapped);
-  inMemoryHandlers.set(type, handlers);
+  async publish(type, payload, jobOptions = {}) {
+    const enriched = this.enrichPayload(type, payload, jobOptions);
+    await this.queue.add(type, enriched, {
+      removeOnComplete: { count: 1000 },
+      removeOnFail: false,
+      attempts: jobOptions.attempts || 3,
+      backoff: jobOptions.backoff || { type: 'exponential', delay: 500 },
+    });
+    appendLog(`${new Date().toISOString()} ${type} ${JSON.stringify(enriched)}`);
+    return enriched;
+  }
 
-  emitter.on(type, wrapped);
-
-  return {
-    close: async () => {
-      emitter.off(type, wrapped);
-      const existing = inMemoryHandlers.get(type) || [];
-      inMemoryHandlers.set(
-        type,
-        existing.filter((fn) => fn !== wrapped)
-      );
-    },
-  };
-};
-
-const once = (type) =>
-  new Promise((resolve) => {
-    emitter.once(type, resolve);
-  });
-
-const close = async () => {
-  const workers = Array.from(activeWorkers);
-  await Promise.all(
-    workers.map(async (worker) => {
-      try {
-        await worker.close();
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to close worker:', error);
-      }
-    })
-  );
-  activeWorkers.clear();
-
-  if (queueInstance) {
-    try {
-      await queueInstance.close();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to close queue:', error);
+  subscribe(type, handler) {
+    if (!this.handlers.has(type)) {
+      this.handlers.set(type, []);
     }
-    queueInstance = null;
-  }
-};
+    this.handlers.get(type).push(async (payload, job) => {
+      try {
+        await handler(payload, job);
+      } catch (error) {
+        logger.error('Handler for %s failed: %s', type, error.message);
+        throw error;
+      }
+    });
 
-module.exports = {
-  publish,
-  subscribe,
-  once,
-  close,
-  queueName,
-  isBullEnabled: () => bullEnabled,
-};
+    return () => {
+      const list = this.handlers.get(type) || [];
+      const idx = list.findIndex((fn) => fn === handler);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      }
+    };
+  }
+}
+
+const eventBus = useMemoryBus ? new MemoryEventBus() : new BullEventBus();
+
+module.exports = eventBus;

@@ -6,9 +6,9 @@
 const cartService = require('../services/cart.service');
 const orderService = require('../services/order.service');
 const { success } = require('../utils/response');
-const { asyncHandler } = require('../middlewares/errorHandler');
+const { asyncHandler, ApiError } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
-const { publishCartEvent, CART_EVENTS } = require('../events/cart.events');
+const { StatusCodes } = require('http-status-codes');
 
 class CartController {
   /**
@@ -110,46 +110,29 @@ class CartController {
     return success(res, cart, 'Cart merged successfully');
   });
 
-  /**
-   * Checkout cart and create order
-   * @route POST /api/v1/cart/checkout
-   */
   checkout = asyncHandler(async (req, res) => {
-    const checkoutPayload = req.body || {};
-    const isAuthenticated = Boolean(req.user);
     const userId = req.user ? req.user.id : null;
-
-    const cart = isAuthenticated
+    const cart = req.user
       ? await cartService.getUserCart(userId)
       : await cartService.getGuestCart(req.session);
 
-    const order = await orderService.createFromCart({
+    if (!cart.items || cart.items.length === 0) {
+      throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
+    }
+
+    const order = await orderService.createOrderFromCart({
       userId,
-      cartItems: cart.items,
-      checkout: {
-        ...checkoutPayload,
-        metadata: {
-          ...(checkoutPayload.metadata || {}),
-          cartId: cart.id || null,
-          guest: !isAuthenticated,
-        },
-      },
+      cart,
+      checkoutInput: req.body,
     });
 
-    if (isAuthenticated) {
+    if (req.user) {
       await cartService.clearUserCart(userId);
     } else {
       cartService.clearGuestCart(req.session);
     }
 
-    await publishCartEvent(CART_EVENTS.CHECKED_OUT, {
-      cartId: cart.id || null,
-      orderId: order.id,
-      userId,
-      guest: !isAuthenticated,
-    });
-
-    return success(res, order, 'Checkout completed successfully', 201);
+    return success(res, order, 'Checkout completed successfully', StatusCodes.CREATED);
   });
 
   /**
