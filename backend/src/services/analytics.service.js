@@ -8,9 +8,9 @@ class AnalyticsService {
   async handleOrderEvent(eventType, payload) {
     await this.track(eventType, payload);
 
-    if (eventType === 'order.completed' || eventType?.type === 'order.completed') {
-      logger.info('[Analytics] order.completed handled', {
-        orderId: payload?.orderId,
+    if (eventType === 'order.completed') {
+      logger.info('[Analytics] order.completed processed', {
+        orderId: payload?.orderId || null,
         userId: payload?.userId || null,
       });
     }

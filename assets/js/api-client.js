@@ -130,6 +130,7 @@ class ApiClient {
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config = {
+        credentials: 'include',
         ...options,
         headers: this.buildHeaders(options.headers),
         signal: controller.signal,

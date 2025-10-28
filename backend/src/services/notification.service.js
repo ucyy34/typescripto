@@ -45,16 +45,16 @@ class NotificationService {
       return null;
     }
 
-    logger.info('Notification dispatched for order completion', {
+    logger.info('[Notification] order.completed received', {
       orderId: event.orderId,
-      userId: event.userId || null,
+      userId: event.userId,
     });
 
     return this.transport.send({
       type: 'order-completed',
       orderId: event.orderId,
       userId: event.userId,
-      message: 'Order has been completed successfully',
+      message: 'Order delivered successfully',
     });
   }
 }
