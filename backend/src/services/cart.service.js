@@ -149,31 +149,52 @@ class CartService {
     const userKey = this._requireCartKey(userId, null);
     const guestKey = this._resolveCartKey(null, guestId);
 
-    const { items: guestItems } = await this._loadCartState(guestKey);
-    if (guestItems.length === 0) {
-      return this.getCart(userId, null);
-    }
-
     const ttl = this._resolveCartTtl(userId);
-    const { items: userItems } = await this._loadCartState(userKey);
-    const merged = [...userItems];
 
-    for (const guestItem of guestItems) {
-      const existing = merged.find((item) => item.product_id === guestItem.product_id);
-      const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
-      await this.validateProductAndStock(guestItem.product_id, newQuantity);
+    await redisClient.watch(userKey, guestKey);
 
-      if (existing) {
-        existing.quantity = newQuantity;
-      } else {
-        merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
+    try {
+      const [{ items: userItems }, { items: guestItems }] = await Promise.all([
+        this._loadCartState(userKey),
+        this._loadCartState(guestKey),
+      ]);
+
+      if (!guestItems || guestItems.length === 0) {
+        return this.getCart(userId, null);
       }
-    }
 
-    await this._persistCartState(userKey, merged, ttl);
+      const merged = [...userItems];
 
-    if (guestKey) {
-      await redisClient.del(guestKey);
+      for (const guestItem of guestItems) {
+        const existing = merged.find((item) => item.product_id === guestItem.product_id);
+        const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
+        await this.validateProductAndStock(guestItem.product_id, newQuantity);
+
+        if (existing) {
+          existing.quantity = newQuantity;
+        } else {
+          merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
+        }
+      }
+
+      const transaction = redisClient.multi();
+      transaction.hset(userKey, {
+        items: JSON.stringify(merged),
+        updated_at: new Date().toISOString(),
+      });
+      if (ttl) {
+        transaction.expire(userKey, ttl);
+      }
+      if (guestKey) {
+        transaction.del(guestKey);
+      }
+
+      const execResult = await transaction.exec();
+      if (!execResult) {
+        throw new ApiError('Cart merge conflict, please retry', StatusCodes.CONFLICT);
+      }
+    } finally {
+      await redisClient.unwatch();
     }
 
     return this.getCart(userId, null);

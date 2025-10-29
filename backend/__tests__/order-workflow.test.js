@@ -1,82 +1,98 @@
 describe('Event-driven order workflow', () => {
-  let orderService;
   let orderEvents;
+  let eventBus;
   let notificationService;
+  let analyticsService;
+  let commissionService;
+  let orderService;
+  let notificationTransport;
 
   beforeEach(() => {
     process.env.EVENT_BUS_MODE = 'memory';
     jest.resetModules();
 
     orderEvents = require('../src/events/order.events');
-    orderService = require('../src/services/order.service');
+    eventBus = require('../src/events/eventBus');
     notificationService = require('../src/services/notification.service');
-    require('../src/workers');
+    analyticsService = require('../src/services/analytics.service');
+    commissionService = require('../src/services/commission.service');
+    orderService = require('../src/services/order.service');
+
+    notificationService.reset();
+    analyticsService.reset();
+    commissionService.resetProcessedOrders();
+
+    notificationTransport = { send: jest.fn().mockResolvedValue(true) };
+    notificationService.setTransport(notificationTransport);
+
+    jest.spyOn(commissionService, 'handleOrderPaid').mockResolvedValue({ id: 'commission-1' });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    notificationService.setTransport({
-      async send() {
-        return null;
-      },
-    });
+    jest.resetModules();
   });
 
-  it('processes checkout -> payment -> notification pipeline', async () => {
-    const fakeOrder = {
-      id: 'order-123',
-      user_id: 'user-1',
-      store_id: 'store-1',
-      total: '150.00',
-      status: 'pending_payment',
-      payment_status: 'pending',
+  it('emits notifications, analytics and commissions for the full order lifecycle exactly once', async () => {
+    const basePayload = {
+      orderId: 'order-123',
+      userId: 'user-42',
+      storeId: 'store-77',
+      total: 450,
     };
 
-    jest.spyOn(orderService, 'createOrder').mockResolvedValue(fakeOrder);
+    jest.spyOn(orderService, 'markOrderPaid').mockImplementation(async (orderId) => {
+      await orderEvents.publishOrderPaid({
+        orderId,
+        userId: basePayload.userId,
+        storeId: basePayload.storeId,
+        total: basePayload.total,
+      });
 
-    jest.spyOn(orderService, 'markOrderPaid').mockImplementation(async (orderId, payload = {}) => {
-      const paidOrder = { ...fakeOrder, id: orderId, status: 'paid', payment_status: 'paid' };
-      await orderEvents.publishOrderPaid(orderEvents.serializeOrderForEvent(paidOrder, payload));
-      return paidOrder;
+      return {
+        id: orderId,
+        user_id: basePayload.userId,
+        store_id: basePayload.storeId,
+        total: basePayload.total,
+        status: 'paid',
+        payment_status: 'paid',
+      };
+    });
+    jest.spyOn(orderService, 'markOrderFailed').mockResolvedValue(null);
+
+    require('../src/workers');
+
+    await eventBus.publish(orderEvents.ORDER_EVENTS.ORDER_CREATED, basePayload);
+    await eventBus.publish(orderEvents.ORDER_EVENTS.ORDER_SHIPPED, {
+      ...basePayload,
+      trackingNumber: 'TRK-1',
+    });
+    await eventBus.publish(orderEvents.ORDER_EVENTS.ORDER_COMPLETED, {
+      ...basePayload,
+      deliveredAt: new Date().toISOString(),
     });
 
-    const transport = { send: jest.fn().mockResolvedValue(true) };
-    notificationService.setTransport(transport);
+    // Publish duplicates that should be ignored
+    await eventBus.publish(orderEvents.ORDER_EVENTS.ORDER_COMPLETED, {
+      ...basePayload,
+      deliveredAt: new Date().toISOString(),
+    });
 
-    const cart = {
-      items: [
-        {
-          product_id: 'product-1',
-          quantity: 1,
-          store: { id: 'store-1' },
-        },
-      ],
-      totals: { subtotal: 150 },
-    };
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const checkoutInput = {
-      shipping_address: {
-        full_name: 'Integration User',
-        address_line1: 'Integration Street',
-        city: 'Istanbul',
-        country: 'TR',
-        postal_code: '34000',
-        phone: '+901234567890',
-      },
-      payment_method: 'card',
-    };
-
-    await orderService.createFromCart('user-1', cart, checkoutInput);
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(orderService.createOrder).toHaveBeenCalled();
-    expect(orderService.markOrderPaid).toHaveBeenCalledWith(
-      'order-123',
-      expect.objectContaining({})
+    expect(notificationTransport.send).toHaveBeenCalledTimes(4);
+    const notificationTypes = notificationTransport.send.mock.calls.map((call) => call[0].type);
+    expect(new Set(notificationTypes)).toEqual(
+      new Set(['order-created', 'order-paid', 'order-shipped', 'order-completed'])
     );
-    expect(transport.send).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'order-paid', orderId: 'order-123' })
-    );
+
+    const metrics = analyticsService.getMetrics('store-77');
+    expect(metrics.ordersCreated).toBe(1);
+    expect(metrics.ordersPaid).toBe(1);
+    expect(metrics.ordersShipped).toBe(1);
+    expect(metrics.ordersCompleted).toBe(1);
+    expect(metrics.revenue).toBeCloseTo(450);
+
+    expect(commissionService.handleOrderPaid).toHaveBeenCalledTimes(1);
   });
 });

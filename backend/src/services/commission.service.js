@@ -15,8 +15,13 @@ const {
 const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
+const logger = require('../utils/logger');
 
 class CommissionService {
+  constructor() {
+    this.processedOrders = new Set();
+  }
+
   /**
    * Calculate commission for an order
    * Supports category-based rates (overrides global settings)
@@ -473,6 +478,32 @@ class CommissionService {
     }
 
     return CommissionSettings.createDefaultSettings();
+  }
+
+  async handleOrderPaid(event) {
+    if (!event || !event.orderId) {
+      return null;
+    }
+
+    if (this.processedOrders.has(event.orderId)) {
+      return null;
+    }
+
+    try {
+      const transaction = await this.createCommissionTransaction(event.orderId);
+      this.processedOrders.add(event.orderId);
+      return transaction;
+    } catch (error) {
+      logger.error('[CommissionService] Failed to create commission from event', {
+        orderId: event.orderId,
+        error: error.message,
+      });
+      return null;
+    }
+  }
+
+  resetProcessedOrders() {
+    this.processedOrders.clear();
   }
 }
 
