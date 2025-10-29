@@ -21,12 +21,17 @@ const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
 
+const orderEventSequences = new Map();
+const TERMINAL_EVENTS = new Set([
+  'order.completed',
+  'order.failed',
+  'order.cancelled',
+  'order.refunded',
+]);
+
 const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
 const forceMemory = process.env.EVENT_BUS_MODE === 'memory';
-
-const TERMINAL_EVENTS = new Set(['order.completed', 'order.failed']);
-const orderEventHistory = new Map();
 
 let queue;
 let scheduler;
@@ -76,35 +81,21 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  const orderId = enrichedPayload.orderId || enrichedPayload.id || null;
-  let logLabel = `[EventBus] ${type}`;
-
-  if (orderId) {
-    const history = orderEventHistory.get(orderId) || [];
-    const lastEvent = history[history.length - 1];
-
-    if (lastEvent !== type) {
-      history.push(type);
-    }
-
-    orderEventHistory.set(orderId, history);
-
-    if (orderEventHistory.size > 1000) {
-      const iterator = orderEventHistory.keys();
-      const oldestKey = iterator.next();
-      if (!oldestKey.done && oldestKey.value !== orderId) {
-        orderEventHistory.delete(oldestKey.value);
-      }
-    }
-
-    logLabel = `[EventBus] ${history.join(' → ')}`;
+  if (enrichedPayload.orderId) {
+    const sequence = orderEventSequences.get(enrichedPayload.orderId) || [];
+    sequence.push(type);
+    orderEventSequences.set(enrichedPayload.orderId, sequence);
+    eventLogger.info(`[EventBus] ${sequence.join(' → ')}`, {
+      orderId: enrichedPayload.orderId,
+      lastEvent: type,
+    });
 
     if (TERMINAL_EVENTS.has(type)) {
-      orderEventHistory.delete(orderId);
+      orderEventSequences.delete(enrichedPayload.orderId);
     }
+  } else {
+    eventLogger.info(type, enrichedPayload);
   }
-
-  eventLogger.info(logLabel, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

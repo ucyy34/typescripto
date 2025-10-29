@@ -148,34 +148,28 @@ class OrderService {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const groupedByStore = cart.items.reduce((groups, item) => {
-      const storeId = item.store?.id || item.store_id;
+    const groupedByStore = new Map();
+
+    for (const item of cart.items) {
+      const storeId = item.store?.id || item.store_id || item.storeId;
 
       if (!storeId) {
-        throw new ApiError(
-          'Each cart item must contain store information',
-          StatusCodes.BAD_REQUEST
-        );
+        throw new ApiError('Store information is required for every cart item', StatusCodes.BAD_REQUEST);
       }
 
-      if (!groups.has(storeId)) {
-        groups.set(storeId, []);
+      if (!groupedByStore.has(storeId)) {
+        groupedByStore.set(storeId, []);
       }
 
-      groups.get(storeId).push(item);
-      return groups;
-    }, new Map());
-
-    if (groupedByStore.size === 0) {
-      throw new ApiError('Unable to resolve store information for cart items', StatusCodes.BAD_REQUEST);
+      groupedByStore.get(storeId).push(item);
     }
 
     const orders = [];
 
-    for (const [storeId, storeItems] of groupedByStore.entries()) {
+    for (const [storeId, items] of groupedByStore.entries()) {
       const payload = {
         store_id: storeId,
-        items: storeItems.map((item) => ({
+        items: items.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
         })),
@@ -186,28 +180,19 @@ class OrderService {
       };
 
       const order = await this.createOrder(userId, payload);
-      orders.push(order);
-
-      const storeSubtotal = storeItems.reduce((total, line) => {
-        if (typeof line.item_total === 'number') {
-          return total + line.item_total;
-        }
-
-        const unitPrice = typeof line.price === 'number' ? line.price : parseFloat(line.price || 0);
-        return total + unitPrice * (line.quantity || 0);
-      }, 0);
-
-      const storeItemCount = storeItems.reduce((count, line) => count + (line.quantity || 0), 0);
 
       await publishOrderCreated(
         serializeOrderForEvent(order, {
-          cartTotals: {
-            subtotal: parseFloat(storeSubtotal.toFixed(2)),
-            item_count: storeItemCount,
-          },
+          cartTotals: cart.totals || null,
+          storeItemCount: items.reduce((acc, current) => acc + (current.quantity || 0), 0),
+          storeSubtotal: parseFloat(
+            items.reduce((acc, current) => acc + (current.item_total || 0), 0).toFixed(2)
+          ),
           paymentMethod: payload.payment_method,
         })
       );
+
+      orders.push(order);
     }
 
     return orders;

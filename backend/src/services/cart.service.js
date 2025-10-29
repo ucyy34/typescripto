@@ -149,13 +149,19 @@ class CartService {
     const userKey = this._requireCartKey(userId, null);
     const guestKey = this._resolveCartKey(null, guestId);
 
-    const { items: guestItems } = await this._loadCartState(guestKey);
+    await redisClient.watch(userKey, guestKey);
+
+    const [{ items: userItems }, { items: guestItems }] = await Promise.all([
+      this._loadCartState(userKey),
+      this._loadCartState(guestKey),
+    ]);
+
     if (guestItems.length === 0) {
+      await redisClient.unwatch();
       return this.getCart(userId, null);
     }
 
     const ttl = this._resolveCartTtl(userId);
-    const { items: userItems } = await this._loadCartState(userKey);
     const merged = [...userItems];
 
     for (const guestItem of guestItems) {
@@ -170,12 +176,11 @@ class CartService {
       }
     }
 
-    const now = new Date().toISOString();
     const multi = redisClient.multi();
 
     multi.hset(userKey, {
       items: JSON.stringify(merged),
-      updated_at: now,
+      updated_at: new Date().toISOString(),
     });
 
     if (ttl) {
@@ -186,7 +191,11 @@ class CartService {
       multi.del(guestKey);
     }
 
-    await multi.exec();
+    const result = await multi.exec();
+
+    if (result === null) {
+      throw new ApiError('Cart merge conflict, please retry', StatusCodes.CONFLICT);
+    }
 
     return this.getCart(userId, null);
   }
@@ -198,7 +207,26 @@ class CartService {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const orders = await orderService.createFromCart(userId || null, cart, checkoutInput);
+    const orderStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
+    if (!orderStoreId) {
+      throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
+    }
+
+    const items = cart.items.map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    }));
+
+    const orderPayload = {
+      store_id: orderStoreId,
+      items,
+      shipping_address: checkoutInput.shipping_address,
+      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+      payment_method: checkoutInput.payment_method,
+      customer_note: checkoutInput.customer_note,
+    };
+
+    const order = await orderService.createOrder(userId || null, orderPayload);
 
     if (userId) {
       await this.clearCart(userId, null);
@@ -206,7 +234,7 @@ class CartService {
       await this.clearCart(null, guestId);
     }
 
-    return orders;
+    return order;
   }
 
   /**

@@ -39,22 +39,7 @@ class CartController {
       await cartService.clearCart(null, req.guestId);
     }
 
-    const serializedOrders = orders.map((order) => ({
-      id: order.id,
-      order_number: order.order_number,
-      store_id: order.store_id,
-      total: parseFloat(order.total),
-      currency: order.currency || 'TRY',
-      status: order.status,
-      payment_status: order.payment_status,
-    }));
-
-    return success(
-      res,
-      { orders: serializedOrders },
-      'Checkout completed successfully',
-      201
-    );
+    return success(res, { orders }, 'Checkout completed successfully', 201);
   });
 
   /**
