@@ -16,7 +16,113 @@ const baseOptions = {
   lazyConnect: false,
 };
 
+const createInMemoryRedisClient = () => {
+  const kvStore = new Map();
+  const hashStore = new Map();
+
+  const client = {
+    on() {
+      return this;
+    },
+    duplicate() {
+      return this;
+    },
+    async get(key) {
+      return kvStore.has(key) ? kvStore.get(key) : null;
+    },
+    async setex(key, _ttl, value) {
+      kvStore.set(key, value);
+      return 'OK';
+    },
+    async del(...keys) {
+      let removed = 0;
+      keys.forEach((key) => {
+        if (kvStore.delete(key)) {
+          removed += 1;
+        }
+        if (hashStore.delete(key)) {
+          removed += 1;
+        }
+      });
+      return removed;
+    },
+    async hgetall(key) {
+      const hash = hashStore.get(key);
+      if (!hash) {
+        return {};
+      }
+      return Object.fromEntries(hash.entries());
+    },
+    async hset(key, values) {
+      const hash = hashStore.get(key) || new Map();
+      Object.entries(values || {}).forEach(([field, value]) => {
+        hash.set(field, value);
+      });
+      hashStore.set(key, hash);
+      return 'OK';
+    },
+    async expire() {
+      return true;
+    },
+    async exists(key) {
+      return kvStore.has(key) || hashStore.has(key) ? 1 : 0;
+    },
+    async incr(key) {
+      const value = parseInt(kvStore.get(key) || '0', 10) + 1;
+      kvStore.set(key, String(value));
+      return value;
+    },
+    scanStream() {
+      const listeners = {};
+      const stream = {
+        on(event, handler) {
+          listeners[event] = handler;
+          if (event === 'data') {
+            handler([]);
+          }
+          if (event === 'end') {
+            setImmediate(() => handler());
+          }
+          return this;
+        },
+      };
+      return stream;
+    },
+    multi() {
+      const operations = [];
+      const multiInterface = {
+        hset(key, values) {
+          operations.push(() => client.hset(key, values));
+          return multiInterface;
+        },
+        expire(key, ttl) {
+          operations.push(() => client.expire(key, ttl));
+          return multiInterface;
+        },
+        del(key) {
+          operations.push(() => client.del(key));
+          return multiInterface;
+        },
+        async exec() {
+          for (const operation of operations) {
+            await operation();
+          }
+          return [];
+        },
+      };
+
+      return multiInterface;
+    },
+  };
+
+  return client;
+};
+
 const createRedisClient = () => {
+  if (process.env.NODE_ENV === 'test' && process.env.USE_REAL_REDIS !== 'true') {
+    return createInMemoryRedisClient();
+  }
+
   if (process.env.REDIS_URL) {
     return new Redis(process.env.REDIS_URL, baseOptions);
   }

@@ -1,20 +1,26 @@
 'use strict';
 
 const saveMock = jest.fn();
+const reloadMock = jest.fn();
 
-jest.mock('../../events/order.events', () => ({
-  publishOrderCreated: jest.fn(),
-  publishOrderPaid: jest.fn(),
-  publishOrderShipped: jest.fn(),
-  publishOrderCompleted: jest.fn(),
-  ORDER_EVENTS: {
-    CREATED: 'order.created',
-    PAID: 'order.paid',
-    SHIPPED: 'order.shipped',
-    COMPLETED: 'order.completed',
-    FAILED: 'order.failed',
-  },
-}));
+jest.mock('../../events/order.events', () => {
+  const actual = jest.requireActual('../../events/order.events');
+  return {
+    ...actual,
+    serializeOrderForEvent: jest.fn((order, overrides = {}) => ({
+      orderId: order.id,
+      userId: order.user_id || null,
+      storeId: order.store_id || null,
+      total: parseFloat(order.total || 0),
+      ...overrides,
+    })),
+    publishOrderCreated: jest.fn(),
+    publishOrderPaid: jest.fn(),
+    publishOrderShipped: jest.fn(),
+    publishOrderCompleted: jest.fn(),
+    publishOrderFailed: jest.fn(),
+  };
+});
 
 jest.mock('../../models', () => ({
   Order: {
@@ -31,124 +37,149 @@ jest.mock('../../models', () => ({
   User: {},
 }));
 
-const { ORDER_EVENTS, publishOrderPaid } = require('../../events/order.events');
+jest.mock('../commission.service', () => ({
+  createCommissionTransaction: jest.fn(),
+}));
+
+const { publishOrderPaid, publishOrderCompleted } = require('../../events/order.events');
 const { Order } = require('../../models');
 const orderService = require('../order.service');
-const PaymentService = require('../payment.service');
-const NotificationService = require('../notification.service');
-const AnalyticsService = require('../analytics.service');
-const recommendationService = require('../recommendation.service');
-const { cache } = require('../../config/redis');
+const notificationService = require('../notification.service');
+const analyticsService = require('../analytics.service');
+const commissionService = require('../commission.service');
+const eventBus = require('../../events/eventBus');
 
-class MockBus {
-  constructor() {
-    this.handlers = new Map();
-  }
+require('../../workers/commission.worker');
 
-  subscribe(type, handler) {
-    const existing = this.handlers.get(type) || [];
-    existing.push(handler);
-    this.handlers.set(type, existing);
-    return { close: () => {} };
-  }
+describe('Order workflow orchestration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    saveMock.mockReset();
+    reloadMock.mockReset();
+    notificationService.setTransport({
+      async send() {
+        return null;
+      },
+    });
+    notificationService.sentNotifications.clear();
+    analyticsService.reset();
+  });
 
-  async publish(type, payload) {
-    const handlers = this.handlers.get(type) || [];
-    for (const handler of handlers) {
-      await handler(payload);
-    }
-  }
-}
-
-beforeEach(() => {
-  jest.clearAllMocks();
-  saveMock.mockReset();
-});
-
-describe('Order workflow events', () => {
-  test('markOrderPaid publishes order.paid event', async () => {
+  test('markOrderPaid emits order.paid once without auto-completing', async () => {
+    saveMock.mockResolvedValue();
+    reloadMock.mockResolvedValue();
     const orderRecord = {
       id: 'order-1',
       user_id: 'user-1',
+      store_id: 'store-1',
       status: 'pending_payment',
       payment_status: 'pending',
       payment_details: null,
-      save: saveMock.mockResolvedValue(),
+      save: saveMock,
+      reload: reloadMock,
     };
+
+    reloadMock.mockResolvedValue(orderRecord);
 
     Order.findByPk.mockResolvedValue(orderRecord);
-    Order.findOne.mockResolvedValue({
-      id: 'order-1',
-      user_id: 'user-1',
-      status: 'paid',
+
+    await orderService.markOrderPaid('order-1', { transactionId: 'txn-1' });
+
+    expect(Order.findByPk).toHaveBeenCalledWith('order-1', expect.any(Object));
+    expect(saveMock).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
+    expect(publishOrderPaid).toHaveBeenCalledTimes(1);
+    expect(publishOrderPaid).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1', transactionId: 'txn-1' })
+    );
+    expect(publishOrderCompleted).not.toHaveBeenCalled();
+  });
+
+  test('markOrderCompleted publishes completion event once delivery is confirmed', async () => {
+    saveMock.mockResolvedValue();
+    reloadMock.mockResolvedValue();
+    const orderRecord = {
+      id: 'order-77',
+      user_id: 'user-9',
+      store_id: 'store-4',
+      status: 'shipped',
       payment_status: 'paid',
+      save: saveMock,
+      reload: reloadMock,
+    };
+
+    reloadMock.mockResolvedValue(orderRecord);
+
+    Order.findByPk.mockResolvedValue(orderRecord);
+
+    await orderService.markOrderCompleted('order-77', { feedback: 'Teslim edildi' });
+
+    expect(Order.findByPk).toHaveBeenCalledWith('order-77', expect.any(Object));
+    expect(publishOrderCompleted).toHaveBeenCalledTimes(1);
+    expect(publishOrderCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-77' })
+    );
+  });
+
+  test('notification service deduplicates identical events per order', async () => {
+    const sentNotifications = [];
+    notificationService.setTransport({
+      async send(notification) {
+        sentNotifications.push(notification);
+      },
     });
 
-    await orderService.markOrderPaid('order-1', { transactionId: 'txn-1', provider: 'stripe' });
+    await notificationService.handleOrderPaid({ orderId: 'order-5', userId: 'user-5' });
+    await notificationService.handleOrderPaid({ orderId: 'order-5', userId: 'user-5' });
+    await notificationService.handleOrderCompleted({ orderId: 'order-5', userId: 'user-5' });
 
-    expect(Order.findByPk).toHaveBeenCalledWith('order-1');
-    expect(saveMock).toHaveBeenCalled();
-    expect(publishOrderPaid).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'order-1' }),
-      expect.objectContaining({
-        payment: expect.objectContaining({ transactionId: 'txn-1', provider: 'stripe' }),
-      })
+    expect(sentNotifications).toHaveLength(2);
+    expect(sentNotifications[0].type).toBe('order-paid');
+    expect(sentNotifications[1].type).toBe('order-completed');
+  });
+
+  test('analytics aggregates store metrics without duplicate counts', async () => {
+    await analyticsService.handleOrderEvent('order.created', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+    });
+    await analyticsService.handleOrderEvent('order.paid', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+      total: 150.5,
+    });
+    await analyticsService.handleOrderEvent('order.paid', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+      total: 150.5,
+    });
+    await analyticsService.handleOrderEvent('order.completed', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+    });
+
+    const metrics = analyticsService.getStoreMetrics('store-99');
+
+    expect(metrics).toMatchObject({
+      created: 1,
+      paid: 1,
+      completed: 1,
+      revenue: 150.5,
+    });
+    expect(metrics.successRate).toBeCloseTo(1);
+  });
+
+  test('commission worker reacts to order.paid events', async () => {
+    await eventBus.publish('order.paid', {
+      orderId: 'commission-order-1',
+      storeId: 'store-42',
+      total: 250,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(commissionService.createCommissionTransaction).toHaveBeenCalledWith(
+      'commission-order-1'
     );
-  });
-
-  test('PaymentService processes order.created event', async () => {
-    const bus = new MockBus();
-    const mockOrderService = {
-      markOrderPaid: jest.fn().mockResolvedValue({ id: 'order-99' }),
-    };
-    const mockLogger = { info: jest.fn(), error: jest.fn(), warn: jest.fn() };
-    const paymentService = new PaymentService({ bus, orderSvc: mockOrderService, log: mockLogger });
-    paymentService.register();
-
-    await bus.publish(ORDER_EVENTS.CREATED, { orderId: 'order-99', total: 250, currency: 'TRY' });
-
-    expect(mockOrderService.markOrderPaid).toHaveBeenCalledWith(
-      'order-99',
-      expect.objectContaining({ transactionId: expect.stringMatching(/^txn_/), provider: 'stripe-sim' })
-    );
-  });
-
-  test('NotificationService stores notifications for payment outcomes', async () => {
-    const bus = new MockBus();
-    const notificationService = new NotificationService({ bus, log: { info: jest.fn(), warn: jest.fn() } });
-    notificationService.register();
-
-    await bus.publish(ORDER_EVENTS.PAID, { orderId: 'order-5', userId: 'user-5' });
-    await bus.publish(ORDER_EVENTS.FAILED, { orderId: 'order-5', userId: 'user-5', reason: 'declined' });
-
-    expect(notificationService.sent).toHaveLength(2);
-    expect(notificationService.sent[0].message).toMatch(/Payment received/);
-    expect(notificationService.sent[1].payload.reason).toBe('declined');
-  });
-
-  test('AnalyticsService tracks every event type', async () => {
-    const bus = new MockBus();
-    const analyticsService = new AnalyticsService({ bus, log: { info: jest.fn() } });
-    analyticsService.register();
-
-    await bus.publish(ORDER_EVENTS.CREATED, { orderId: 'order-7', userId: 'user-7' });
-    await bus.publish(ORDER_EVENTS.PAID, { orderId: 'order-7', userId: 'user-7' });
-    await bus.publish(ORDER_EVENTS.COMPLETED, { orderId: 'order-7', userId: 'user-7' });
-
-    expect(analyticsService.events).toHaveLength(3);
-    expect(analyticsService.events.map((e) => e.eventType)).toEqual([
-      ORDER_EVENTS.CREATED,
-      ORDER_EVENTS.PAID,
-      ORDER_EVENTS.COMPLETED,
-    ]);
-  });
-
-  test('RecommendationService clears cache on order completion', async () => {
-    const spy = jest.spyOn(cache, 'delPattern').mockResolvedValue(1);
-
-    await recommendationService.handleOrderCompletedEvent({ orderId: 'order-11', userId: 'user-11' });
-
-    expect(spy).toHaveBeenCalledWith('recommendations:cart:user-11:*');
-    spy.mockRestore();
   });
 });

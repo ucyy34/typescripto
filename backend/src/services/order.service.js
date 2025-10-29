@@ -8,7 +8,6 @@ const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
-const commissionService = require('./commission.service');
 const {
   serializeOrderForEvent,
   publishOrderCreated,
@@ -129,14 +128,6 @@ class OrderService {
 
       await transaction.commit();
 
-      // Create commission transaction (after order is committed)
-      try {
-        await commissionService.createCommissionTransaction(order.id);
-      } catch (error) {
-        console.error('[Order Service] Failed to create commission transaction:', error);
-        // Don't fail order creation if commission fails
-      }
-
       // Return order with items
       return this.getOrderById(order.id, userId);
     } catch (error) {
@@ -157,34 +148,69 @@ class OrderService {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const derivedStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
+    const groupedByStore = cart.items.reduce((groups, item) => {
+      const storeId = item.store?.id || item.store_id;
 
-    if (!derivedStoreId) {
-      throw new ApiError('Store information is required to create an order', StatusCodes.BAD_REQUEST);
+      if (!storeId) {
+        throw new ApiError(
+          'Each cart item must contain store information',
+          StatusCodes.BAD_REQUEST
+        );
+      }
+
+      if (!groups.has(storeId)) {
+        groups.set(storeId, []);
+      }
+
+      groups.get(storeId).push(item);
+      return groups;
+    }, new Map());
+
+    if (groupedByStore.size === 0) {
+      throw new ApiError('Unable to resolve store information for cart items', StatusCodes.BAD_REQUEST);
     }
 
-    const payload = {
-      store_id: derivedStoreId,
-      items: cart.items.map((item) => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-      })),
-      shipping_address: checkoutInput.shipping_address,
-      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
-      payment_method: checkoutInput.payment_method || 'manual',
-      customer_note: checkoutInput.customer_note,
-    };
+    const orders = [];
 
-    const order = await this.createOrder(userId, payload);
+    for (const [storeId, storeItems] of groupedByStore.entries()) {
+      const payload = {
+        store_id: storeId,
+        items: storeItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
+        shipping_address: checkoutInput.shipping_address,
+        billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+        payment_method: checkoutInput.payment_method || 'manual',
+        customer_note: checkoutInput.customer_note,
+      };
 
-    await publishOrderCreated(
-      serializeOrderForEvent(order, {
-        cartTotals: cart.totals || null,
-        paymentMethod: payload.payment_method,
-      })
-    );
+      const order = await this.createOrder(userId, payload);
+      orders.push(order);
 
-    return order;
+      const storeSubtotal = storeItems.reduce((total, line) => {
+        if (typeof line.item_total === 'number') {
+          return total + line.item_total;
+        }
+
+        const unitPrice = typeof line.price === 'number' ? line.price : parseFloat(line.price || 0);
+        return total + unitPrice * (line.quantity || 0);
+      }, 0);
+
+      const storeItemCount = storeItems.reduce((count, line) => count + (line.quantity || 0), 0);
+
+      await publishOrderCreated(
+        serializeOrderForEvent(order, {
+          cartTotals: {
+            subtotal: parseFloat(storeSubtotal.toFixed(2)),
+            item_count: storeItemCount,
+          },
+          paymentMethod: payload.payment_method,
+        })
+      );
+    }
+
+    return orders;
   }
 
   /**
@@ -473,13 +499,6 @@ class OrderService {
     await publishOrderPaid(
       serializeOrderForEvent(order, {
         transactionId: paymentPayload.transactionId || null,
-      })
-    );
-
-    await publishOrderCompleted(
-      serializeOrderForEvent(order, {
-        status: 'completed',
-        completedAt: new Date().toISOString(),
       })
     );
 

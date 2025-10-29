@@ -10,6 +10,15 @@ const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
 const slugify = require('slugify');
 
+const BADGE_ALLOW_LIST = new Set([
+  'handmade',
+  'eco-friendly',
+  'bestseller',
+  'new',
+  'organic',
+  'limited',
+]);
+
 class ProductService {
   /**
    * Create new product
@@ -48,44 +57,13 @@ class ProductService {
       slug = `${slug}-${randomSuffix}`;
     }
 
-    const normalizedImages = Array.isArray(productData.images)
-      ? productData.images.filter((image) => typeof image === 'string' && image.trim().length > 0)
-      : [];
-
-    const normalizedBadges = Array.isArray(productData.badges)
-      ? [...new Set(productData.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean))]
-      : [];
-
-    const normalizedTags = Array.isArray(productData.tags)
-      ? productData.tags.map((tag) => tag.trim()).filter(Boolean)
-      : [];
-
-    const normalizedKeywords = Array.isArray(productData.meta_keywords)
-      ? productData.meta_keywords.map((keyword) => keyword.trim()).filter(Boolean)
-      : [];
-
-    const seoTitle = (productData.seo_title || productData.title || '').trim().substring(0, 200);
-    const seoDescriptionSource =
-      (productData.seo_description && productData.seo_description.trim()) ||
-      (productData.short_description && productData.short_description.trim()) ||
-      (productData.description && productData.description.trim()) ||
-      '';
+    const normalizedPayload = this.prepareProductData(productData);
 
     const payload = {
-      ...productData,
-      images: normalizedImages,
-      badges: normalizedBadges,
-      tags: normalizedTags,
-      meta_keywords: normalizedKeywords,
-      seo_title: seoTitle || null,
-      seo_description: seoDescriptionSource ? seoDescriptionSource.substring(0, 500) : null,
+      ...normalizedPayload,
       slug,
       status: 'pending',
     };
-
-    if (payload.title) payload.title = payload.title.trim();
-    if (payload.short_description) payload.short_description = payload.short_description.trim();
-    if (payload.description) payload.description = payload.description.trim();
 
     // Create product
     const product = await Product.create(payload);
@@ -111,6 +89,78 @@ class ProductService {
     await cache.delPattern('products:*');
 
     return product;
+  }
+
+  prepareProductData(productData = {}, options = {}) {
+    const { isUpdate = false, existingProduct = {} } = options;
+
+    const baseTitle = productData.title ?? existingProduct.title ?? '';
+    const title = baseTitle ? baseTitle.trim() : '';
+
+    const descriptionSource =
+      productData.description ?? (isUpdate ? existingProduct.description : '') ?? '';
+    const description = descriptionSource ? descriptionSource.trim() : '';
+
+    const shortDescriptionSource =
+      productData.short_description ??
+      (isUpdate ? existingProduct.short_description : '') ??
+      description;
+    const shortDescription = shortDescriptionSource ? shortDescriptionSource.trim() : '';
+
+    const tags = Array.isArray(productData.tags)
+      ? [...new Set(productData.tags.map((tag) => tag.trim()).filter(Boolean))]
+      : isUpdate && Array.isArray(existingProduct.tags)
+      ? [...new Set(existingProduct.tags.map((tag) => tag.trim()).filter(Boolean))]
+      : [];
+
+    const badges = Array.isArray(productData.badges)
+      ? [...new Set(productData.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean))].filter(
+          (badge) => BADGE_ALLOW_LIST.has(badge)
+        )
+      : [];
+
+    const images = Array.isArray(productData.images)
+      ? [...new Set(productData.images.map((image) => image.trim()).filter(Boolean))]
+      : isUpdate && Array.isArray(existingProduct.images)
+      ? [...new Set(existingProduct.images.map((image) => image.trim()).filter(Boolean))]
+      : [];
+
+    const metaKeywords = Array.isArray(productData.meta_keywords)
+      ? [...new Set(productData.meta_keywords.map((keyword) => keyword.trim()).filter(Boolean))]
+      : tags.length > 0
+      ? [...tags]
+      : [];
+
+    const seoTitleSource = productData.seo_title ?? (isUpdate ? existingProduct.seo_title : '') ?? title;
+    const seoTitle = seoTitleSource ? seoTitleSource.trim().substring(0, 200) : null;
+
+    const providedSeoDescription =
+      productData.seo_description ?? (isUpdate ? existingProduct.seo_description : null);
+    const seoDescriptionCandidate =
+      (typeof providedSeoDescription === 'string' && providedSeoDescription.trim().length > 0
+        ? providedSeoDescription.trim()
+        : null) || shortDescription || description || '';
+    const seoDescription = seoDescriptionCandidate
+      ? seoDescriptionCandidate.substring(0, 500)
+      : null;
+
+    const stockValue = Number(productData.stock ?? existingProduct.stock ?? 0);
+    const isActive = stockValue > 0 ? Boolean(productData.is_active ?? true) : false;
+
+    return {
+      ...productData,
+      title,
+      description,
+      short_description: shortDescription,
+      tags,
+      badges,
+      images,
+      meta_keywords: metaKeywords,
+      seo_title: seoTitle,
+      seo_description: seoDescription,
+      stock: stockValue,
+      is_active: isActive,
+    };
   }
 
   /**

@@ -5,46 +5,31 @@ describe('Event-driven order pipeline', () => {
 
   it('emits checkout event when creating order from cart', async () => {
     const orderEvents = require('../events/order.events');
-    const publishSpy = jest.spyOn(orderEvents, 'publishOrderEvent').mockResolvedValue(null);
+    const publishSpy = jest.spyOn(orderEvents, 'publishOrderCreated').mockResolvedValue(null);
 
     const orderService = require('../services/order.service');
-    const originalCreateOrder = orderService.createOrder;
-    const mockOrder = { id: 'order-123', status: 'pending_payment', currency: 'TRY' };
-    orderService.createOrder = jest.fn().mockResolvedValue(mockOrder);
+    const fakeOrder = { id: 'order-123', status: 'pending_payment', store_id: 'store-1', total: 150 };
+    jest.spyOn(orderService, 'createOrder').mockResolvedValue(fakeOrder);
 
-    await orderService.createOrderFromCart({
-      userId: 'user-1',
-      cart: {
-        id: 'cart-1',
+    await orderService.createFromCart(
+      'user-1',
+      {
         items: [
-          {
-            product_id: 'product-1',
-            quantity: 1,
-            store: { id: 'store-1' },
-          },
+          { product_id: 'product-1', quantity: 2, store: { id: 'store-1' }, item_total: 150 },
         ],
+        totals: { subtotal: 150, item_count: 2 },
       },
-      checkoutInput: {
-        store_id: 'store-1',
-        shipping_address: {
-          full_name: 'Test User',
-          phone: '+905551112233',
-          address_line1: 'Cumhuriyet Cd. No:1',
-          city: 'Istanbul',
-          postal_code: '34000',
-          country: 'TR',
-        },
-        payment_method: 'credit_card',
-      },
-    });
-
-    expect(orderService.createOrder).toHaveBeenCalledWith('user-1', expect.any(Object));
-    expect(publishSpy).toHaveBeenCalledWith(
-      orderEvents.ORDER_EVENTS.CHECKED_OUT,
-      expect.objectContaining({ orderId: 'order-123', userId: 'user-1', cartId: 'cart-1' })
+      {
+        shipping_address: { full_name: 'Test User' },
+        payment_method: 'card',
+      }
     );
 
-    orderService.createOrder = originalCreateOrder;
+    expect(orderService.createOrder).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ store_id: 'store-1' })
+    );
+    expect(publishSpy).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'order-123' }));
   });
 
   it('marks order as paid when payment succeeds', async () => {
@@ -67,24 +52,41 @@ describe('Event-driven order pipeline', () => {
 
   it('sends notification on payment failure', async () => {
     const notificationService = require('../services/notification.service');
-    const notifySpy = jest.spyOn(notificationService, 'sendNotification').mockResolvedValue();
+    const sent = [];
+    notificationService.setTransport({
+      async send(notification) {
+        sent.push(notification);
+      },
+    });
+    notificationService.sentNotifications.clear();
 
     await notificationService.handleOrderFailed({ orderId: 'order-500', userId: 'user-42', error: 'declined' });
 
-    expect(notifySpy).toHaveBeenCalledWith('user-42', expect.stringContaining('payment failed'));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ type: 'order-failed', orderId: 'order-500' });
   });
 
   it('executes payment and notification pipeline via event bus', async () => {
-    const notifications = [];
     const orderEvents = require('../events/order.events');
     const eventBus = require('../events/eventBus');
     const orderService = require('../services/order.service');
     const notificationService = require('../services/notification.service');
 
+    const notifications = [];
+    notificationService.setTransport({
+      async send(payload) {
+        notifications.push(payload);
+      },
+    });
+    notificationService.sentNotifications.clear();
+
+    require('../workers/payment.worker');
+    require('../workers/notification.worker');
+
     const markOrderPaidSpy = jest
       .spyOn(orderService, 'markOrderPaid')
       .mockImplementation(async (orderId, context) => {
-        await orderEvents.publishOrderEvent(orderEvents.ORDER_EVENTS.PAID, {
+        await orderEvents.publishOrderPaid({
           orderId,
           userId: 'user-88',
           status: 'paid',
@@ -92,15 +94,10 @@ describe('Event-driven order pipeline', () => {
         return { id: orderId, user_id: 'user-88', status: 'paid' };
       });
     jest.spyOn(orderService, 'markOrderFailed').mockResolvedValue({});
-    const notifySpy = jest
-      .spyOn(notificationService, 'sendNotification')
-      .mockImplementation(async (userId, message) => {
-        notifications.push({ userId, message });
-      });
 
     require('../services/payment.service');
 
-    await eventBus.publish(orderEvents.ORDER_EVENTS.CREATED, {
+    await eventBus.publish(orderEvents.ORDER_EVENTS.ORDER_CREATED, {
       orderId: 'order-pipeline',
       userId: 'user-88',
       amount: 250,
@@ -112,7 +109,6 @@ describe('Event-driven order pipeline', () => {
       'order-pipeline',
       expect.objectContaining({ transactionId: expect.any(String) })
     );
-    expect(notifySpy).toHaveBeenCalled();
-    expect(notifications.some((entry) => entry.message.includes('order-pipeline'))).toBe(true);
+    expect(notifications.some((entry) => entry.type === 'order-paid')).toBe(true);
   });
 });

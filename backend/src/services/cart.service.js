@@ -170,11 +170,23 @@ class CartService {
       }
     }
 
-    await this._persistCartState(userKey, merged, ttl);
+    const now = new Date().toISOString();
+    const multi = redisClient.multi();
+
+    multi.hset(userKey, {
+      items: JSON.stringify(merged),
+      updated_at: now,
+    });
+
+    if (ttl) {
+      multi.expire(userKey, ttl);
+    }
 
     if (guestKey) {
-      await redisClient.del(guestKey);
+      multi.del(guestKey);
     }
+
+    await multi.exec();
 
     return this.getCart(userId, null);
   }
@@ -186,26 +198,7 @@ class CartService {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const orderStoreId = checkoutInput.store_id || cart.items[0]?.store?.id;
-    if (!orderStoreId) {
-      throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
-    }
-
-    const items = cart.items.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-    }));
-
-    const orderPayload = {
-      store_id: orderStoreId,
-      items,
-      shipping_address: checkoutInput.shipping_address,
-      billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
-      payment_method: checkoutInput.payment_method,
-      customer_note: checkoutInput.customer_note,
-    };
-
-    const order = await orderService.createOrder(userId || null, orderPayload);
+    const orders = await orderService.createFromCart(userId || null, cart, checkoutInput);
 
     if (userId) {
       await this.clearCart(userId, null);
@@ -213,7 +206,7 @@ class CartService {
       await this.clearCart(null, guestId);
     }
 
-    return order;
+    return orders;
   }
 
   /**

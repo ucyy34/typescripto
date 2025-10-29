@@ -25,18 +25,28 @@ describe('OrderService.createFromCart', () => {
     jest.restoreAllMocks();
   });
 
-  it('creates an order from cart data and publishes order.created', async () => {
-    const fakeOrder = {
-      id: 'order-1',
-      user_id: 'user-1',
-      store_id: 'store-1',
-      total: '100.00',
-      status: 'pending_payment',
-    };
+  it('splits checkout cart per store and publishes order.created for each order', async () => {
+    const fakeOrders = [
+      {
+        id: 'order-1',
+        user_id: 'user-1',
+        store_id: 'store-1',
+        total: '100.00',
+        status: 'pending_payment',
+      },
+      {
+        id: 'order-2',
+        user_id: 'user-1',
+        store_id: 'store-2',
+        total: '200.00',
+        status: 'pending_payment',
+      },
+    ];
 
     const createOrderSpy = jest
       .spyOn(orderService, 'createOrder')
-      .mockResolvedValue(fakeOrder);
+      .mockResolvedValueOnce(fakeOrders[0])
+      .mockResolvedValueOnce(fakeOrders[1]);
 
     const cart = {
       items: [
@@ -44,9 +54,16 @@ describe('OrderService.createFromCart', () => {
           product_id: 'product-1',
           quantity: 2,
           store: { id: 'store-1' },
+          item_total: 100,
+        },
+        {
+          product_id: 'product-2',
+          quantity: 1,
+          store: { id: 'store-2' },
+          item_total: 200,
         },
       ],
-      totals: { subtotal: 100, item_count: 2 },
+      totals: { subtotal: 300, item_count: 3 },
     };
 
     const checkoutInput = {
@@ -61,18 +78,33 @@ describe('OrderService.createFromCart', () => {
       payment_method: 'card',
     };
 
-    const order = await orderService.createFromCart('user-1', cart, checkoutInput);
+    const orders = await orderService.createFromCart('user-1', cart, checkoutInput);
 
-    expect(createOrderSpy).toHaveBeenCalledWith(
+    expect(createOrderSpy).toHaveBeenCalledTimes(2);
+    expect(createOrderSpy).toHaveBeenNthCalledWith(
+      1,
       'user-1',
       expect.objectContaining({
         store_id: 'store-1',
         items: [{ product_id: 'product-1', quantity: 2 }],
       })
     );
+    expect(createOrderSpy).toHaveBeenNthCalledWith(
+      2,
+      'user-1',
+      expect.objectContaining({
+        store_id: 'store-2',
+        items: [{ product_id: 'product-2', quantity: 1 }],
+      })
+    );
+
+    expect(orderEvents.publishOrderCreated).toHaveBeenCalledTimes(2);
     expect(orderEvents.publishOrderCreated).toHaveBeenCalledWith(
       expect.objectContaining({ orderId: 'order-1' })
     );
-    expect(order).toEqual(fakeOrder);
+    expect(orderEvents.publishOrderCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-2' })
+    );
+    expect(orders).toEqual(fakeOrders);
   });
 });
