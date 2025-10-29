@@ -17,7 +17,6 @@ try {
   QueueScheduler = null;
 }
 const { redisClient } = require('../config/redis');
-
 const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
@@ -30,6 +29,33 @@ let queue;
 let scheduler;
 
 const shouldUseMemory = () => forceMemory || isTestEnv;
+
+const TERMINAL_EVENTS = new Set(['order.completed', 'order.failed']);
+const eventChains = new Map();
+
+const registerEventInChain = (type, payload) => {
+  const orderId = payload?.orderId;
+
+  if (!orderId) {
+    return `[EventBus] ${type}`;
+  }
+
+  const existingChain = eventChains.get(orderId) || [];
+
+  if (!existingChain.includes(type)) {
+    existingChain.push(type);
+  }
+
+  const chainMessage = `[EventBus] ${existingChain.join(' → ')}`;
+
+  if (TERMINAL_EVENTS.has(type)) {
+    eventChains.delete(orderId);
+  } else {
+    eventChains.set(orderId, existingChain);
+  }
+
+  return chainMessage;
+};
 
 const ensureQueue = () => {
   if (shouldUseMemory() || !Queue) {
@@ -74,7 +100,8 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  eventLogger.info(`[EventBus] ${type}`, enrichedPayload);
+  const message = registerEventInChain(type, enrichedPayload);
+  eventLogger.info(message, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

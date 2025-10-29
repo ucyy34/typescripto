@@ -34,7 +34,7 @@ class CartController {
 
     const cart = await cartService.getCart(userId, guestId);
 
-    const order = await orderService.createFromCart(userId, cart, checkoutInput);
+    const ordersResult = await orderService.createFromCart(userId, cart, checkoutInput);
 
     if (userId) {
       await cartService.clearCart(userId, null);
@@ -42,7 +42,7 @@ class CartController {
       await cartService.clearCart(null, guestId);
     }
 
-    return success(res, order, 'Checkout completed successfully', 201);
+    return success(res, ordersResult, 'Checkout completed successfully', 201);
   });
 
   /**

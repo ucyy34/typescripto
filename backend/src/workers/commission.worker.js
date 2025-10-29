@@ -8,4 +8,8 @@ eventBus.subscribe(ORDER_EVENTS.ORDER_PAID, async (payload) => {
   await commissionService.handleOrderPaid(payload);
 });
 
+eventBus.subscribe(ORDER_EVENTS.ORDER_FAILED, async (payload) => {
+  await commissionService.handleOrderFailed?.(payload);
+});
+
 module.exports = true;

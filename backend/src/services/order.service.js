@@ -48,7 +48,7 @@ class OrderService {
    * @param {Object} orderData - Order data with items, shipping address, etc.
    * @returns {Promise<Order>} Created order
    */
-  async createOrder(userId, orderData) {
+  async createOrder(userId, orderData, eventMetadata = {}) {
     const { store_id, items, shipping_address, billing_address, payment_method, customer_note } =
       orderData;
 
@@ -128,8 +128,21 @@ class OrderService {
 
       await transaction.commit();
 
-      // Return order with items
-      return this.getOrderById(order.id, userId);
+      const orderWithRelations = await this._loadOrderWithRelations(order.id);
+
+      try {
+        await publishOrderCreated(
+          serializeOrderForEvent(orderWithRelations, {
+            orderNumber: orderWithRelations.order_number,
+            paymentMethod: payment_method || null,
+            ...eventMetadata,
+          })
+        );
+      } catch (eventError) {
+        console.error('[Order Service] Failed to publish order.created', eventError);
+      }
+
+      return orderWithRelations;
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -148,76 +161,83 @@ class OrderService {
       throw new ApiError('Cart is empty', StatusCodes.BAD_REQUEST);
     }
 
-    const normalizedItems = cart.items.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      store_id: item.store?.id || item.store_id,
-      item_total: item.item_total || item.total || null,
-    }));
+    const itemsByStore = new Map();
 
-    const invalidItem = normalizedItems.find((item) => !item.store_id);
-    if (invalidItem) {
-      throw new ApiError('Store information missing for cart item', StatusCodes.BAD_REQUEST);
-    }
+    cart.items.forEach((item) => {
+      const storeId = item.store?.id || item.store_id;
 
-    const itemsByStore = normalizedItems.reduce((acc, item) => {
-      if (!acc.has(item.store_id)) {
-        acc.set(item.store_id, {
-          items: [],
-          subtotal: 0,
-          quantity: 0,
-        });
+      if (!storeId) {
+        throw new ApiError('Each cart item must belong to a store', StatusCodes.BAD_REQUEST);
       }
 
-      const entry = acc.get(item.store_id);
-      entry.items.push({
+      if (!itemsByStore.has(storeId)) {
+        itemsByStore.set(storeId, []);
+      }
+
+      itemsByStore.get(storeId).push({
         product_id: item.product_id,
         quantity: item.quantity,
       });
-      entry.quantity += item.quantity;
-      if (item.item_total) {
-        entry.subtotal += parseFloat(item.item_total);
-      }
+    });
 
-      return acc;
-    }, new Map());
+    const createdOrders = [];
 
-    if (itemsByStore.size === 0) {
-      throw new ApiError('Cart items could not be grouped by store', StatusCodes.BAD_REQUEST);
-    }
-
-    const shippingAddress = checkoutInput.shipping_address;
-    const billingAddress = checkoutInput.billing_address || shippingAddress;
-    const paymentMethod = checkoutInput.payment_method || 'manual';
-    const customerNote = checkoutInput.customer_note;
-
-    const orders = [];
-    for (const [storeId, storePayload] of itemsByStore.entries()) {
+    let sequence = 0;
+    for (const [storeId, storeItems] of itemsByStore.entries()) {
+      sequence += 1;
       const payload = {
         store_id: storeId,
-        items: storePayload.items,
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: paymentMethod,
-        customer_note: customerNote,
+        items: storeItems,
+        shipping_address: checkoutInput.shipping_address,
+        billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
+        payment_method: checkoutInput.payment_method || 'manual',
+        customer_note: checkoutInput.customer_note,
       };
 
-      const order = await this.createOrder(userId, payload);
+      const eventMetadata = {
+        cartTotals: cart.totals || null,
+        cartId: cart.id || null,
+        origin: 'cart.checkout',
+        storeCount: itemsByStore.size,
+        storeSequence: sequence,
+      };
 
-      await publishOrderCreated(
-        serializeOrderForEvent(order, {
-          cartTotals: {
-            subtotal: storePayload.subtotal || parseFloat(order.subtotal) || 0,
-            item_count: storePayload.quantity,
-          },
-          paymentMethod,
-        })
-      );
-
-      orders.push(order);
+      const order = await this.createOrder(userId, payload, eventMetadata);
+      createdOrders.push(order);
     }
 
-    return orders;
+    const responseOrders = createdOrders.map((order) => ({
+      id: order.id,
+      order_number: order.order_number,
+      store_id: order.store_id,
+      total: parseFloat(order.total || 0),
+      currency: order.currency,
+      status: order.status,
+      payment_status: order.payment_status,
+      items: order.items,
+      store: order.store,
+    }));
+
+    const totals = createdOrders.reduce(
+      (acc, order) => {
+        const orderTotal = parseFloat(order.total || 0);
+        acc.grand_total += orderTotal;
+        const existing = acc.per_store[order.store_id] || 0;
+        acc.per_store[order.store_id] = parseFloat((existing + orderTotal).toFixed(2));
+        return acc;
+      },
+      { grand_total: 0, per_store: {} }
+    );
+
+    totals.grand_total = parseFloat(totals.grand_total.toFixed(2));
+
+    return {
+      orders: responseOrders,
+      totals: {
+        ...totals,
+        currency: createdOrders[0]?.currency || 'TRY',
+      },
+    };
   }
 
   /**
@@ -506,20 +526,15 @@ class OrderService {
     await publishOrderPaid(
       serializeOrderForEvent(order, {
         transactionId: paymentPayload.transactionId || null,
+        paidAt: order.paid_at?.toISOString?.() || new Date().toISOString(),
       })
     );
-
-    await publishOrderCompleted(serializeOrderForEvent(order));
 
     return order;
   }
 
   async markOrderShipped(orderId, shipmentPayload = {}) {
     const order = await this._loadOrderWithRelations(orderId);
-
-    if (order.status === 'shipped') {
-      return order;
-    }
 
     order.status = 'shipped';
     order.shipped_at = new Date();
@@ -542,10 +557,6 @@ class OrderService {
   async markOrderCompleted(orderId, completionPayload = {}) {
     const order = await this._loadOrderWithRelations(orderId);
 
-    if (order.status === 'delivered') {
-      return order;
-    }
-
     order.status = 'delivered';
     order.delivered_at = new Date();
 
@@ -560,6 +571,7 @@ class OrderService {
 
     await publishOrderCompleted(
       serializeOrderForEvent(order, {
+        status: 'completed',
         deliveredAt: order.delivered_at?.toISOString?.() || new Date().toISOString(),
       })
     );

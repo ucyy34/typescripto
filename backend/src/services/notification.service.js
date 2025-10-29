@@ -7,155 +7,129 @@ class NotificationService {
         logger.info('Notification dispatched', notification);
       },
     };
-    this.processedEventKeys = new Set();
+    this.sentEvents = new Map();
   }
 
   setTransport(transport) {
     this.transport = transport;
   }
 
-  reset() {
-    this.processedEventKeys.clear();
-  }
+  _shouldDispatch(orderId, eventKey) {
+    if (!orderId) {
+      return true;
+    }
 
-  _shouldDispatch(eventType, event) {
-    if (!event || !event.orderId) {
+    const existing = this.sentEvents.get(orderId) || new Set();
+    if (existing.has(eventKey)) {
       return false;
     }
 
-    const key = `${event.orderId}:${eventType}`;
-    if (this.processedEventKeys.has(key)) {
-      return false;
-    }
-
-    this.processedEventKeys.add(key);
+    existing.add(eventKey);
+    this.sentEvents.set(orderId, existing);
     return true;
   }
 
-  async handleOrderCreated(event) {
-    if (!this._shouldDispatch('order.created', event)) {
+  async _dispatch(orderId, eventKey, notification, { terminal = false } = {}) {
+    if (!this._shouldDispatch(orderId, eventKey)) {
       return null;
     }
 
-    const notification = {
-      type: 'order-created',
-      orderId: event.orderId,
-      storeId: event.storeId,
-      recipientType: 'store_owner',
-      message: 'Yeni sipariş aldınız',
-      total: event.total || null,
-    };
+    const result = await this.transport.send(notification);
 
-    return this.transport.send(notification);
+    return result;
+  }
+
+  async handleOrderCreated(event) {
+    if (!event || !event.orderId) {
+      return null;
+    }
+
+    return this._dispatch(
+      event.orderId,
+      'order.created',
+      {
+        type: 'order-created',
+        orderId: event.orderId,
+        storeId: event.storeId,
+        message: 'Yeni bir sipariş aldınız',
+      }
+    );
   }
 
   async handleOrderPaid(event) {
-    if (!this._shouldDispatch('order.paid', event)) {
+    if (!event) {
       return null;
     }
 
-    const notification = {
-      type: 'order-paid',
-      orderId: event.orderId,
-      userId: event.userId,
-      recipientType: 'customer',
-      message: 'Ödeme başarıyla alındı',
-      total: event.total || null,
-    };
-
-    return this.transport.send(notification);
+    return this._dispatch(
+      event.orderId,
+      'order.paid',
+      {
+        type: 'order-paid',
+        orderId: event.orderId,
+        userId: event.userId,
+        storeId: event.storeId,
+        message: 'Ödemeniz başarıyla alındı',
+      }
+    );
   }
 
   async handleOrderFailed(event) {
-    if (!this._shouldDispatch('order.failed', event)) {
+    if (!event) {
       return null;
     }
 
-    const notification = {
-      type: 'order-failed',
-      orderId: event.orderId,
-      userId: event.userId,
-      recipientType: 'customer',
-      reason: event.reason || 'Payment failed',
-      message: 'Ödeme işlemi başarısız oldu',
-    };
-
-    return this.transport.send(notification);
-  }
-
-  async handleOrderShipped(event) {
-    if (!this._shouldDispatch('order.shipped', event)) {
-      return null;
-    }
-
-    const notification = {
-      type: 'order-shipped',
-      orderId: event.orderId,
-      userId: event.userId,
-      recipientType: 'customer',
-      message: 'Siparişiniz kargoya verildi',
-      trackingNumber: event.trackingNumber || null,
-      carrier: event.carrier || null,
-    };
-
-    return this.transport.send(notification);
+    return this._dispatch(
+      event.orderId,
+      'order.failed',
+      {
+        type: 'order-failed',
+        orderId: event.orderId,
+        userId: event.userId,
+        reason: event.reason || 'Payment failed',
+        message: 'Ödemeniz tamamlanamadı',
+      },
+      { terminal: true }
+    );
   }
 
   async handleOrderCompleted(event) {
-    if (!this._shouldDispatch('order.completed', event)) {
+    if (!event) {
       return null;
     }
-
-    const notification = {
-      type: 'order-completed',
-      orderId: event.orderId,
-      userId: event.userId,
-      recipientType: 'customer',
-      message: 'Siparişiniz teslim edildi',
-      deliveredAt: event.deliveredAt || event.timestamp || null,
-    };
 
     logger.info('Notification dispatched for order completion', {
       orderId: event.orderId,
       userId: event.userId || null,
     });
 
-    return this.transport.send(notification);
+    return this._dispatch(
+      event.orderId,
+      'order.completed',
+      {
+        type: 'order-completed',
+        orderId: event.orderId,
+        userId: event.userId,
+        storeId: event.storeId,
+        message: 'Siparişiniz teslim edildi',
+      },
+      { terminal: true }
+    );
   }
 
-  async handleOrderCompleted(event) {
-    if (!event) {
+  async handleOrderShipped(event) {
+    if (!event || !event.orderId) {
       return null;
     }
 
-    logger.info('[Notification] order.completed received', {
+    return this._dispatch(event.orderId, 'order.shipped', {
+      type: 'order-shipped',
       orderId: event.orderId,
       userId: event.userId,
-    });
-
-    return this.transport.send({
-      type: 'order-completed',
-      orderId: event.orderId,
-      userId: event.userId,
-      message: 'Order delivered successfully',
-    });
-  }
-
-  async handleOrderCompleted(event) {
-    if (!event) {
-      return null;
-    }
-
-    logger.info('[Notification] order.completed received', {
-      orderId: event.orderId,
-      userId: event.userId || null,
-    });
-
-    return this.transport.send({
-      type: 'order-completed',
-      orderId: event.orderId,
-      userId: event.userId,
-      message: 'Order has been completed successfully',
+      storeId: event.storeId,
+      message: 'Siparişiniz kargoya verildi',
+      trackingNumber: event.trackingNumber || null,
+      carrier: event.carrier || null,
     });
   }
 }
