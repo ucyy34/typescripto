@@ -37,56 +37,20 @@ class CartPageAPI {
             console.log('[Cart Page API] Loading cart...');
             this.showLoading();
 
-            // Use CartManager for unified cart loading
-            this.cart = await window.cartManager.getCart();
+            this.cart = await window.cartManager.getCart(true);
             console.log('[Cart Page API] Cart loaded:', this.cart.length, 'items');
 
             this.renderCart();
             this.updateCartSummary();
         } catch (error) {
             console.error('[Cart Page API] Error loading cart:', error);
-            // Fallback to localStorage
-            this.loadLocalCart();
+            this.cart = [];
             this.renderCart();
             this.updateCartSummary();
+            this.showMessage('Failed to load cart data', 'error');
         } finally {
             this.hideLoading();
         }
-    }
-
-    loadLocalCart() {
-        const localCart = JSON.parse(localStorage.getItem('cart')) || [];
-        console.log('[Cart Page API] Raw localStorage cart:', localCart);
-
-        this.cart = localCart.map(item => {
-            // Ensure product data exists
-            if (!item.product && item.product_id) {
-                console.warn('[Cart Page API] Product data missing, attempting to use fallback data');
-                // Create minimal product object from available data
-                return {
-                    product_id: item.product_id,
-                    product: {
-                        id: item.product_id,
-                        title: item.title || 'Unknown Product',
-                        price: item.price || 0,
-                        images: item.images || [],
-                        stock: item.stock || 0,
-                        store: item.store || null
-                    },
-                    quantity: item.quantity || 1,
-                    price: parseFloat(item.price || 0)
-                };
-            }
-
-            return {
-                product_id: item.product_id,
-                product: item.product,
-                quantity: item.quantity || 1,
-                price: parseFloat(item.price || item.product?.price || 0)
-            };
-        }).filter(item => item.product_id); // Remove invalid items
-
-        console.log('[Cart Page API] Cart loaded from localStorage:', this.cart.length, 'items', this.cart);
     }
 
     renderCart() {
@@ -198,26 +162,14 @@ class CartPageAPI {
         }
 
         try {
-            if (this.isLoggedIn) {
-                // Clear on backend
-                await this.apiClient.delete('/cart');
-            }
-
-            // Clear local cart
+            await window.cartManager.clearCart();
             this.cart = [];
-            localStorage.removeItem('cart');
-
             this.renderCart();
             this.updateCartSummary();
-
             this.showMessage('Cart cleared', 'success');
         } catch (error) {
             console.error('[Cart Page API] Error clearing cart:', error);
-            // Still clear locally
-            this.cart = [];
-            localStorage.removeItem('cart');
-            this.renderCart();
-            this.updateCartSummary();
+            this.showMessage('Failed to clear cart', 'error');
         }
     }
 
@@ -648,27 +600,18 @@ class CartPageAPI {
 
     async updateCartItem(productId, quantity) {
         try {
-            if (this.isLoggedIn) {
-                // Update on backend
-                const response = await this.apiClient.put(`/cart/items/${productId}`, { quantity });
+            const success = await window.cartManager.updateItem(productId, quantity);
 
-                if (!response.success) {
-                    console.warn('[Cart Page API] Backend update failed, updating localStorage only');
-                    this.updateLocalCart();
-                }
-            } else {
-                // Update localStorage
-                this.updateLocalCart();
+            if (!success) {
+                this.showMessage('Failed to update cart item', 'error');
             }
 
+            this.cart = await window.cartManager.getCart(true);
             this.renderCart();
             this.updateCartSummary();
         } catch (error) {
             console.error('[Cart Page API] Error updating cart item:', error);
-            // Fallback to localStorage
-            this.updateLocalCart();
-            this.renderCart();
-            this.updateCartSummary();
+            this.showMessage('Failed to update cart item', 'error');
         }
     }
 
@@ -677,49 +620,20 @@ class CartPageAPI {
 
         const item = this.cart[index];
 
-        // Confirm removal
         if (!confirm(`Remove "${item.product?.title}" from cart?`)) {
             return;
         }
 
         try {
-            if (this.isLoggedIn) {
-                // Remove from backend
-                const response = await this.apiClient.delete(`/cart/items/${item.product_id}`);
-
-                if (!response.success) {
-                    console.warn('[Cart Page API] Backend removal failed, removing from localStorage only');
-                }
-            }
-
-            // Remove from cart array
-            this.cart.splice(index, 1);
-
-            // Update localStorage
-            this.updateLocalCart();
-
+            await window.cartManager.removeItem(item.product_id);
+            this.cart = await window.cartManager.getCart(true);
             this.renderCart();
             this.updateCartSummary();
-
             this.showMessage('Item removed from cart', 'success');
         } catch (error) {
             console.error('[Cart Page API] Error removing item:', error);
-            // Still remove from local state
-            this.cart.splice(index, 1);
-            this.updateLocalCart();
-            this.renderCart();
-            this.updateCartSummary();
+            this.showMessage('Failed to remove item from cart', 'error');
         }
-    }
-
-    updateLocalCart() {
-        const localCart = this.cart.map(item => ({
-            product_id: item.product_id,
-            product: item.product,
-            quantity: item.quantity,
-            price: item.price
-        }));
-        localStorage.setItem('cart', JSON.stringify(localCart));
     }
 
     proceedToCheckout() {
@@ -727,9 +641,6 @@ class CartPageAPI {
             alert('Your cart is empty');
             return;
         }
-
-        // Save cart to localStorage for checkout page
-        this.updateLocalCart();
 
         // Always allow checkout (guest checkout supported)
         // User can optionally login during checkout
@@ -806,10 +717,10 @@ class CartPageAPI {
 }
 
 // Debug helper function
-window.debugCart = function() {
+window.debugCart = async function debugCart() {
     console.log('=== CART DEBUG INFO ===');
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
-    console.log('localStorage cart:', cart);
+    const cart = await window.cartManager.getCart(true);
+    console.log('Remote cart:', cart);
     console.log('Total items:', cart.length);
     cart.forEach((item, i) => {
         console.log(`Item ${i + 1}:`, {
@@ -817,16 +728,14 @@ window.debugCart = function() {
             hasProduct: !!item.product,
             product: item.product,
             quantity: item.quantity,
-            price: item.price
+            price: item.price,
         });
     });
     console.log('======================');
 };
 
-// Helper to clear corrupted cart data
-window.clearCart = function() {
-    localStorage.removeItem('cart');
-    console.log('Cart cleared from localStorage');
+window.clearCart = async function clearCart() {
+    await window.cartManager.clearCart();
     if (window.cartPageAPI) {
         window.cartPageAPI.loadCart();
     }

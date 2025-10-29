@@ -140,7 +140,16 @@ class RecommendationService {
   }
 
   async recordOrderCompletion(event) {
-    if (!event || !event.userId) {
+    if (!event) {
+      return;
+    }
+
+    logger.info('[Recommendation] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId || null,
+    });
+
+    if (!event.userId) {
       return;
     }
 

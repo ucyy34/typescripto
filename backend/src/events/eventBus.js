@@ -17,6 +17,7 @@ try {
   QueueScheduler = null;
 }
 const { redisClient } = require('../config/redis');
+
 const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
@@ -73,7 +74,7 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  eventLogger.info(type, enrichedPayload);
+  eventLogger.info(`[EventBus] ${type}`, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

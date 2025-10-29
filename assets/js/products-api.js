@@ -457,55 +457,24 @@ class ProductsPageAPI {
             }
 
             // Try to add to backend cart if user is logged in
-            if (AuthManager.isLoggedIn()) {
-                const response = await this.apiClient.post('/cart/items', {
-                    product_id: productId,
-                    quantity: 1
-                });
+            if (!window.cartManager) {
+                throw new Error('Cart system unavailable');
+            }
 
-                if (response.success) {
-                    this.showSuccessMessage('Product added to cart!');
-                    // Update cart count if available
-                    if (window.updateCartCount) {
-                        window.updateCartCount();
-                    }
-                } else {
-                    // Fallback to localStorage
-                    this.addToLocalCart(product);
-                }
-            } else {
-                // User not logged in, use localStorage
-                this.addToLocalCart(product);
+            const success = await window.cartManager.addItem(productId, product, 1);
+
+            if (!success) {
+                throw new Error('Failed to add product to cart');
+            }
+
+            this.showSuccessMessage('Product added to cart!');
+
+            if (window.updateCartCount) {
+                await window.updateCartCount();
             }
         } catch (error) {
             console.error('[Products Page API] Error adding to cart:', error);
             this.showError('Failed to add product to cart');
-        }
-    }
-
-    addToLocalCart(product) {
-        let cart = JSON.parse(localStorage.getItem('cart')) || [];
-
-        // Check if product already in cart
-        const existingItem = cart.find(item => item.product_id === product.id);
-
-        if (existingItem) {
-            existingItem.quantity += 1;
-        } else {
-            cart.push({
-                product_id: product.id,
-                product: product,
-                quantity: 1,
-                price: parseFloat(product.price)
-            });
-        }
-
-        localStorage.setItem('cart', JSON.stringify(cart));
-        this.showSuccessMessage('Product added to cart!');
-
-        // Update cart count if available
-        if (window.updateCartCount) {
-            window.updateCartCount();
         }
     }
 

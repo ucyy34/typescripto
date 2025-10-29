@@ -2,7 +2,8 @@ const { ORDER_EVENTS } = require('../events/order.events');
 const eventBus = require('../events/eventBus');
 const paymentService = require('../services/payment.service');
 
-console.log('[Worker] payment started');
+const workerName = 'PaymentWorker';
+console.log(`[Worker] ${workerName} started`);
 
 eventBus.subscribe(ORDER_EVENTS.ORDER_CREATED, async (payload) => {
   await paymentService.handleOrderCreated(payload);

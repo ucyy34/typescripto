@@ -133,6 +133,7 @@ class ApiClient {
         credentials: 'include',
         ...options,
         headers: this.buildHeaders(options.headers),
+        credentials: options.credentials || 'include',
         signal: controller.signal,
         credentials: 'include',
       };

@@ -2,7 +2,8 @@ const { ORDER_EVENTS } = require('../events/order.events');
 const eventBus = require('../events/eventBus');
 const notificationService = require('../services/notification.service');
 
-console.log('[Worker] notification started');
+const workerName = 'NotificationWorker';
+console.log(`[Worker] ${workerName} started`);
 
 eventBus.subscribe(ORDER_EVENTS.ORDER_PAID, async (payload) => {
   await notificationService.handleOrderPaid(payload);

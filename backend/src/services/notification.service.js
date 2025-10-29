@@ -140,6 +140,24 @@ class NotificationService {
       message: 'Order delivered successfully',
     });
   }
+
+  async handleOrderCompleted(event) {
+    if (!event) {
+      return null;
+    }
+
+    logger.info('[Notification] order.completed received', {
+      orderId: event.orderId,
+      userId: event.userId || null,
+    });
+
+    return this.transport.send({
+      type: 'order-completed',
+      orderId: event.orderId,
+      userId: event.userId,
+      message: 'Order has been completed successfully',
+    });
+  }
 }
 
 module.exports = new NotificationService();

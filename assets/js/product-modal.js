@@ -936,10 +936,7 @@ class ProductModal {
                 cartCount.classList.add('show');
             } catch (error) {
                 console.error('[ProductModal] Error updating cart counter:', error);
-                // Fallback to localStorage
-                const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-                const totalCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-                cartCount.textContent = totalCount;
+                cartCount.textContent = '0';
             }
         }
     }
