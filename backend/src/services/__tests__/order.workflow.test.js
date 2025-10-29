@@ -17,16 +17,53 @@ jest.mock('../../events/order.events', () => {
   };
 });
 
+jest.mock('../../config/redis', () => {
+  const createMulti = () => ({
+    hset: jest.fn().mockReturnThis(),
+    expire: jest.fn().mockReturnThis(),
+    del: jest.fn().mockReturnThis(),
+    exec: jest.fn().mockResolvedValue([]),
+  });
+
+  const mockClient = {
+    on: jest.fn(),
+    duplicate: () => mockClient,
+    multi: createMulti,
+    watch: jest.fn().mockResolvedValue(),
+    unwatch: jest.fn().mockResolvedValue(),
+    hgetall: jest.fn().mockResolvedValue({}),
+    hset: jest.fn().mockResolvedValue(),
+    expire: jest.fn().mockResolvedValue(),
+    del: jest.fn().mockResolvedValue(),
+    scanStream: () => ({
+      on: jest.fn(),
+    }),
+  };
+
+  return {
+    redisClient: mockClient,
+    cache: {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      delPattern: jest.fn(),
+      exists: jest.fn(),
+      incr: jest.fn(),
+      expire: jest.fn(),
+    },
+  };
+});
+
 const orderService = require('../order.service');
 const orderEvents = require('../../events/order.events');
 
-describe('OrderService.createFromCart', () => {
+describe('OrderService workflow', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it('creates an order from cart data and publishes order.created', async () => {
-    const fakeOrder = {
+  it('splits cart by store and publishes order.created per store', async () => {
+    const firstOrder = {
       id: 'order-1',
       user_id: 'user-1',
       store_id: 'store-1',
@@ -34,9 +71,18 @@ describe('OrderService.createFromCart', () => {
       status: 'pending_payment',
     };
 
+    const secondOrder = {
+      id: 'order-2',
+      user_id: 'user-1',
+      store_id: 'store-2',
+      total: '150.00',
+      status: 'pending_payment',
+    };
+
     const createOrderSpy = jest
       .spyOn(orderService, 'createOrder')
-      .mockResolvedValue(fakeOrder);
+      .mockResolvedValueOnce(firstOrder)
+      .mockResolvedValueOnce(secondOrder);
 
     const cart = {
       items: [
@@ -44,9 +90,16 @@ describe('OrderService.createFromCart', () => {
           product_id: 'product-1',
           quantity: 2,
           store: { id: 'store-1' },
+          item_total: 100,
+        },
+        {
+          product_id: 'product-2',
+          quantity: 1,
+          store: { id: 'store-2' },
+          item_total: 150,
         },
       ],
-      totals: { subtotal: 100, item_count: 2 },
+      totals: { subtotal: 250, item_count: 3 },
     };
 
     const checkoutInput = {
@@ -61,18 +114,54 @@ describe('OrderService.createFromCart', () => {
       payment_method: 'card',
     };
 
-    const order = await orderService.createFromCart('user-1', cart, checkoutInput);
+    const orders = await orderService.createFromCart('user-1', cart, checkoutInput);
 
-    expect(createOrderSpy).toHaveBeenCalledWith(
-      'user-1',
-      expect.objectContaining({
-        store_id: 'store-1',
-        items: [{ product_id: 'product-1', quantity: 2 }],
-      })
-    );
-    expect(orderEvents.publishOrderCreated).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: 'order-1' })
-    );
-    expect(order).toEqual(fakeOrder);
+    expect(createOrderSpy).toHaveBeenCalledTimes(2);
+    expect(orders).toEqual([firstOrder, secondOrder]);
+    expect(orderEvents.publishOrderCreated).toHaveBeenCalledTimes(2);
+    expect(orderEvents.publishOrderCreated.mock.calls[0][0]).toMatchObject({
+      orderId: 'order-1',
+      storeId: 'store-1',
+    });
+    expect(orderEvents.publishOrderCreated.mock.calls[1][0]).toMatchObject({
+      orderId: 'order-2',
+      storeId: 'store-2',
+    });
+  });
+
+  it('marks an order as paid without completing it prematurely', async () => {
+    const order = {
+      id: 'order-99',
+      status: 'pending_payment',
+      payment_status: 'pending',
+      save: jest.fn().mockResolvedValue(true),
+      reload: jest.fn().mockResolvedValue(true),
+    };
+
+    jest.spyOn(orderService, '_loadOrderWithRelations').mockResolvedValue(order);
+
+    await orderService.markOrderPaid('order-99', { transactionId: 'txn-1' });
+
+    expect(order.status).toBe('paid');
+    expect(order.payment_status).toBe('paid');
+    expect(orderEvents.publishOrderPaid).toHaveBeenCalledTimes(1);
+    expect(orderEvents.publishOrderCompleted).not.toHaveBeenCalled();
+  });
+
+  it('emits order.completed only when markOrderCompleted is called', async () => {
+    const order = {
+      id: 'order-77',
+      status: 'shipped',
+      payment_status: 'paid',
+      save: jest.fn().mockResolvedValue(true),
+      reload: jest.fn().mockResolvedValue(true),
+    };
+
+    jest.spyOn(orderService, '_loadOrderWithRelations').mockResolvedValue(order);
+
+    await orderService.markOrderCompleted('order-77', {});
+
+    expect(order.status).toBe('delivered');
+    expect(orderEvents.publishOrderCompleted).toHaveBeenCalledTimes(1);
   });
 });

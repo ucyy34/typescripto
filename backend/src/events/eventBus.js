@@ -21,6 +21,14 @@ const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
 
+const orderEventSequences = new Map();
+const TERMINAL_EVENTS = new Set([
+  'order.completed',
+  'order.failed',
+  'order.cancelled',
+  'order.refunded',
+]);
+
 const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
 const forceMemory = process.env.EVENT_BUS_MODE === 'memory';
@@ -73,7 +81,21 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  eventLogger.info(type, enrichedPayload);
+  if (enrichedPayload.orderId) {
+    const sequence = orderEventSequences.get(enrichedPayload.orderId) || [];
+    sequence.push(type);
+    orderEventSequences.set(enrichedPayload.orderId, sequence);
+    eventLogger.info(`[EventBus] ${sequence.join(' → ')}`, {
+      orderId: enrichedPayload.orderId,
+      lastEvent: type,
+    });
+
+    if (TERMINAL_EVENTS.has(type)) {
+      orderEventSequences.delete(enrichedPayload.orderId);
+    }
+  } else {
+    eventLogger.info(type, enrichedPayload);
+  }
 
   const activeQueue = ensureQueue();
 

@@ -149,13 +149,19 @@ class CartService {
     const userKey = this._requireCartKey(userId, null);
     const guestKey = this._resolveCartKey(null, guestId);
 
-    const { items: guestItems } = await this._loadCartState(guestKey);
+    await redisClient.watch(userKey, guestKey);
+
+    const [{ items: userItems }, { items: guestItems }] = await Promise.all([
+      this._loadCartState(userKey),
+      this._loadCartState(guestKey),
+    ]);
+
     if (guestItems.length === 0) {
+      await redisClient.unwatch();
       return this.getCart(userId, null);
     }
 
     const ttl = this._resolveCartTtl(userId);
-    const { items: userItems } = await this._loadCartState(userKey);
     const merged = [...userItems];
 
     for (const guestItem of guestItems) {
@@ -170,10 +176,25 @@ class CartService {
       }
     }
 
-    await this._persistCartState(userKey, merged, ttl);
+    const multi = redisClient.multi();
+
+    multi.hset(userKey, {
+      items: JSON.stringify(merged),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (ttl) {
+      multi.expire(userKey, ttl);
+    }
 
     if (guestKey) {
-      await redisClient.del(guestKey);
+      multi.del(guestKey);
+    }
+
+    const result = await multi.exec();
+
+    if (result === null) {
+      throw new ApiError('Cart merge conflict, please retry', StatusCodes.CONFLICT);
     }
 
     return this.getCart(userId, null);
