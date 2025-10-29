@@ -474,6 +474,31 @@ class CommissionService {
 
     return CommissionSettings.createDefaultSettings();
   }
+
+  async handleOrderPaid(event) {
+    if (!event || !event.orderId) {
+      return null;
+    }
+
+    try {
+      return await this.createCommissionTransaction(event.orderId);
+    } catch (error) {
+      console.error('[Commission Service] Failed to process commission for paid order', {
+        orderId: event.orderId,
+        error: error.message,
+      });
+      return null;
+    }
+  }
+
+  async handleOrderFailed(event) {
+    if (!event || !event.orderId) {
+      return null;
+    }
+
+    await CommissionTransaction.destroy({ where: { order_id: event.orderId } });
+    return null;
+  }
 }
 
 module.exports = new CommissionService();

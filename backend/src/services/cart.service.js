@@ -149,31 +149,72 @@ class CartService {
     const userKey = this._requireCartKey(userId, null);
     const guestKey = this._resolveCartKey(null, guestId);
 
-    const { items: guestItems } = await this._loadCartState(guestKey);
-    if (guestItems.length === 0) {
-      return this.getCart(userId, null);
-    }
-
     const ttl = this._resolveCartTtl(userId);
-    const { items: userItems } = await this._loadCartState(userKey);
-    const merged = [...userItems];
 
-    for (const guestItem of guestItems) {
-      const existing = merged.find((item) => item.product_id === guestItem.product_id);
-      const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
-      await this.validateProductAndStock(guestItem.product_id, newQuantity);
+    while (true) {
+      await redisClient.watch(userKey, guestKey);
 
-      if (existing) {
-        existing.quantity = newQuantity;
-      } else {
-        merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
+      const [userData, guestData] = await Promise.all([
+        redisClient.hget(userKey, 'items'),
+        redisClient.hget(guestKey, 'items'),
+      ]);
+
+      const parseItems = (raw) => {
+        if (!raw) {
+          return [];
+        }
+
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.warn('[CartService] Failed to parse cart items during merge', error);
+          return [];
+        }
+      };
+
+      const userItems = parseItems(userData);
+      const guestItems = parseItems(guestData);
+
+      if (guestItems.length === 0) {
+        await redisClient.unwatch();
+        return this.getCart(userId, null);
       }
-    }
 
-    await this._persistCartState(userKey, merged, ttl);
+      const merged = [...userItems];
 
-    if (guestKey) {
-      await redisClient.del(guestKey);
+      for (const guestItem of guestItems) {
+        const existing = merged.find((item) => item.product_id === guestItem.product_id);
+        const newQuantity = (existing?.quantity || 0) + guestItem.quantity;
+        await this.validateProductAndStock(guestItem.product_id, newQuantity);
+
+        if (existing) {
+          existing.quantity = newQuantity;
+        } else {
+          merged.push({ product_id: guestItem.product_id, quantity: guestItem.quantity });
+        }
+      }
+
+      const multi = redisClient.multi();
+      multi.hset(userKey, {
+        items: JSON.stringify(merged),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (ttl) {
+        multi.expire(userKey, ttl);
+      }
+
+      multi.del(guestKey);
+
+      const execResult = await multi.exec();
+
+      if (execResult === null) {
+        // Retry merge due to concurrent modification
+        continue;
+      }
+
+      break;
     }
 
     return this.getCart(userId, null);
