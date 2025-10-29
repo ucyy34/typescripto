@@ -13,13 +13,13 @@ const cors = require('cors');
 const compression = require('compression');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const { v4: uuidv4 } = require('uuid');
 // path already required above
 
 const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/rateLimiter');
 const { sequelize } = require('./config/sequelize');
 const { redisClient } = require('./config/redis');
+const { attachGuestId } = require('./middlewares/guest.middleware');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -98,31 +98,8 @@ app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 app.use(cookieParser()); // Parse cookies
 
-// Guest identifier cookie for Redis-backed carts
-const GUEST_COOKIE_NAME = 'guest_id';
-const GUEST_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-app.use((req, res, next) => {
-  try {
-    let guestId = req.cookies?.[GUEST_COOKIE_NAME];
-
-    if (!guestId) {
-      guestId = uuidv4();
-      res.cookie(GUEST_COOKIE_NAME, guestId, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: GUEST_COOKIE_MAX_AGE,
-      });
-    }
-
-    req.guestId = guestId;
-  } catch (error) {
-    console.warn('[GuestMiddleware] Failed to assign guest ID', error);
-  }
-
-  next();
-});
+// Guest identification middleware (replaces express-session cart storage)
+app.use(attachGuestId);
 
 // Compression middleware (gzip)
 app.use(compression());

@@ -1,179 +1,221 @@
 /**
  * Cart Manager
- * Simplified API-driven cart management for both guest and authenticated users.
+ * Centralized client for cart operations backed by the API
  */
 
 class CartManager {
     constructor() {
         this.apiClient = new ApiClient();
-        this.lastCart = [];
+        this.lastCartResponse = { items: [], totals: { subtotal: 0, item_count: 0 } };
+        this.lastCart = { items: [], totals: { subtotal: 0, item_count: 0 } };
     }
 
+    /**
+     * Fetch cart from API
+     * @param {boolean} forceRefresh - bypass client cache
+     * @returns {Promise<Array>} cart items
+     */
     async getCart(forceRefresh = false) {
         try {
-            if (forceRefresh && window.apiCache) {
-                window.apiCache.clearPattern('/cart');
+            const response = await this.apiClient.get(
+                API_CONFIG.ENDPOINTS.CART.BASE,
+                {},
+                { useCache: !forceRefresh }
+            );
+
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+                return this.lastCart.items;
             }
 
-            const response = await this.apiClient.get('/cart', {}, { useCache: !forceRefresh });
-
-            if (!response?.success || !response?.data) {
-                return [];
-            }
-
-            const normalized = (response.data.items || []).map((item) => this.normalizeBackendItem(item));
-            this.lastCart = normalized;
-            return normalized;
+            this._applyCartResponse();
+            return [];
         } catch (error) {
-            console.error('[CartManager] Failed to load cart from API', error);
-            this.lastCart = [];
+            console.error('[CartManager] Failed to fetch cart:', error);
+            this._applyCartResponse();
             return [];
         }
     }
 
-    normalizeBackendItem(item) {
+    /**
+     * Return last known totals without refetching
+     */
+    getTotals() {
+        return this.lastCart?.totals || { subtotal: 0, item_count: 0 };
+    }
+
+    /**
+     * Add item to cart via API
+     */
+    async addItem(productId, _productData = {}, quantity = 1) {
+        try {
+            const response = await this.apiClient.post(API_CONFIG.ENDPOINTS.CART.ITEMS, {
+                product_id: productId,
+                quantity,
+            });
+
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+                return true;
+            }
+
+            console.warn('[CartManager] addItem response not successful:', response);
+            return false;
+        } catch (error) {
+            console.error('[CartManager] Error adding item:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update item quantity
+     */
+    async updateItem(productId, quantity) {
+        try {
+            const response = await this.apiClient.put(
+                API_CONFIG.ENDPOINTS.CART.ITEM_BY_ID(productId),
+                { quantity }
+            );
+
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+                return true;
+            }
+
+            console.warn('[CartManager] updateItem response not successful:', response);
+            return false;
+        } catch (error) {
+            console.error('[CartManager] Error updating item:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Remove item from cart
+     */
+    async removeItem(productId) {
+        try {
+            const response = await this.apiClient.delete(
+                API_CONFIG.ENDPOINTS.CART.ITEM_BY_ID(productId)
+            );
+
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+                return true;
+            }
+
+            console.warn('[CartManager] removeItem response not successful:', response);
+            return false;
+        } catch (error) {
+            console.error('[CartManager] Error removing item:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Clear entire cart
+     */
+    async clearCart() {
+        try {
+            const response = await this.apiClient.delete(API_CONFIG.ENDPOINTS.CART.BASE);
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+            } else {
+                this._applyCartResponse();
+            }
+            return true;
+        } catch (error) {
+            console.error('[CartManager] Error clearing cart:', error);
+            this._applyCartResponse();
+            return false;
+        }
+    }
+
+    /**
+     * Return number of items in cart
+     */
+    async getCartCount() {
+        if (Array.isArray(this.lastCart?.items) && this.lastCart.items.length > 0) {
+            return this.lastCart.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        }
+
+        const items = await this.getCart(true);
+        return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    }
+
+    /**
+     * Merge guest cart into user cart after login
+     */
+    async mergeGuestCart() {
+        try {
+            const response = await this.apiClient.post(API_CONFIG.ENDPOINTS.CART.MERGE);
+            if (response.success && response.data) {
+                this._applyCartResponse(response.data);
+                return true;
+            }
+
+            console.warn('[CartManager] mergeGuestCart response not successful:', response);
+            return false;
+        } catch (error) {
+            console.error('[CartManager] Error merging guest cart:', error);
+            return false;
+        }
+    }
+
+    _applyCartResponse(data) {
+        const response = data || { items: [], totals: { subtotal: 0, item_count: 0 } };
+        this.lastCartResponse = response;
+
+        const normalizedItems = Array.isArray(response.items)
+            ? response.items
+                  .map((item) => this._normalizeItem(item))
+                  .filter((item) => item !== null)
+            : [];
+
+        this.lastCart = {
+            items: normalizedItems,
+            totals: response.totals || { subtotal: 0, item_count: 0 },
+        };
+    }
+
+    _normalizeItem(item) {
         if (!item) {
             return null;
         }
 
         if (item.product) {
-            return {
-                product_id: item.product.id || item.product_id,
-                product: item.product,
-                quantity: item.quantity || 1,
-                price: parseFloat(item.price || item.product.price || 0),
-            };
+            return item;
         }
+
+        const price = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+        const product = {
+            id: item.product_id,
+            title: item.title,
+            slug: item.slug,
+            price,
+            compare_price: item.compare_price || null,
+            images: item.image ? [item.image] : [],
+            stock: item.stock,
+            is_available: item.is_available,
+            store: item.store || null,
+            category: item.category || null,
+        };
 
         return {
             product_id: item.product_id,
-            product: {
-                id: item.product_id,
-                title: item.title,
-                slug: item.slug,
-                price: item.price,
-                compare_price: item.compare_price || null,
-                images: item.image ? [item.image] : [],
-                stock: item.stock ?? null,
-                is_available: item.is_available,
-                store: item.store || null,
-                category: item.category || null,
-            },
-            quantity: item.quantity || 1,
-            price: parseFloat(item.price || 0),
+            quantity: item.quantity,
+            price,
+            item_total: item.item_total || price * item.quantity,
+            product,
+            store: item.store || null,
+            category: item.category || null,
+            title: item.title,
+            slug: item.slug,
+            compare_price: item.compare_price || null,
+            stock: item.stock,
+            is_available: item.is_available,
         };
-    }
-
-    async addItem(productId, _productData, quantity = 1) {
-        try {
-            const payload = { product_id: productId, quantity };
-            const response = await this.apiClient.post('/cart/items', payload);
-
-            if (response.success) {
-                this._clearCartCache();
-                await this.getCart(true);
-                return true;
-            }
-
-            console.warn('[CartManager] Failed to add item', response.message);
-            return false;
-        } catch (error) {
-            console.error('[CartManager] Error adding item', error);
-            return false;
-        }
-    }
-
-    async updateItem(productId, quantity) {
-        try {
-            const response = await this.apiClient.put(`/cart/items/${productId}`, { quantity });
-
-            if (response.success) {
-                this._clearCartCache();
-                await this.getCart(true);
-                return true;
-            }
-
-            console.warn('[CartManager] Failed to update item', response.message);
-            return false;
-        } catch (error) {
-            console.error('[CartManager] Error updating item', error);
-            return false;
-        }
-    }
-
-    async removeItem(productId) {
-        try {
-            const response = await this.apiClient.delete(`/cart/items/${productId}`);
-
-            if (response.success) {
-                this._clearCartCache();
-                await this.getCart(true);
-                return true;
-            }
-
-            console.warn('[CartManager] Failed to remove item', response.message);
-            return false;
-        } catch (error) {
-            console.error('[CartManager] Error removing item', error);
-            return false;
-        }
-    }
-
-    async clearCart() {
-        try {
-            const response = await this.apiClient.delete('/cart');
-
-            if (response.success) {
-                this._clearCartCache();
-                this.lastCart = [];
-                return true;
-            }
-
-            console.warn('[CartManager] Failed to clear cart', response.message);
-            return false;
-        } catch (error) {
-            console.error('[CartManager] Error clearing cart', error);
-            return false;
-        }
-    }
-
-    async getCartCount(forceRefresh = false) {
-        const items = await this.getCart(forceRefresh);
-        return items.reduce((sum, item) => sum + (item?.quantity || 0), 0);
-    }
-
-    async mergeGuestCart() {
-        try {
-            const response = await this.apiClient.post('/cart/merge', {});
-
-            if (response.success) {
-                this._clearCartCache();
-                await this.getCart(true);
-                return true;
-            }
-
-            console.warn('[CartManager] Guest cart merge failed', response.message);
-            return false;
-        } catch (error) {
-            console.error('[CartManager] Error merging guest cart', error);
-            return false;
-        }
-    }
-
-    _clearCartCache() {
-        if (window.apiCache) {
-            window.apiCache.clearPattern('/cart');
-        }
     }
 }
 
 window.cartManager = new CartManager();
-
-window.debugCart = async function debugCart() {
-    const items = await window.cartManager.getCart(true);
-    console.log('=== CART DEBUG ===');
-    console.log('Items:', items.length);
-    items.forEach((item, index) => {
-        console.log(`${index + 1}.`, item.product?.title || item.product_id, 'x', item.quantity);
-    });
-};
