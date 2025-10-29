@@ -25,36 +25,6 @@ const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
 const forceMemory = process.env.EVENT_BUS_MODE === 'memory';
 
-const ORDER_EVENT_TYPES = new Set([
-  'order.created',
-  'order.paid',
-  'order.shipped',
-  'order.completed',
-  'order.failed',
-]);
-const orderEventChains = new Map();
-
-const buildOrderEventLogMessage = (type, payload) => {
-  if (!ORDER_EVENT_TYPES.has(type) || !payload?.orderId) {
-    return `[EventBus] ${type}`;
-  }
-
-  const history = orderEventChains.get(payload.orderId) || [];
-  if (!history.includes(type)) {
-    history.push(type);
-  }
-
-  const message = `[EventBus] ${history.join(' → ')}`;
-
-  if (type === 'order.completed' || type === 'order.failed') {
-    orderEventChains.delete(payload.orderId);
-  } else {
-    orderEventChains.set(payload.orderId, history);
-  }
-
-  return message;
-};
-
 let queue;
 let scheduler;
 
@@ -103,7 +73,7 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  eventLogger.info(buildOrderEventLogMessage(type, enrichedPayload), enrichedPayload);
+  eventLogger.info(type, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

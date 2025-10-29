@@ -509,6 +509,8 @@ class OrderService {
       })
     );
 
+    await publishOrderCompleted(serializeOrderForEvent(order));
+
     return order;
   }
 
