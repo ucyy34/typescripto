@@ -25,37 +25,13 @@ const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
 const forceMemory = process.env.EVENT_BUS_MODE === 'memory';
 
+const TERMINAL_EVENTS = new Set(['order.completed', 'order.failed']);
+const orderEventHistory = new Map();
+
 let queue;
 let scheduler;
 
 const shouldUseMemory = () => forceMemory || isTestEnv;
-
-const TERMINAL_EVENTS = new Set(['order.completed', 'order.failed']);
-const eventChains = new Map();
-
-const registerEventInChain = (type, payload) => {
-  const orderId = payload?.orderId;
-
-  if (!orderId) {
-    return `[EventBus] ${type}`;
-  }
-
-  const existingChain = eventChains.get(orderId) || [];
-
-  if (!existingChain.includes(type)) {
-    existingChain.push(type);
-  }
-
-  const chainMessage = `[EventBus] ${existingChain.join(' → ')}`;
-
-  if (TERMINAL_EVENTS.has(type)) {
-    eventChains.delete(orderId);
-  } else {
-    eventChains.set(orderId, existingChain);
-  }
-
-  return chainMessage;
-};
 
 const ensureQueue = () => {
   if (shouldUseMemory() || !Queue) {
@@ -100,8 +76,35 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
-  const message = registerEventInChain(type, enrichedPayload);
-  eventLogger.info(message, enrichedPayload);
+  const orderId = enrichedPayload.orderId || enrichedPayload.id || null;
+  let logLabel = `[EventBus] ${type}`;
+
+  if (orderId) {
+    const history = orderEventHistory.get(orderId) || [];
+    const lastEvent = history[history.length - 1];
+
+    if (lastEvent !== type) {
+      history.push(type);
+    }
+
+    orderEventHistory.set(orderId, history);
+
+    if (orderEventHistory.size > 1000) {
+      const iterator = orderEventHistory.keys();
+      const oldestKey = iterator.next();
+      if (!oldestKey.done && oldestKey.value !== orderId) {
+        orderEventHistory.delete(oldestKey.value);
+      }
+    }
+
+    logLabel = `[EventBus] ${history.join(' → ')}`;
+
+    if (TERMINAL_EVENTS.has(type)) {
+      orderEventHistory.delete(orderId);
+    }
+  }
+
+  eventLogger.info(logLabel, enrichedPayload);
 
   const activeQueue = ensureQueue();
 

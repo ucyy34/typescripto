@@ -7,6 +7,7 @@ const cartService = require('../services/cart.service');
 const { success } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/errorHandler');
 const recommendationService = require('../services/recommendation.service');
+const orderService = require('../services/order.service');
 
 class CartController {
   /**
@@ -14,7 +15,9 @@ class CartController {
    * @route GET /api/v1/cart
    */
   getCart = asyncHandler(async (req, res) => {
-    const cart = await cartService.getCart(req.user?.id || null, req.guestId);
+    const userId = req.user?.id || null;
+    const cart = await cartService.getCart(userId, req.guestId);
+
     return success(res, cart, 'Cart retrieved successfully');
   });
 
@@ -26,13 +29,32 @@ class CartController {
     const checkoutInput = req.body || {};
     const userId = req.user ? req.user.id : null;
 
-    const order = await cartService.checkout({
-      userId,
-      guestId: req.guestId,
-      checkoutInput,
-    });
+    const cart = await cartService.getCart(userId, req.guestId);
 
-    return success(res, order, 'Checkout completed successfully', 201);
+    const orders = await orderService.createFromCart(userId, cart, checkoutInput);
+
+    if (req.user) {
+      await cartService.clearCart(userId, null);
+    } else if (req.guestId) {
+      await cartService.clearCart(null, req.guestId);
+    }
+
+    const serializedOrders = orders.map((order) => ({
+      id: order.id,
+      order_number: order.order_number,
+      store_id: order.store_id,
+      total: parseFloat(order.total),
+      currency: order.currency || 'TRY',
+      status: order.status,
+      payment_status: order.payment_status,
+    }));
+
+    return success(
+      res,
+      { orders: serializedOrders },
+      'Checkout completed successfully',
+      201
+    );
   });
 
   /**
@@ -41,7 +63,9 @@ class CartController {
    */
   addItem = asyncHandler(async (req, res) => {
     const { product_id, quantity } = req.body;
-    const cart = await cartService.addItem(req.user?.id || null, req.guestId, product_id, quantity);
+    const userId = req.user?.id || null;
+    const cart = await cartService.addItem(userId, req.guestId, product_id, quantity);
+
     return success(res, cart, 'Item added to cart successfully', 201);
   });
 
@@ -52,7 +76,9 @@ class CartController {
   updateItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body;
-    const cart = await cartService.updateItem(req.user?.id || null, req.guestId, productId, quantity);
+    const userId = req.user?.id || null;
+    const cart = await cartService.updateItem(userId, req.guestId, productId, quantity);
+
     return success(res, cart, 'Cart item updated successfully');
   });
 
@@ -62,7 +88,9 @@ class CartController {
    */
   removeItem = asyncHandler(async (req, res) => {
     const { productId } = req.params;
-    const cart = await cartService.removeItem(req.user?.id || null, req.guestId, productId);
+    const userId = req.user?.id || null;
+    const cart = await cartService.removeItem(userId, req.guestId, productId);
+
     return success(res, cart, 'Item removed from cart successfully');
   });
 
@@ -71,7 +99,9 @@ class CartController {
    * @route DELETE /api/v1/cart
    */
   clearCart = asyncHandler(async (req, res) => {
-    const cart = await cartService.clearCart(req.user?.id || null, req.guestId);
+    const userId = req.user?.id || null;
+    const cart = await cartService.clearCart(userId, req.guestId);
+
     return success(res, cart, 'Cart cleared successfully');
   });
 

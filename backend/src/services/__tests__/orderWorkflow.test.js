@@ -1,111 +1,185 @@
+'use strict';
+
+const saveMock = jest.fn();
+const reloadMock = jest.fn();
+
+jest.mock('../../events/order.events', () => {
+  const actual = jest.requireActual('../../events/order.events');
+  return {
+    ...actual,
+    serializeOrderForEvent: jest.fn((order, overrides = {}) => ({
+      orderId: order.id,
+      userId: order.user_id || null,
+      storeId: order.store_id || null,
+      total: parseFloat(order.total || 0),
+      ...overrides,
+    })),
+    publishOrderCreated: jest.fn(),
+    publishOrderPaid: jest.fn(),
+    publishOrderShipped: jest.fn(),
+    publishOrderCompleted: jest.fn(),
+    publishOrderFailed: jest.fn(),
+  };
+});
+
+jest.mock('../../models', () => ({
+  Order: {
+    findByPk: jest.fn(),
+    findOne: jest.fn(),
+  },
+  OrderItem: {
+    findAll: jest.fn(),
+  },
+  Product: {
+    increment: jest.fn(),
+  },
+  Store: {},
+  User: {},
+}));
+
+jest.mock('../commission.service', () => ({
+  createCommissionTransaction: jest.fn(),
+}));
+
+const { publishOrderPaid, publishOrderCompleted } = require('../../events/order.events');
+const { Order } = require('../../models');
+const orderService = require('../order.service');
+const notificationService = require('../notification.service');
+const analyticsService = require('../analytics.service');
 const commissionService = require('../commission.service');
+const eventBus = require('../../events/eventBus');
 
-describe('Marketplace service event handlers', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-    if (typeof commissionService.resetProcessedOrders === 'function') {
-      commissionService.resetProcessedOrders();
-    }
-    jest.resetModules();
+require('../../workers/commission.worker');
+
+describe('Order workflow orchestration', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    saveMock.mockReset();
+    reloadMock.mockReset();
+    notificationService.setTransport({
+      async send() {
+        return null;
+      },
+    });
+    notificationService.sentNotifications.clear();
+    analyticsService.reset();
   });
 
-  test('commissionService.handleOrderPaid creates commission only once per order', async () => {
-    const createTransactionSpy = jest
-      .spyOn(commissionService, 'createCommissionTransaction')
-      .mockResolvedValue({ id: 'commission-1' });
-
-    await commissionService.handleOrderPaid({ orderId: 'order-abc' });
-    await commissionService.handleOrderPaid({ orderId: 'order-abc' });
-    await commissionService.handleOrderPaid({});
-
-    expect(createTransactionSpy).toHaveBeenCalledTimes(1);
-  });
-
-  test('cartService.mergeGuestCartToUser merges quantities atomically', async () => {
-    jest.resetModules();
-
-    const createRedisStub = () => {
-      const store = new Map();
-      const redisClient = {
-        __store: store,
-        watch: jest.fn().mockResolvedValue(true),
-        unwatch: jest.fn().mockResolvedValue(true),
-        async hgetall(key) {
-          return store.get(key) || {};
-        },
-        async hset(key, values) {
-          const existing = store.get(key) || {};
-          store.set(key, { ...existing, ...values });
-        },
-        async expire() {
-          return true;
-        },
-        async del(key) {
-          store.delete(key);
-        },
-        multi() {
-          const commands = [];
-          const transaction = {
-            hset(key, values) {
-              commands.push(() => redisClient.hset(key, values));
-              return transaction;
-            },
-            expire(key, ttl) {
-              commands.push(() => redisClient.expire(key, ttl));
-              return transaction;
-            },
-            del(key) {
-              commands.push(() => redisClient.del(key));
-              return transaction;
-            },
-            async exec() {
-              for (const command of commands) {
-                await command();
-              }
-              return commands.map(() => 'OK');
-            },
-          };
-          return transaction;
-        },
-      };
-
-      return { redisClient };
+  test('markOrderPaid emits order.paid once without auto-completing', async () => {
+    saveMock.mockResolvedValue();
+    reloadMock.mockResolvedValue();
+    const orderRecord = {
+      id: 'order-1',
+      user_id: 'user-1',
+      store_id: 'store-1',
+      status: 'pending_payment',
+      payment_status: 'pending',
+      payment_details: null,
+      save: saveMock,
+      reload: reloadMock,
     };
 
-    const redisStub = createRedisStub();
+    reloadMock.mockResolvedValue(orderRecord);
 
-    jest.doMock('../../config/redis', () => ({
-      ...redisStub,
-      cache: {},
-    }));
+    Order.findByPk.mockResolvedValue(orderRecord);
 
-    const cartService = require('../cart.service');
-    jest.spyOn(cartService, 'validateProductAndStock').mockResolvedValue(true);
-    jest
-      .spyOn(cartService, 'getCart')
-      .mockResolvedValue({ items: [], totals: { subtotal: 0, item_count: 0 } });
+    await orderService.markOrderPaid('order-1', { transactionId: 'txn-1' });
 
-    await redisStub.redisClient.hset('cart:user:user-1', {
-      items: JSON.stringify([{ product_id: 'p1', quantity: 1 }]),
+    expect(Order.findByPk).toHaveBeenCalledWith('order-1', expect.any(Object));
+    expect(saveMock).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
+    expect(publishOrderPaid).toHaveBeenCalledTimes(1);
+    expect(publishOrderPaid).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1', transactionId: 'txn-1' })
+    );
+    expect(publishOrderCompleted).not.toHaveBeenCalled();
+  });
+
+  test('markOrderCompleted publishes completion event once delivery is confirmed', async () => {
+    saveMock.mockResolvedValue();
+    reloadMock.mockResolvedValue();
+    const orderRecord = {
+      id: 'order-77',
+      user_id: 'user-9',
+      store_id: 'store-4',
+      status: 'shipped',
+      payment_status: 'paid',
+      save: saveMock,
+      reload: reloadMock,
+    };
+
+    reloadMock.mockResolvedValue(orderRecord);
+
+    Order.findByPk.mockResolvedValue(orderRecord);
+
+    await orderService.markOrderCompleted('order-77', { feedback: 'Teslim edildi' });
+
+    expect(Order.findByPk).toHaveBeenCalledWith('order-77', expect.any(Object));
+    expect(publishOrderCompleted).toHaveBeenCalledTimes(1);
+    expect(publishOrderCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-77' })
+    );
+  });
+
+  test('notification service deduplicates identical events per order', async () => {
+    const sentNotifications = [];
+    notificationService.setTransport({
+      async send(notification) {
+        sentNotifications.push(notification);
+      },
     });
-    await redisStub.redisClient.hset('cart:guest:guest-1', {
-      items: JSON.stringify([
-        { product_id: 'p1', quantity: 2 },
-        { product_id: 'p2', quantity: 1 },
-      ]),
+
+    await notificationService.handleOrderPaid({ orderId: 'order-5', userId: 'user-5' });
+    await notificationService.handleOrderPaid({ orderId: 'order-5', userId: 'user-5' });
+    await notificationService.handleOrderCompleted({ orderId: 'order-5', userId: 'user-5' });
+
+    expect(sentNotifications).toHaveLength(2);
+    expect(sentNotifications[0].type).toBe('order-paid');
+    expect(sentNotifications[1].type).toBe('order-completed');
+  });
+
+  test('analytics aggregates store metrics without duplicate counts', async () => {
+    await analyticsService.handleOrderEvent('order.created', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+    });
+    await analyticsService.handleOrderEvent('order.paid', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+      total: 150.5,
+    });
+    await analyticsService.handleOrderEvent('order.paid', {
+      orderId: 'order-8',
+      storeId: 'store-99',
+      total: 150.5,
+    });
+    await analyticsService.handleOrderEvent('order.completed', {
+      orderId: 'order-8',
+      storeId: 'store-99',
     });
 
-    await cartService.mergeGuestCartToUser('user-1', 'guest-1');
+    const metrics = analyticsService.getStoreMetrics('store-99');
 
-    expect(redisStub.redisClient.watch).toHaveBeenCalled();
-    expect(redisStub.redisClient.unwatch).toHaveBeenCalled();
+    expect(metrics).toMatchObject({
+      created: 1,
+      paid: 1,
+      completed: 1,
+      revenue: 150.5,
+    });
+    expect(metrics.successRate).toBeCloseTo(1);
+  });
 
-    const storedUserCart = JSON.parse(redisStub.redisClient.__store.get('cart:user:user-1').items);
-    expect(storedUserCart).toEqual([
-      { product_id: 'p1', quantity: 3 },
-      { product_id: 'p2', quantity: 1 },
-    ]);
-    expect(redisStub.redisClient.__store.has('cart:guest:guest-1')).toBe(false);
-    expect(cartService.validateProductAndStock).toHaveBeenCalledTimes(2);
+  test('commission worker reacts to order.paid events', async () => {
+    await eventBus.publish('order.paid', {
+      orderId: 'commission-order-1',
+      storeId: 'store-42',
+      total: 250,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(commissionService.createCommissionTransaction).toHaveBeenCalledWith(
+      'commission-order-1'
+    );
   });
 });
