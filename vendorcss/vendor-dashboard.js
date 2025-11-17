@@ -434,8 +434,7 @@ class VendorDashboard {
             vdLog('Loading recent orders...');
 
             const response = await this.apiClient.get(`/stores/${this.storeId}/orders`, {
-                limit: 5,
-                sort: '-createdAt'
+                limit: 5
             });
 
             if (response.success && response.data) {
@@ -1569,10 +1568,11 @@ class VendorDashboard {
         try {
             vdLog('Loading earnings...');
 
-            const userStore = this.currentUser.store;
-            if (!userStore || !userStore.id) {
+            if (!this.storeId) {
                 throw new Error('Mağaza bilgisi bulunamadı');
             }
+
+            const userStore = { id: this.storeId };
 
             // Get date range (last 30 days)
             const endDate = new Date();
@@ -2143,7 +2143,10 @@ class VendorDashboard {
             const categoryId = document.getElementById('productCategory').value;
             const priceInput = document.getElementById('productPrice').value;
             const stockInput = document.getElementById('productStock').value;
-            const imageUrl = document.getElementById('productImage').value.trim();
+
+            // Get image URL from preview or file input
+            const imagePreview = document.getElementById('productImagePreview');
+            const imageUrl = imagePreview && imagePreview.dataset.imageUrl ? imagePreview.dataset.imageUrl.trim() : '';
 
             vdLog('Form values:', {
                 title,
@@ -2623,12 +2626,13 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             }
         });
     }
+}; // Close setupSEOCounters function
 
-    // ==========================================
-    // CAMPAIGNS MANAGEMENT
-    // ==========================================
+// ==========================================
+// CAMPAIGNS MANAGEMENT
+// ==========================================
 
-    async loadCampaignsData() {
+VendorDashboard.prototype.loadCampaignsData = async function() {
         try {
             if (!this.storeId) {
                 console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
@@ -2677,7 +2681,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 container.innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: #ef4444;">
                         <p>⚠️ Failed to load campaigns</p>
-                        <button onclick="vendorDashboard.loadCampaignsData()" 
+                        <button onclick="vendorDashboard.loadCampaignsData()"
                                 style="background: var(--vendor-primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-top: 1rem;">
                             Retry
                         </button>
@@ -2685,9 +2689,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
                 `;
             }
         }
-    }
+};
 
-    renderCampaigns(campaigns) {
+VendorDashboard.prototype.renderCampaigns = function(campaigns) {
         const container = document.getElementById('campaigns-list');
         
         const html = campaigns.map(campaign => {
@@ -2769,9 +2773,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
         }).join('');
 
         container.innerHTML = html;
-    }
+};
 
-    setupCampaignModal() {
+VendorDashboard.prototype.setupCampaignModal = function() {
         const createBtn = document.getElementById('createCampaignBtn');
         const modal = document.getElementById('campaignModal');
         const closeBtn = document.getElementById('closeCampaignModal');
@@ -2823,9 +2827,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             e.preventDefault();
             await this.createCampaign();
         });
-    }
+};
 
-    async loadCampaignProducts() {
+VendorDashboard.prototype.loadCampaignProducts = async function() {
         try {
             const response = await this.apiClient.get('/products', {
                 store_id: this.storeId,
@@ -2855,9 +2859,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading products for campaign:', error);
         }
-    }
+};
 
-    async createCampaign() {
+VendorDashboard.prototype.createCampaign = async function() {
         try {
             if (!this.storeId) {
                 this.showError('Store bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
@@ -2907,9 +2911,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             console.error('[Vendor Dashboard] Error creating campaign:', error);
             this.showError('Failed to create campaign');
         }
-    }
+};
 
-    async toggleCampaignStatus(campaignId, newStatus) {
+VendorDashboard.prototype.toggleCampaignStatus = async function(campaignId, newStatus) {
         try {
             if (!this.storeId) {
                 this.showError('Store bilgisi bulunamadı.');
@@ -2930,9 +2934,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             console.error('[Vendor Dashboard] Error toggling campaign status:', error);
             this.showError('Failed to update campaign');
         }
-    }
+};
 
-    async deleteCampaign(campaignId) {
+VendorDashboard.prototype.deleteCampaign = async function(campaignId) {
         if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
             return;
         }
@@ -2955,9 +2959,9 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             console.error('[Vendor Dashboard] Error deleting campaign:', error);
             this.showError('Failed to delete campaign');
         }
-    }
+};
 
-    async viewCampaignStats(campaignId) {
+VendorDashboard.prototype.viewCampaignStats = async function(campaignId) {
         try {
             if (!this.storeId) {
                 this.showError('Store bilgisi bulunamadı.');
@@ -2974,7 +2978,6 @@ VendorDashboard.prototype.setupSEOCounters = function() {
             console.error('[Vendor Dashboard] Error loading campaign stats:', error);
             this.showError('Failed to load campaign statistics');
         }
-    }
 };
 
 // CSS Animations

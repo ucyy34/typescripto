@@ -5,7 +5,7 @@
 
 class ReturnAPI {
   constructor() {
-    this.API_BASE = (typeof API_CONFIG !== 'undefined' && API_CONFIG.BASE_URL) ? API_CONFIG.BASE_URL : 'http://localhost:5050/api/v1';
+    this.apiClient = new ApiClient();
   }
 
   /**
@@ -15,25 +15,10 @@ class ReturnAPI {
    */
   async createReturnRequest(returnData) {
     try {
-      const response = await fetch(`${this.API_BASE}/returns`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.getToken()}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify(returnData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create return request');
-      }
-
-      return data;
+      const response = await this.apiClient.post('/returns', returnData);
+      return response;
     } catch (error) {
-      console.error('Error creating return request:', error);
+      console.error('[ReturnAPI] Error creating return request:', error);
       throw error;
     }
   }
@@ -45,24 +30,12 @@ class ReturnAPI {
    */
   async getUserReturns(filters = {}) {
     try {
-      const queryParams = new URLSearchParams(filters);
-      const response = await fetch(`${this.API_BASE}/returns?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.getToken()}`,
-        },
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch return requests');
-      }
-
-      return data;
+      const queryString = new URLSearchParams(filters).toString();
+      const endpoint = queryString ? `/returns?${queryString}` : '/returns';
+      const response = await this.apiClient.get(endpoint);
+      return response;
     } catch (error) {
-      console.error('Error fetching return requests:', error);
+      console.error('[ReturnAPI] Error fetching return requests:', error);
       throw error;
     }
   }
@@ -74,23 +47,10 @@ class ReturnAPI {
    */
   async getReturnRequest(returnId) {
     try {
-      const response = await fetch(`${this.API_BASE}/returns/${returnId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.getToken()}`,
-        },
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch return request');
-      }
-
-      return data;
+      const response = await this.apiClient.get(`/returns/${returnId}`);
+      return response;
     } catch (error) {
-      console.error('Error fetching return request:', error);
+      console.error('[ReturnAPI] Error fetching return request:', error);
       throw error;
     }
   }
@@ -103,25 +63,10 @@ class ReturnAPI {
    */
   async cancelReturnRequest(returnId, reason) {
     try {
-      const response = await fetch(`${this.API_BASE}/returns/${returnId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.getToken()}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ reason }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to cancel return request');
-      }
-
-      return data;
+      const response = await this.apiClient.post(`/returns/${returnId}/cancel`, { reason });
+      return response;
     } catch (error) {
-      console.error('Error cancelling return request:', error);
+      console.error('[ReturnAPI] Error cancelling return request:', error);
       throw error;
     }
   }
@@ -134,25 +79,10 @@ class ReturnAPI {
    */
   async updateReturnStatus(returnId, statusData) {
     try {
-      const response = await fetch(`${this.API_BASE}/returns/${returnId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.getToken()}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify(statusData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update return status');
-      }
-
-      return data;
+      const response = await this.apiClient.patch(`/returns/${returnId}/status`, statusData);
+      return response;
     } catch (error) {
-      console.error('Error updating return status:', error);
+      console.error('[ReturnAPI] Error updating return status:', error);
       throw error;
     }
   }
@@ -165,38 +95,14 @@ class ReturnAPI {
    */
   async getStoreReturns(storeId, filters = {}) {
     try {
-      const queryParams = new URLSearchParams(filters);
-      const response = await fetch(
-        `${this.API_BASE}/returns/stores/${storeId}?${queryParams}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${this.getToken()}`,
-          },
-          credentials: 'include',
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch store returns');
-      }
-
-      return data;
+      const queryString = new URLSearchParams(filters).toString();
+      const endpoint = queryString ? `/returns/stores/${storeId}?${queryString}` : `/returns/stores/${storeId}`;
+      const response = await this.apiClient.get(endpoint);
+      return response;
     } catch (error) {
-      console.error('Error fetching store returns:', error);
+      console.error('[ReturnAPI] Error fetching store returns:', error);
       throw error;
     }
-  }
-
-  /**
-   * Get authentication token
-   * @returns {string}
-   * @private
-   */
-  getToken() {
-    return localStorage.getItem('token') || '';
   }
 
   /**

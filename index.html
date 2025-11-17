@@ -480,7 +480,10 @@
     <script>
         window.addEventListener('load', () => {
             setTimeout(() => {
-                document.getElementById('loadingScreen').classList.add('hidden');
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                }
             }, 2000);
         });
 

@@ -9,6 +9,7 @@ class CheckoutPageAPI {
         this.cart = [];
         this.isLoggedIn = AuthManager.isLoggedIn();
         this.user = null;
+        this.addresses = [];
         this.shippingAddress = {};
         this.billingAddress = {};
         this.paymentMethod = 'card';
@@ -28,6 +29,7 @@ class CheckoutPageAPI {
             // Load user if logged in (optional for guest checkout)
             if (this.isLoggedIn) {
                 await this.loadUser();
+                await this.loadAddresses();
                 console.log('[Checkout Page API] User logged in:', this.user?.email);
             } else {
                 console.log('[Checkout Page API] Guest checkout mode');
@@ -56,6 +58,19 @@ class CheckoutPageAPI {
             }
         } catch (error) {
             console.error('[Checkout Page API] Error loading user:', error);
+        }
+    }
+
+    async loadAddresses() {
+        try {
+            console.log('[Checkout Page API] Loading addresses...');
+            const response = await this.apiClient.get('/addresses');
+            this.addresses = response.data?.addresses || response.addresses || [];
+            console.log('[Checkout Page API] Loaded', this.addresses.length, 'addresses');
+            console.log('[Checkout Page API] First address:', this.addresses[0]);
+        } catch (error) {
+            console.error('[Checkout Page API] Error loading addresses:', error);
+            this.addresses = [];
         }
     }
 
@@ -392,6 +407,7 @@ class CheckoutPageAPI {
 
         this.setupAuthSections();
         this.setupSavedAddressHandlers();
+        this.setupCityDistrictSelection();
         this.toggleCardDetails();
     }
 
@@ -484,6 +500,12 @@ class CheckoutPageAPI {
         if (savedAddresses) {
             const shouldShow = mode === 'member' && this.isLoggedIn && this.hasSavedAddresses();
             savedAddresses.style.display = shouldShow ? 'block' : 'none';
+        }
+
+        // Show/hide address form based on mode and saved addresses
+        if (mode === 'guest' || !this.isLoggedIn || !this.hasSavedAddresses()) {
+            // Guest or no saved addresses - always show form
+            this.showAddressForm();
         }
 
         this.updateAuthFormsState();
@@ -731,7 +753,7 @@ class CheckoutPageAPI {
     }
 
     hasSavedAddresses() {
-        return Array.isArray(this.user?.addresses) && this.user.addresses.length > 0;
+        return Array.isArray(this.addresses) && this.addresses.length > 0;
     }
 
     renderSavedAddresses() {
@@ -749,12 +771,17 @@ class CheckoutPageAPI {
             return;
         }
 
-        const addresses = Array.isArray(this.user?.addresses) ? this.user.addresses : [];
+        const addresses = this.addresses || [];
 
         if (!addresses.length) {
-            const empty = document.createElement('p');
+            const empty = document.createElement('div');
             empty.className = 'saved-addresses-empty';
-            empty.textContent = 'Kayıtlı adres bulunamadı.';
+            empty.innerHTML = `
+                <p style="text-align: center; color: #6b7280; padding: 2rem;">
+                    📍 Kayıtlı adres bulunamadı.
+                    <a href="profile.html" style="color: #2d6853; text-decoration: underline;">Profil sayfasından</a> adres ekleyebilirsiniz.
+                </p>
+            `;
             listContainer.appendChild(empty);
             if (wrapper) {
                 wrapper.style.display = this.currentMode === 'member' ? 'block' : 'none';
@@ -788,6 +815,32 @@ class CheckoutPageAPI {
 
             const details = document.createElement('div');
             details.className = 'address-details';
+
+            // Add name
+            if (address.full_name) {
+                const nameEl = document.createElement('div');
+                nameEl.style.fontWeight = '600';
+                nameEl.textContent = address.full_name;
+                details.appendChild(nameEl);
+            }
+
+            // Add email if exists
+            if (address.email) {
+                const emailEl = document.createElement('div');
+                emailEl.style.color = '#6b7280';
+                emailEl.textContent = `📧 ${address.email}`;
+                details.appendChild(emailEl);
+            }
+
+            // Add phone
+            if (address.phone) {
+                const phoneEl = document.createElement('div');
+                phoneEl.style.color = '#6b7280';
+                phoneEl.textContent = `📞 ${address.phone}`;
+                details.appendChild(phoneEl);
+            }
+
+            // Add address lines
             const lines = [
                 address.address_line1 || address.address || address.street || null,
                 address.address_line2 || address.line2 || null,
@@ -801,7 +854,7 @@ class CheckoutPageAPI {
                     .trim(),
             ].filter((line) => line && line.length > 0);
 
-            if (!lines.length) {
+            if (!lines.length && !address.full_name && !address.email && !address.phone) {
                 details.textContent = 'Adres bilgisi bulunamadı.';
             } else {
                 lines.forEach((line) => {
@@ -841,7 +894,12 @@ class CheckoutPageAPI {
         }
 
         if (addresses.length > 0) {
+            // First address is selected by default, hide the form
+            this.hideAddressForm();
             this.fillShippingAddress(addresses[0]);
+        } else {
+            // No saved addresses, show the form
+            this.showAddressForm();
         }
     }
 
@@ -856,6 +914,8 @@ class CheckoutPageAPI {
             const indexAttr = target.dataset.index;
 
             if (target.value === 'new' || indexAttr === 'new') {
+                // Show address form for new address
+                this.showAddressForm();
                 this.clearShippingAddressFields();
                 return;
             }
@@ -865,19 +925,134 @@ class CheckoutPageAPI {
                 return;
             }
 
-            const addresses = Array.isArray(this.user?.addresses) ? this.user.addresses : [];
+            const addresses = this.addresses || [];
             if (addresses[index]) {
+                // Hide address form when using saved address
+                this.hideAddressForm();
                 this.fillShippingAddress(addresses[index]);
             }
         });
     }
 
+    showAddressForm() {
+        const addressForm = document.querySelector('.address-form');
+        if (addressForm) {
+            addressForm.style.display = 'block';
+            // Re-enable required validation for form fields
+            const requiredFields = addressForm.querySelectorAll('input[data-required="true"], select[data-required="true"]');
+            requiredFields.forEach(field => {
+                field.required = true;
+            });
+        }
+    }
+
+    hideAddressForm() {
+        const addressForm = document.querySelector('.address-form');
+        if (addressForm) {
+            addressForm.style.display = 'none';
+            // Disable required validation when form is hidden to prevent validation errors
+            const requiredFields = addressForm.querySelectorAll('input[required], select[required]');
+            requiredFields.forEach(field => {
+                field.dataset.required = 'true'; // Store original state
+                field.required = false;
+            });
+        }
+    }
+
     fillShippingAddress(address) {
         if (!address) return;
 
+        console.log('[Checkout] fillShippingAddress called with:', address);
+
+        // Split full_name into firstName and lastName
+        const nameParts = (address.full_name || '').trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || nameParts[0] || ''; // If only one name, use it for both
+
+        // SMART FIX: Handle Turkey address confusion (City vs State)
+        // If user entered city/state backwards (common issue), swap them
+        let cityValue = address.city || '';
+        let districtValue = address.district || address.state || '';
+
+        // Detect if values are swapped: if "city" starts lowercase and "state" starts uppercase
+        // This means user probably entered district in city field and city in state field
+        if (cityValue && districtValue) {
+            const cityFirstChar = cityValue.charAt(0);
+            const stateFirstChar = districtValue.charAt(0);
+
+            // If city starts with lowercase and state starts with uppercase, swap them
+            if (cityFirstChar === cityFirstChar.toLowerCase() &&
+                stateFirstChar === stateFirstChar.toUpperCase()) {
+                console.log('[Checkout] Detected swapped city/state, swapping back:', {
+                    before: { city: cityValue, state: districtValue },
+                    after: { city: districtValue, state: cityValue }
+                });
+                [cityValue, districtValue] = [districtValue, cityValue];
+            }
+        }
+
+        // Update this.shippingAddress object directly for validation
+        this.shippingAddress = {
+            ...this.shippingAddress,
+            firstName: firstName,
+            lastName: lastName,
+            email: address.email || this.user?.email || '', // Fallback to user email if address email is null
+            phone: address.phone || '',
+            address: [
+                address.address_line1 || address.address || address.street,
+                address.address_line2 || address.line2
+            ].filter(Boolean).join(', '),
+            city: cityValue,
+            district: districtValue,
+            postalCode: address.postal_code || address.zip || '',
+        };
+
+        console.log('[Checkout] Extracted from address:', {
+            full_name: address.full_name,
+            firstName: firstName,
+            lastName: lastName,
+            email: address.email,
+            user_email_fallback: this.user?.email,
+            final_email: this.shippingAddress.email,
+            phone: address.phone,
+            state: address.state,
+            district: this.shippingAddress.district
+        });
+
+        // Fill Contact Information fields
+        const firstNameInput = document.getElementById('firstName');
+        if (firstNameInput && this.shippingAddress.firstName) {
+            firstNameInput.value = this.shippingAddress.firstName;
+        }
+
+        const lastNameInput = document.getElementById('lastName');
+        if (lastNameInput && this.shippingAddress.lastName) {
+            lastNameInput.value = this.shippingAddress.lastName;
+        }
+
+        const emailInput = document.getElementById('email');
+        if (emailInput && address.email) {
+            emailInput.value = address.email;
+        }
+
+        const phoneInput = document.getElementById('phone');
+        if (phoneInput && address.phone) {
+            phoneInput.value = address.phone;
+        }
+
+        // Fill Delivery Address fields
+        const fullNameInput = document.getElementById('fullName');
+        if (fullNameInput && address.full_name) {
+            fullNameInput.value = address.full_name;
+        }
+
         const shippingAddressInput = document.getElementById('shippingAddress');
         if (shippingAddressInput) {
-            shippingAddressInput.value = address.address_line1 || address.address || address.street || '';
+            const addressLine = [
+                address.address_line1 || address.address || address.street,
+                address.address_line2 || address.line2
+            ].filter(Boolean).join(', ');
+            shippingAddressInput.value = addressLine || '';
         }
 
         const shippingZip = document.getElementById('shippingZip');
@@ -886,17 +1061,36 @@ class CheckoutPageAPI {
         }
 
         const shippingCitySelect = document.getElementById('shippingCitySelect');
-        const cityValue = address.city || '';
-        if (shippingCitySelect) {
-            if (!this.setSelectValueByText(shippingCitySelect, cityValue)) {
-                shippingCitySelect.value = cityValue;
-            }
-        }
 
-        const shippingDistrict = document.getElementById('shippingDistrict');
-        const districtValue = address.district || address.state || '';
-        if (shippingDistrict) {
-            shippingDistrict.value = districtValue;
+        if (shippingCitySelect && cityValue) {
+            // Set city value
+            if (!this.setSelectValueByText(shippingCitySelect, cityValue)) {
+                shippingCitySelect.value = cityValue.toLowerCase();
+            }
+
+            // Trigger change event to load districts
+            const changeEvent = new Event('change', { bubbles: true });
+            shippingCitySelect.dispatchEvent(changeEvent);
+
+            // Wait for districts to load, then set district value
+            if (districtValue) {
+                setTimeout(() => {
+                    const shippingDistrict = document.getElementById('shippingDistrict');
+                    if (shippingDistrict && shippingDistrict.options.length > 1) {
+                        // Try to find the district option
+                        const option = Array.from(shippingDistrict.options).find(
+                            opt => opt.value.toLowerCase() === districtValue.toLowerCase() ||
+                                   opt.text.toLowerCase() === districtValue.toLowerCase()
+                        );
+                        if (option) {
+                            shippingDistrict.value = option.value;
+                            console.log('[Checkout] District set to:', option.value);
+                        } else {
+                            console.warn('[Checkout] District option not found:', districtValue);
+                        }
+                    }
+                }, 500); // Wait 500ms for districts to load
+            }
         }
 
         const deliveryInstructions = document.getElementById('deliveryInstructions');
@@ -904,10 +1098,8 @@ class CheckoutPageAPI {
             deliveryInstructions.value = address.notes;
         }
 
-        const phoneInput = document.getElementById('phone');
-        if (phoneInput && !phoneInput.value && address.phone) {
-            phoneInput.value = address.phone;
-        }
+        console.log('[Checkout Page API] Filled shipping address:', address.label || 'Address');
+        console.log('[Checkout Page API] Updated this.shippingAddress:', this.shippingAddress);
     }
 
     clearShippingAddressFields(keepContact = true) {
@@ -1005,6 +1197,7 @@ class CheckoutPageAPI {
         AuthManager.logout(false);
         this.isLoggedIn = false;
         this.user = null;
+        this.addresses = [];
         this.apiClient = new ApiClient();
 
         this.clearAuthMessage('login');
@@ -1023,6 +1216,7 @@ class CheckoutPageAPI {
         try {
             this.apiClient = new ApiClient();
             await this.loadUser();
+            await this.loadAddresses();
             await this.loadCart();
             this.prefillContactInfo(true);
             this.renderOrderSummary();
@@ -1093,9 +1287,57 @@ class CheckoutPageAPI {
         const errors = [];
         const missingFields = [];
 
+        // If logged in, use user data for contact info
+        // Check if address form is visible
+        const addressForm = document.querySelector('.address-form');
+        const isAddressFormVisible = addressForm && addressForm.style.display !== 'none';
+
+        console.log('[Checkout] Address form visible:', isAddressFormVisible);
+
+        // If logged in and using saved address (form hidden), keep the address data that was already filled
+        // If logged in and form is visible (new address), use user data as defaults
+        if (this.isLoggedIn && this.user && isAddressFormVisible) {
+            // Only use user data as fallback if not already set
+            if (!this.shippingAddress.firstName) this.shippingAddress.firstName = this.user.first_name || '';
+            if (!this.shippingAddress.lastName) this.shippingAddress.lastName = this.user.last_name || '';
+            if (!this.shippingAddress.email) this.shippingAddress.email = this.user.email || '';
+            if (!this.shippingAddress.phone) this.shippingAddress.phone = this.user.phone || '';
+            console.log('[Checkout] Using logged-in user data for contact info (form visible)');
+        }
+
+        console.log('[Checkout] Current shippingAddress state:', this.shippingAddress);
+
         // Validate required fields using correct IDs
         for (const [htmlId, backendName] of Object.entries(fieldMapping)) {
             const input = document.getElementById(htmlId);
+
+            // Skip contact fields if form is hidden (using saved address) OR if user is logged in
+            if (['firstName', 'lastName', 'email', 'phone'].includes(backendName) && (!isAddressFormVisible || this.isLoggedIn)) {
+                // Check if value exists in this.shippingAddress (from saved address or user data)
+                if (!this.shippingAddress[backendName]) {
+                    console.warn(`[Checkout] Contact field missing ${backendName}`);
+                    errors.push(`${backendName} is required`);
+                    missingFields.push(backendName);
+                } else {
+                    console.log(`[Checkout] Using existing value for ${backendName}: ${this.shippingAddress[backendName]}`);
+                }
+                continue;
+            }
+
+            // Skip address form fields if form is hidden (using saved address)
+            if (!isAddressFormVisible && ['address', 'city', 'postalCode', 'district'].includes(backendName)) {
+                // Check if value exists in this.shippingAddress (filled from saved address)
+                if (!this.shippingAddress[backendName]) {
+                    console.warn(`[Checkout] Saved address missing ${backendName}`);
+                    console.warn(`[Checkout] Current this.shippingAddress:`, this.shippingAddress);
+                    errors.push(`${backendName} is required`);
+                    missingFields.push(backendName);
+                } else {
+                    console.log(`[Checkout] Using saved address value for ${backendName}: ${this.shippingAddress[backendName]}`);
+                }
+                continue;
+            }
+
             if (!input) {
                 console.warn(`[Checkout] Field not found in DOM: ${htmlId} (${backendName})`);
                 errors.push(`${backendName} field is missing`);
@@ -1254,11 +1496,17 @@ class CheckoutPageAPI {
                 return;
             }
 
-            const order = response.data || response.order || {};
+            console.log('[Checkout Page API] Checkout response:', response);
+
+            // Backend returns { orders: [...] } array
+            const orders = response.data?.orders || response.orders || [];
+            const order = orders[0] || response.data || response.order || {};
+
+            console.log('[Checkout Page API] Order created:', order);
 
             try {
                 localStorage.setItem('lastOrder', JSON.stringify({
-                    orderId: order.id || order.order?.id || null,
+                    orderId: order.id || null,
                     items: this.cart,
                     totals: window.cartManager.getTotals(),
                 }));
@@ -1268,7 +1516,7 @@ class CheckoutPageAPI {
 
             await window.cartManager.getCart(true);
 
-            const orderId = order.id || order.order?.id || 'unknown';
+            const orderId = order.id || 'unknown';
             console.log('[Checkout Page API] Redirecting to order-success.html with order ID:', orderId);
             window.location.href = `order-success.html?orderId=${orderId}`;
         } catch (error) {
@@ -1372,6 +1620,63 @@ class CheckoutPageAPI {
                 promoMessage.textContent = `❌ ${error.message || 'An error occurred'}`;
                 promoMessage.style.color = '#ef4444';
             }
+        }
+    }
+
+    setupCityDistrictSelection() {
+        const districts = {
+            'istanbul': [
+                'Kadıköy', 'Beşiktaş', 'Şişli', 'Beyoğlu', 'Üsküdar', 'Fatih',
+                'Bakırköy', 'Maltepe', 'Ataşehir', 'Pendik', 'Kartal', 'Tuzla',
+                'Avcılar', 'Başakşehir', 'Beylikdüzü', 'Büyükçekmece', 'Çekmeköy',
+                'Esenler', 'Esenyurt', 'Gaziosmanpaşa', 'Güngören', 'Kağıthane'
+            ],
+            'ankara': [
+                'Çankaya', 'Keçiören', 'Yenimahalle', 'Mamak', 'Sincan', 'Etimesgut',
+                'Gölbaşı', 'Pursaklar', 'Altındağ', 'Polatlı', 'Elmadağ', 'Kalecik'
+            ],
+            'izmir': [
+                'Konak', 'Karşıyaka', 'Bornova', 'Buca', 'Çiğli', 'Gaziemir',
+                'Narlıdere', 'Balçova', 'Bayraklı', 'Güzelbahçe', 'Karabağlar', 'Torbalı'
+            ],
+            'bursa': [
+                'Osmangazi', 'Nilüfer', 'Yıldırım', 'Mudanya', 'Gemlik', 'İnegöl',
+                'Karacabey', 'Mustafakemalpaşa', 'Orhangazi', 'Büyükorhan'
+            ],
+            'antalya': [
+                'Muratpaşa', 'Kepez', 'Konyaaltı', 'Döşemealtı', 'Aksu', 'Alanya',
+                'Manavgat', 'Serik', 'Kemer', 'Kaş', 'Demre', 'Finike'
+            ]
+        };
+
+        const citySelect = document.getElementById('shippingCitySelect');
+        const districtSelect = document.getElementById('shippingDistrict');
+
+        if (citySelect && districtSelect) {
+            citySelect.addEventListener('change', (e) => {
+                const selectedCity = e.target.value.toLowerCase();
+                districtSelect.innerHTML = '<option value="">İlçe Seçin</option>';
+                districtSelect.disabled = !selectedCity;
+
+                if (selectedCity && districts[selectedCity]) {
+                    districts[selectedCity].forEach(districtName => {
+                        const option = document.createElement('option');
+                        option.value = districtName;
+                        option.textContent = districtName;
+                        districtSelect.appendChild(option);
+                    });
+                    districtSelect.disabled = false;
+                    console.log('[Checkout API] Loaded districts for:', selectedCity);
+                }
+
+                // Update shipping address
+                this.shippingAddress.city = e.target.value;
+                this.shippingAddress.district = '';
+            });
+
+            districtSelect.addEventListener('change', (e) => {
+                this.shippingAddress.district = e.target.value;
+            });
         }
     }
 

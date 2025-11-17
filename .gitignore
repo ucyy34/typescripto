@@ -1,7 +1,65 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+backend/.env
+*.env
+
+# Logs
+logs/
+*.log
+backend/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .claude/
-cookies.txt
-C\?UsersLENOVODesktopdostanwebcss41.2backendtoken.txt
-*backendtoken.txt
-nul
-backend/src/uploads/
+
+# Uploads
+backend/src/uploads/*
 !backend/src/uploads/.gitkeep
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Database
+*.sqlite
+*.db
+
+# Cache
+.cache/
+*.cache
+
+# Temp files
+temp/
+tmp/
+*.tmp
+cookies.txt
+nul
+*backendtoken.txt
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test coverage
+coverage/
+.nyc_output/

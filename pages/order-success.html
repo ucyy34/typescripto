@@ -20,11 +20,13 @@
             background: white;
             padding: 3rem;
             border-radius: 20px;
-            max-width: 600px;
+            max-width: 700px;
             width: 100%;
             text-align: center;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             animation: slideUp 0.6s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(30px); }
@@ -129,30 +131,57 @@
 <body>
     <div class="success-container">
         <div class="success-icon">✅</div>
-        <h1>Order Confirmed!</h1>
+        <h1>Sipariş Onaylandı!</h1>
         <p style="color:#666;margin-bottom:1.5rem;">
-            Thank you! Your order has been successfully placed.
+            Teşekkür ederiz! Siparişiniz başarıyla alındı ve işleme kondu.
         </p>
 
         <div class="order-number">
-            Order #<span id="orderNumber">Loading...</span>
+            Sipariş No: <span id="orderNumber">Yükleniyor...</span>
         </div>
 
-        <h3 style="text-align:left;margin:1.5rem 0 1rem 0;">Order Details</h3>
+        <div style="background:#f0f7f4;padding:1rem;border-radius:8px;margin:1rem 0;text-align:left;">
+            <p style="margin:0.5rem 0;font-size:0.9rem;"><strong>📧 E-posta:</strong> Sipariş detayları e-posta adresinize gönderildi.</p>
+            <p style="margin:0.5rem 0;font-size:0.9rem;"><strong>📦 Kargo:</strong> Siparişiniz 1-3 iş günü içinde kargoya verilecektir.</p>
+            <p style="margin:0.5rem 0;font-size:0.9rem;"><strong>💳 Ödeme:</strong> Ödemeniz başarıyla alındı.</p>
+        </div>
+
+        <h3 style="text-align:left;margin:1.5rem 0 1rem 0;">Sipariş Özeti</h3>
         <div class="order-items" id="orderItems">
-            <p style="text-align:center;color:#666;">Loading...</p>
+            <p style="text-align:center;color:#666;">Yükleniyor...</p>
         </div>
 
         <div class="total-box">
-            <strong>Total: <span id="totalAmount">$0.00</span></strong>
+            <div style="display:flex;justify-content:space-between;margin:0.5rem 0;">
+                <span>Ara Toplam:</span>
+                <span id="subtotalAmount">₺0.00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin:0.5rem 0;">
+                <span>Kargo:</span>
+                <span>₺0.00</span>
+            </div>
+            <hr style="margin:0.75rem 0;border:none;border-top:1px solid #ddd;">
+            <div style="display:flex;justify-content:space-between;font-size:1.1rem;">
+                <strong>Toplam:</strong>
+                <strong id="totalAmount">₺0.00</strong>
+            </div>
+        </div>
+
+        <div style="margin-top:1.5rem;padding:1rem;background:#fff9e6;border-radius:8px;border-left:4px solid #ffc107;">
+            <p style="margin:0;font-size:0.9rem;color:#856404;">
+                <strong>💡 İpucu:</strong> Siparişlerinizi <a href="profile.html" style="color:#2d6853;text-decoration:underline;">Profilim</a> sayfasından takip edebilirsiniz.
+            </p>
         </div>
 
         <p class="countdown">
-            Redirecting to homepage in <span id="countdown">5</span> seconds...
+            Ana sayfaya yönlendiriliyorsunuz: <span id="countdown">10</span> saniye...
         </p>
 
-        <a href="../index.html" class="btn">
-            🏠 Return to Homepage
+        <a href="../index.html" class="btn" style="margin-right:0.5rem;">
+            🏠 Ana Sayfa
+        </a>
+        <a href="profile.html" class="btn" style="background:#666;">
+            👤 Siparişlerim
         </a>
     </div>
 
@@ -165,59 +194,104 @@
         const orderId = urlParams.get('orderId');
 
         async function loadOrderDetails() {
-            if (!orderId) {
-                document.getElementById('orderNumber').textContent = 'Not Found';
-                document.getElementById('orderItems').innerHTML = '<p style="text-align:center;color:red;">Order ID not provided</p>';
+            console.log('[Order Success] orderId from URL:', orderId);
+
+            if (!orderId || orderId === 'null' || orderId === 'undefined') {
+                document.getElementById('orderNumber').textContent = 'Bulunamadı';
+                document.getElementById('orderItems').innerHTML = '<p style="text-align:center;color:red;">Sipariş ID bulunamadı</p>';
+                console.warn('[Order Success] No orderId in URL');
                 return;
             }
 
             try {
-                document.getElementById('orderNumber').textContent = orderId.substring(0, 8).toUpperCase();
+                // Display order number - handle both UUID and numeric IDs
+                const displayId = orderId.length > 8 ? orderId.substring(0, 8).toUpperCase() : orderId.toUpperCase();
+                document.getElementById('orderNumber').textContent = displayId;
+                console.log('[Order Success] Display order ID:', displayId);
 
-                // Get order from session storage cart (since it was just created)
-                const cart = JSON.parse(sessionStorage.getItem('lastOrder')) || [];
+                // Try to fetch from API first
+                const apiClient = new ApiClient();
+                let orderData = null;
 
-                const itemsContainer = document.getElementById('orderItems');
-                if (cart && cart.items && cart.items.length > 0) {
-                    itemsContainer.innerHTML = cart.items.map(item => {
-                        const product = item.product;
-                        const price = parseFloat(item.price || product?.price || 0);
-                        const itemTotal = price * item.quantity;
-                        const mainImage = product?.images?.[0] || 'https://via.placeholder.com/60x60';
-
-                        return `
-                            <div class="order-item">
-                                <img src="${mainImage}" alt="${product?.title || 'Product'}">
-                                <div class="order-item-details">
-                                    <h4>${product?.title || 'Product'}</h4>
-                                    <p>${item.quantity} x $${price.toFixed(2)}</p>
-                                </div>
-                                <strong>$${itemTotal.toFixed(2)}</strong>
-                            </div>
-                        `;
-                    }).join('');
-
-                    // Display total
-                    if (cart.total) {
-                        document.getElementById('totalAmount').textContent = `$${cart.total.toFixed(2)}`;
+                try {
+                    console.log('[Order Success] Fetching order from API:', orderId);
+                    const response = await apiClient.get(`/orders/${orderId}`);
+                    if (response.success && response.data) {
+                        orderData = response.data;
+                        console.log('[Order Success] Order fetched from API:', orderData);
                     }
-                } else {
-                    itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">No items found</p>';
+                } catch (apiError) {
+                    console.warn('[Order Success] API fetch failed, using localStorage:', apiError);
                 }
 
-                // Clear session storage snapshot
+                // Fallback to localStorage
+                if (!orderData) {
+                    const localOrder = JSON.parse(localStorage.getItem('lastOrder') || 'null');
+                    if (localOrder) {
+                        orderData = localOrder;
+                        console.log('[Order Success] Order loaded from localStorage');
+                    }
+                }
+
+                const itemsContainer = document.getElementById('orderItems');
+
+                if (orderData) {
+                    // Handle both API response format and localStorage format
+                    const items = orderData.items || orderData.order_items || [];
+                    const totals = orderData.totals || orderData.total_amount || 0;
+
+                    if (items.length > 0) {
+                        itemsContainer.innerHTML = items.map(item => {
+                            const product = item.product || item;
+                            const price = parseFloat(item.price || product?.price || 0);
+                            const quantity = item.quantity || 1;
+                            const itemTotal = price * quantity;
+                            const mainImage = product?.images?.[0] || '../assets/images/placeholder-product.jpg';
+
+                            return `
+                                <div class="order-item">
+                                    <img src="${mainImage}" alt="${product?.title || 'Product'}">
+                                    <div class="order-item-details">
+                                        <h4>${product?.title || 'Product'}</h4>
+                                        <p>${quantity} x ₺${price.toFixed(2)}</p>
+                                    </div>
+                                    <strong>₺${itemTotal.toFixed(2)}</strong>
+                                </div>
+                            `;
+                        }).join('');
+
+                        // Calculate and display totals
+                        const subtotal = items.reduce((sum, item) => {
+                            const product = item.product || item;
+                            const price = parseFloat(item.price || product?.price || 0);
+                            const quantity = item.quantity || 1;
+                            return sum + (price * quantity);
+                        }, 0);
+
+                        const totalAmount = typeof totals === 'number' ? totals : (totals?.grandTotal || totals?.total || subtotal);
+
+                        document.getElementById('subtotalAmount').textContent = `₺${subtotal.toFixed(2)}`;
+                        document.getElementById('totalAmount').textContent = `₺${totalAmount.toFixed(2)}`;
+                    } else {
+                        itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">Ürün bulunamadı</p>';
+                    }
+                } else {
+                    itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">Order details not available</p>';
+                }
+
+                // Clear localStorage after displaying
                 setTimeout(() => {
-                    sessionStorage.removeItem('lastOrder');
-                }, 10000);
+                    localStorage.removeItem('lastOrder');
+                }, 30000); // 30 seconds
 
             } catch (error) {
-                console.error('Order load error:', error);
+                console.error('[Order Success] Load error:', error);
                 document.getElementById('orderItems').innerHTML = '<p style="text-align:center;color:red;">Failed to load order details</p>';
             }
         }
 
         // Countdown timer
-        let seconds = 5;
+        let seconds = 10;
         const countdownEl = document.getElementById('countdown');
         const interval = setInterval(() => {
             seconds--;
@@ -230,6 +304,47 @@
 
         // Load order on page load
         document.addEventListener('DOMContentLoaded', loadOrderDetails);
+
+        // Confetti celebration effect
+        function createConfetti() {
+            const colors = ['#2d6853', '#8b6d47', '#d4af37', '#e74c3c', '#3498db'];
+            const confettiCount = 50;
+
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: 10px;
+                    height: 10px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    top: -10px;
+                    left: ${Math.random() * 100}%;
+                    opacity: ${Math.random() * 0.8 + 0.2};
+                    transform: rotate(${Math.random() * 360}deg);
+                    animation: confettiFall ${Math.random() * 3 + 2}s linear forwards;
+                    pointer-events: none;
+                    z-index: 9999;
+                `;
+                document.body.appendChild(confetti);
+
+                setTimeout(() => confetti.remove(), 5000);
+            }
+        }
+
+        // Add confetti animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes confettiFall {
+                to {
+                    transform: translateY(100vh) rotate(${Math.random() * 720}deg);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Trigger confetti on page load
+        setTimeout(createConfetti, 500);
     </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
  */
 
 const HomeAPI = {
-    baseURL: (typeof API_CONFIG !== 'undefined' && API_CONFIG.BASE_URL) ? API_CONFIG.BASE_URL : 'http://localhost:5050/api/v1',
+    baseURL: (typeof API_CONFIG !== 'undefined' && API_CONFIG.BASE_URL) ? API_CONFIG.BASE_URL : 'http://localhost:8080/api/v1',
     currentPage: 1,
 
     /**
@@ -226,11 +226,11 @@ const HomeAPI = {
 
         if (window.wishlistManager) {
             window.wishlistManager
-                .getWishlist()
-                .then(() => window.dostanApp?.refreshWishlistButtons())
-                .catch(() => window.dostanApp?.refreshWishlistButtons());
+                .ensureInitialized()
+                .then(() => window.dostanApp?.updateAllWishlistButtons())
+                .catch(() => window.dostanApp?.updateAllWishlistButtons());
         } else {
-            window.dostanApp?.refreshWishlistButtons();
+            window.dostanApp?.updateAllWishlistButtons();
         }
     },
 

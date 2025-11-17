@@ -91,6 +91,38 @@ class StoreService {
   }
 
   /**
+   * Get store by slug
+   * @param {string} slug - Store slug
+   * @param {Object} requester - User requesting (optional)
+   * @returns {Promise<Store>} Store object
+   */
+  async getStoreBySlug(slug, requester = null) {
+    const store = await Store.findOne({
+      where: { slug },
+      include: [
+        {
+          model: User,
+          as: 'owner',
+          attributes: ['id', 'first_name', 'last_name', 'email'],
+        },
+      ],
+    });
+
+    if (!store) {
+      throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+    }
+
+    const isAdmin = requester?.role === 'admin';
+    const isOwner = requester?.id && store.user_id === requester.id;
+
+    if (store.status !== 'approved' && !isAdmin && !isOwner) {
+      throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+    }
+
+    return store;
+  }
+
+  /**
    * Get all stores with pagination and filters
    * @param {Object} filters - Query filters
    * @returns {Promise<Object>} Paginated stores

@@ -1426,7 +1426,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="phone" class="form-label">Phone Number *</label>
-                                <input type="tel" id="phone" name="phone" class="form-input" required>
+                                <input type="tel" id="phone" name="phone" class="form-input">
                             </div>
                         </div>
                     </div>
@@ -1439,35 +1439,9 @@
 
                         <!-- Saved Addresses (for members) -->
                         <div id="saved-addresses" class="saved-addresses" style="display: none;">
-                            <div class="address-options">
-                                <div class="address-card">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addr1" value="home">
-                                        <label for="addr1">🏠 Home Address</label>
-                                    </div>
-                                    <div class="address-details">
-                                        Bağdat Caddesi No: 123<br>
-                                        Kadıköy, İstanbul 34710<br>
-                                        Türkiye
-                                    </div>
-                                </div>
-                                <div class="address-card">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addr2" value="work">
-                                        <label for="addr2">🏢 Work Address</label>
-                                    </div>
-                                    <div class="address-details">
-                                        Levent Mahallesi İş Merkezi<br>
-                                        Beşiktaş, İstanbul 34330<br>
-                                        Türkiye
-                                    </div>
-                                </div>
-                                <div class="address-card new-address">
-                                    <div class="address-header">
-                                        <input type="radio" name="savedAddress" id="addrNew" value="new" checked>
-                                        <label for="addrNew">➕ Use New Address</label>
-                                    </div>
-                                </div>
+                            <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #374151;">📍 Kayıtlı Adresleriniz</h3>
+                            <div id="savedAddressesList" class="address-options">
+                                <!-- Addresses will be loaded dynamically -->
                             </div>
                         </div>
 
@@ -1793,6 +1767,7 @@
     <script src="../assets/js/api-config.js"></script>
     <script src="../assets/js/api-client.js"></script>
     <script src="../assets/js/wishlist-manager.js"></script>
+    <script src="../assets/js/cart-manager.js"></script>
 
     <!-- Page Scripts -->
     <script src="../assets/js/dostik-ai.js"></script>
@@ -1958,6 +1933,17 @@
             prefillCheckoutContact(user || AuthManager.getUser());
         }
 
+        // ===== DOSTIK AI HELPER =====
+        function safeDostikMessage(message) {
+            if (window.dostikAI && typeof window.dostikAI.addChatMessage === 'function') {
+                try {
+                    window.dostikAI.addChatMessage(message);
+                } catch (error) {
+                    console.warn('[Checkout] DostikAI message failed:', error.message);
+                }
+            }
+        }
+
         // ===== MAIN INITIALIZATION =====
         document.addEventListener('DOMContentLoaded', function() {
             try {
@@ -2027,16 +2013,10 @@
             document.head.appendChild(link);
         }
 
-        // Fallback for older browsers
+        // Fallback for older browsers - removed, now using checkout-api.js
         function setupBasicCheckout() {
-            console.log('Using basic checkout functionality');
-            const form = document.getElementById('checkout-form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    alert('Ödeme işlemi demo modunda çalışıyor');
-                });
-            }
+            console.log('Using basic checkout functionality - checkout-api.js should handle this');
+            // No need for alert, checkout-api.js handles the actual checkout
         }
 
         function setupCityDistrictSelection() {
@@ -2090,9 +2070,7 @@
                             });
                             districtSelect.disabled = false;
 
-                            if (window.dostikAI) {
-                                window.dostikAI.addChatMessage(`📍 ${selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)} şehri seçildi. İlçe seçebilirsiniz.`);
-                            }
+                            safeDostikMessage(`📍 ${selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)} şehri seçildi. İlçe seçebilirsiniz.`);
                         }
                     });
                 }
@@ -2123,7 +2101,7 @@
                         promoBtn.disabled = true;
 
                         if (window.dostikAI) {
-                            window.dostikAI.addChatMessage(`🎉 Great! Your promo code "${code}" has been applied successfully!`);
+                            safeDostikMessage(`🎉 Great! Your promo code "${code}" has been applied successfully!`);
                         }
                     } else {
                         promoMessage.textContent = '❌ Invalid promo code. Try NORDIC10 or WELCOME5';
@@ -2180,8 +2158,8 @@
                     contactSection.style.display = type === 'member' ? 'none' : 'block';
                 }
 
-                if (window.dostikAI && dostikMessages[type]) {
-                    window.dostikAI.addChatMessage(dostikMessages[type]);
+                if (dostikMessages[type]) {
+                    safeDostikMessage(dostikMessages[type]);
                 }
             };
 
@@ -2474,7 +2452,7 @@
                         const message = this.checked ?
                             '📦 Using same address for billing and delivery.' :
                             '💳 Separate billing address selected.';
-                        window.dostikAI.addChatMessage(message);
+                        safeDostikMessage(message);
                     }
                 });
             }
@@ -2496,7 +2474,7 @@
                         addressForm.style.display = isNewAddress ? 'block' : 'none';
 
                         if (window.dostikAI && !isNewAddress) {
-                            window.dostikAI.addChatMessage(`📍 ${radio.value === 'home' ? 'Home' : 'Work'} address selected!`);
+                            safeDostikMessage(`📍 ${radio.value === 'home' ? 'Home' : 'Work'} address selected!`);
                         }
                     }
                 });
@@ -2525,7 +2503,7 @@
                             'express': '⚡ Express delivery - your Nordic treasures will arrive quickly!',
                             'overnight': '🚀 Overnight delivery - maximum speed for urgent orders!'
                         };
-                        window.dostikAI.addChatMessage(messages[optionType]);
+                        safeDostikMessage(messages[optionType]);
                     }
                 });
             });
@@ -2603,7 +2581,7 @@
                             'crypto': '₿ Cryptocurrency payment - embrace the future of Nordic commerce!',
                             'bank': '🏦 Bank transfer - traditional and reliable for large Nordic purchases!'
                         };
-                        window.dostikAI.addChatMessage(messages[methodType] || 'Excellent payment choice!');
+                        safeDostikMessage(messages[methodType] || 'Excellent payment choice!');
                     }
                 });
             });
@@ -2871,7 +2849,7 @@
                     : errorMessages.default;
 
                 if (window.dostikAI) {
-                    window.dostikAI.addChatMessage(`🚨 ${message}`);
+                    safeDostikMessage(`🚨 ${message}`);
                 }
 
                 // Scroll to first error
@@ -2893,7 +2871,7 @@
 
             // Dostik encouragement
             if (window.dostikAI) {
-                window.dostikAI.addChatMessage('✨ Processing your Nordic treasure purchase... Almost there!');
+                safeDostikMessage('✨ Processing your Nordic treasure purchase... Almost there!');
             }
 
             setTimeout(() => {
@@ -2902,7 +2880,7 @@
                 btn.style.background = '#27ae60';
 
                 if (window.dostikAI) {
-                    window.dostikAI.addChatMessage('🎉 Success! Your Nordic treasures are on their way! Thank you for choosing DostanWebCSS!');
+                    safeDostikMessage('🎉 Success! Your Nordic treasures are on their way! Thank you for choosing DostanWebCSS!');
                 }
 
                 // Clear cart

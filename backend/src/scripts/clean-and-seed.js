@@ -163,26 +163,51 @@ async function cleanDatabase() {
 
   try {
     // Delete in correct order (respecting foreign keys)
-    await CommissionTransaction.destroy({ where: {}, force: true });
-    await ReturnRequest.destroy({ where: {}, force: true });
-    await OrderItem.destroy({ where: {}, force: true });
-    await Order.destroy({ where: {}, force: true });
-    await Cart.destroy({ where: {}, force: true });
-    await Product.destroy({ where: {}, force: true });
-    await Store.destroy({ where: {}, force: true });
+    // Use truncate: true to skip if table doesn't exist
+    const models = [
+      CommissionTransaction,
+      ReturnRequest,
+      OrderItem,
+      Order,
+      Cart,
+      Product,
+      Store
+    ];
+
+    for (const model of models) {
+      try {
+        await model.destroy({ where: {}, force: true });
+      } catch (err) {
+        // Skip if table doesn't exist
+        if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
+          console.log(`⚠️  Skipping ${model.name} (table doesn't exist yet)`);
+        } else {
+          throw err;
+        }
+      }
+    }
 
     // Delete all users except admin
-    await User.destroy({
-      where: {
-        role: ['seller', 'buyer']
-      },
-      force: true
-    });
+    try {
+      await User.destroy({
+        where: {
+          role: ['seller', 'buyer']
+        },
+        force: true
+      });
+    } catch (err) {
+      if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
+        console.log('⚠️  Skipping User cleanup (table doesn\'t exist yet)');
+      } else {
+        throw err;
+      }
+    }
 
     console.log('✅ Database cleaned (admin user preserved)\n');
   } catch (error) {
     console.error('❌ Error cleaning database:', error);
-    throw error;
+    // Don't throw, allow seeding to continue
+    console.log('⚠️  Continuing with seed despite clean errors...\n');
   }
 }
 
@@ -190,21 +215,42 @@ async function seedData() {
   console.log('🌱 Seeding database with realistic data...\n');
 
   try {
-    // Get admin user for approvals
-    const admin = await User.findOne({ where: { role: 'admin' } });
+    // Create or get admin user
+    let admin = await User.findOne({ where: { role: 'admin' } });
     if (!admin) {
-      throw new Error('Admin user not found!');
+      console.log('👤 Creating admin user...');
+      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 12);
+      admin = await User.create({
+        email: process.env.ADMIN_EMAIL || 'admin@dostanmarket.com',
+        password_hash: hashedPassword,
+        first_name: 'Admin',
+        last_name: 'User',
+        role: 'admin',
+        is_verified: true,
+        is_active: true
+      });
+      console.log('  ✅ Admin user created\n');
     }
 
-    // Get categories
-    const categories = await Category.findAll();
-    const woodCategory = categories.find(c => c.slug === 'wood-carvings');
-    const glassCategory = categories.find(c => c.slug === 'glass-art');
-    const leatherCategory = categories.find(c => c.slug === 'leather-goods');
-    const textileCategory = categories.find(c => c.slug === 'textiles');
-    const ceramicCategory = categories.find(c => c.slug === 'ceramics');
+    // Create or get categories
+    console.log('📁 Creating categories...');
+    const categoryData = [
+      { name: 'Wood Carvings', slug: 'wood-carvings', description: 'Handcrafted wooden art and sculptures' },
+      { name: 'Glass Art', slug: 'glass-art', description: 'Beautiful handblown glass creations' },
+      { name: 'Leather Goods', slug: 'leather-goods', description: 'Premium leather products and accessories' },
+      { name: 'Textiles', slug: 'textiles', description: 'Traditional woven textiles and fabrics' },
+      { name: 'Ceramics', slug: 'ceramics', description: 'Handthrown ceramic pottery and art' }
+    ];
 
-    const categoryMap = [woodCategory, glassCategory, leatherCategory, textileCategory, ceramicCategory];
+    const categoryMap = [];
+    for (const cat of categoryData) {
+      let category = await Category.findOne({ where: { slug: cat.slug } });
+      if (!category) {
+        category = await Category.create(cat);
+      }
+      categoryMap.push(category);
+    }
+    console.log(`  ✅ ${categoryMap.length} categories ready\n`);
 
     // Create sellers and stores
     console.log('👥 Creating sellers and stores...');

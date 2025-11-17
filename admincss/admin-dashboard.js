@@ -33,9 +33,7 @@ class AdminDashboard {
         if (!AuthManager.checkAdminAuth()) {
             console.warn('[Admin Dashboard] Authentication failed, redirecting to login');
             // Redirect to admin login page
-            setTimeout(() => {
-                window.location.href = '../admincss/login.html';
-            }, 1000);
+            window.location.href = 'login.html';
             return;
         }
 

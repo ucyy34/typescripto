@@ -332,16 +332,332 @@ class ProfileAPI {
     }
 
     /**
+     * Load user's addresses
+     */
+    async loadAddresses() {
+        try {
+            console.log('[Profile API] Loading addresses...');
+            const response = await this.apiClient.get('/addresses');
+            this.addresses = response.data?.addresses || response.addresses || [];
+            console.log('[Profile API] Loaded', this.addresses.length, 'addresses');
+            return this.addresses;
+        } catch (error) {
+            console.error('[Profile API] Failed to load addresses:', error);
+            return [];
+        }
+    }
+
+    /**
      * Render addresses section
      */
     async renderAddresses() {
         const contentEl = document.querySelector('.profile-content');
+
+        // Show loading state
         contentEl.innerHTML = `
-            <div class="profile-addresses">
-                <h2>Saved Addresses</h2>
-                <p>Address management coming soon...</p>
+            <div style="text-align: center; padding: 2rem;">
+                <p>Loading addresses...</p>
             </div>
         `;
+
+        // Load addresses
+        await this.loadAddresses();
+
+        // Render addresses UI
+        contentEl.innerHTML = `
+            <div class="profile-addresses">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2 style="margin: 0;">Saved Addresses</h2>
+                    <button class="btn btn-primary" onclick="profileAPI.showAddressForm()">
+                        <span>➕</span> Add New Address
+                    </button>
+                </div>
+
+                <div id="address-list" style="display: grid; gap: 1.5rem;">
+                    ${this.addresses.length === 0
+                        ? `<div class="empty-state" style="text-align:center; padding: 3rem; color: #6b7280; background: #f9fafb; border-radius: 16px;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
+                            <h3>No saved addresses</h3>
+                            <p>Add an address to make checkout faster and easier.</p>
+                        </div>`
+                        : this.addresses.map(addr => this.renderAddressCard(addr)).join('')
+                    }
+                </div>
+
+                <!-- Address Form Modal (hidden by default) -->
+                <div id="address-form-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 2rem; overflow-y: auto;">
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 2rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h3 id="form-title" style="margin: 0;">Add New Address</h3>
+                            <button onclick="profileAPI.closeAddressForm()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
+                        </div>
+                        <form id="address-form" style="display: grid; gap: 1rem;">
+                            <input type="hidden" id="address-id" value="">
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Label (e.g., Home, Office)</label>
+                                <input type="text" id="address-label" placeholder="Home" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Full Name *</label>
+                                <input type="text" id="address-full-name" required placeholder="John Doe" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Phone *</label>
+                                <input type="tel" id="address-phone" required placeholder="+90 555 123 4567" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Email</label>
+                                <input type="email" id="address-email" placeholder="example@email.com" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Address Line 1 *</label>
+                                <input type="text" id="address-line1" required placeholder="Street address, building number" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Address Line 2</label>
+                                <input type="text" id="address-line2" placeholder="Apartment, floor, door number (optional)" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">City / İl *</label>
+                                    <input type="text" id="address-city" required placeholder="İstanbul (City/İl)" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">District / İlçe</label>
+                                    <input type="text" id="address-state" placeholder="Beşiktaş (District/İlçe)" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Postal Code *</label>
+                                    <input type="text" id="address-postal" required placeholder="34000" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Country *</label>
+                                    <input type="text" id="address-country" required value="Turkey" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Delivery Notes</label>
+                                <textarea id="address-notes" placeholder="Special delivery instructions (optional)" rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical;"></textarea>
+                            </div>
+
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="address-default" style="width: 1.25rem; height: 1.25rem;">
+                                    <span>Set as default address</span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Address</button>
+                                <button type="button" onclick="profileAPI.closeAddressForm()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Setup form submission
+        const form = document.getElementById('address-form');
+        if (form) {
+            form.addEventListener('submit', (e) => this.handleAddressSubmit(e));
+        }
+    }
+
+    /**
+     * Render a single address card
+     */
+    renderAddressCard(address) {
+        const defaultBadge = address.is_default
+            ? '<span style="background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">DEFAULT</span>'
+            : '';
+
+        const typeBadge = address.type
+            ? `<span style="background: #e5e7eb; color: #374151; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; text-transform: capitalize;">${address.type}</span>`
+            : '';
+
+        return `
+            <div class="address-card" data-address-id="${address.id}" style="background: #f9fafb; padding: 1.5rem; border-radius: 16px; border: 2px solid ${address.is_default ? '#10b981' : 'transparent'};">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        ${address.label ? `<h4 style="margin: 0;">${address.label}</h4>` : '<h4 style="margin: 0;">Address</h4>'}
+                        ${defaultBadge}
+                        ${typeBadge}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="profileAPI.editAddress('${address.id}')" class="btn-icon" title="Edit">✏️</button>
+                        ${!address.is_default ? `<button onclick="profileAPI.deleteAddress('${address.id}')" class="btn-icon" title="Delete">🗑️</button>` : ''}
+                    </div>
+                </div>
+                <div style="color: #374151; line-height: 1.6;">
+                    <p style="margin: 0.25rem 0; font-weight: 600;">${address.full_name}</p>
+                    ${address.email ? `<p style="margin: 0.25rem 0; color: #6b7280;">📧 ${address.email}</p>` : ''}
+                    <p style="margin: 0.25rem 0; color: #6b7280;">📞 ${address.phone}</p>
+                    <p style="margin: 0.25rem 0;">${address.address_line1}</p>
+                    ${address.address_line2 ? `<p style="margin: 0.25rem 0;">${address.address_line2}</p>` : ''}
+                    <p style="margin: 0.25rem 0;">${address.city}${address.state ? ', ' + address.state : ''} ${address.postal_code}</p>
+                    <p style="margin: 0.25rem 0;">${address.country}</p>
+                    ${address.notes ? `<p style="margin: 0.5rem 0 0; color: #6b7280; font-size: 0.875rem;">📝 ${address.notes}</p>` : ''}
+                </div>
+                ${!address.is_default ? `
+                    <button onclick="profileAPI.setDefaultAddress('${address.id}')" class="btn btn-secondary" style="margin-top: 1rem; width: 100%;">
+                        Set as Default
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Show address form modal
+     */
+    showAddressForm(addressId = null) {
+        const modal = document.getElementById('address-form-modal');
+        const form = document.getElementById('address-form');
+        const title = document.getElementById('form-title');
+
+        if (!modal || !form) return;
+
+        // Reset form
+        form.reset();
+        document.getElementById('address-id').value = '';
+        document.getElementById('address-country').value = 'Turkey';
+
+        if (addressId) {
+            // Edit mode
+            title.textContent = 'Edit Address';
+            const address = this.addresses.find(a => a.id === addressId);
+            if (address) {
+                document.getElementById('address-id').value = address.id;
+                document.getElementById('address-label').value = address.label || '';
+                document.getElementById('address-full-name').value = address.full_name;
+                document.getElementById('address-phone').value = address.phone;
+                document.getElementById('address-email').value = address.email || '';
+                document.getElementById('address-line1').value = address.address_line1;
+                document.getElementById('address-line2').value = address.address_line2 || '';
+                document.getElementById('address-city').value = address.city;
+                document.getElementById('address-state').value = address.state || '';
+                document.getElementById('address-postal').value = address.postal_code;
+                document.getElementById('address-country').value = address.country;
+                document.getElementById('address-notes').value = address.notes || '';
+                document.getElementById('address-default').checked = address.is_default;
+            }
+        } else {
+            // Add mode
+            title.textContent = 'Add New Address';
+        }
+
+        modal.style.display = 'block';
+    }
+
+    /**
+     * Close address form modal
+     */
+    closeAddressForm() {
+        const modal = document.getElementById('address-form-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle address form submission
+     */
+    async handleAddressSubmit(event) {
+        event.preventDefault();
+
+        const addressId = document.getElementById('address-id').value;
+        const addressData = {
+            label: document.getElementById('address-label').value,
+            full_name: document.getElementById('address-full-name').value,
+            phone: document.getElementById('address-phone').value,
+            email: document.getElementById('address-email').value,
+            address_line1: document.getElementById('address-line1').value,
+            address_line2: document.getElementById('address-line2').value,
+            city: document.getElementById('address-city').value,
+            state: document.getElementById('address-state').value,
+            postal_code: document.getElementById('address-postal').value,
+            country: document.getElementById('address-country').value,
+            notes: document.getElementById('address-notes').value,
+            is_default: document.getElementById('address-default').checked,
+        };
+
+        try {
+            if (addressId) {
+                // Update existing address
+                await this.apiClient.put(`/addresses/${addressId}`, addressData);
+                this.showSuccess('Address updated successfully');
+            } else {
+                // Create new address
+                await this.apiClient.post('/addresses', addressData);
+                this.showSuccess('Address added successfully');
+            }
+
+            this.closeAddressForm();
+            await this.renderAddresses();
+        } catch (error) {
+            console.error('[Profile API] Failed to save address:', error);
+            console.error('[Profile API] Error details:', {
+                message: error.message,
+                response: error.response,
+                data: error.response?.data,
+                status: error.response?.status
+            });
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to save address';
+            this.showError(errorMsg);
+        }
+    }
+
+    /**
+     * Edit an address
+     */
+    editAddress(addressId) {
+        this.showAddressForm(addressId);
+    }
+
+    /**
+     * Delete an address
+     */
+    async deleteAddress(addressId) {
+        if (!confirm('Are you sure you want to delete this address?')) {
+            return;
+        }
+
+        try {
+            await this.apiClient.delete(`/addresses/${addressId}`);
+            this.showSuccess('Address deleted successfully');
+            await this.renderAddresses();
+        } catch (error) {
+            console.error('[Profile API] Failed to delete address:', error);
+            console.error('[Profile API] Error details:', error.response?.data);
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to delete address';
+            this.showError(errorMsg);
+        }
+    }
+
+    /**
+     * Set an address as default
+     */
+    async setDefaultAddress(addressId) {
+        try {
+            await this.apiClient.post(`/addresses/${addressId}/set-default`);
+            this.showSuccess('Default address updated');
+            await this.renderAddresses();
+        } catch (error) {
+            console.error('[Profile API] Failed to set default address:', error);
+            this.showError(error.message || 'Failed to set default address');
+        }
     }
 
     normalizeWishlistItem(item) {
@@ -1087,10 +1403,59 @@ class ProfileAPI {
     }
 
     /**
+     * Show success message
+     */
+    showSuccess(message) {
+        // Create a toast notification
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    /**
      * Show error message
      */
     showError(message) {
-        alert(message);
+        // Create a toast notification
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // Remove after 4 seconds
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 }
 

@@ -25,15 +25,18 @@ function resolveApiBaseUrl() {
     }
   } catch (_) {}
 
-  // 3) If served over http(s), prefer same-origin
+  // 3) If served over http(s) and NOT localhost, prefer same-origin (production)
   try {
     if (typeof location !== 'undefined' && /^https?:/i.test(location.origin)) {
-      return `${location.origin.replace(/\/$/, '')}/api/v1`;
+      // Only use same-origin if NOT on localhost (production deployment)
+      if (!location.hostname.includes('localhost') && !location.hostname.includes('127.0.0.1')) {
+        return `${location.origin.replace(/\/$/, '')}/api/v1`;
+      }
     }
   } catch (_) {}
 
-  // 4) Fallback to backend default dev port (aligned to 5050 per project config)
-  return 'http://localhost:5050/api/v1';
+  // 4) Fallback to backend default dev port (aligned to 8080 per project config)
+  return 'http://localhost:8080/api/v1';
 }
 
 const API_CONFIG = {

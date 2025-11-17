@@ -1,286 +1,176 @@
-# 🐉 DostanWebCSS - Nordic Artisan Marketplace
+# 🐉 DostanWebCSS Nordic Marketplace
 
-A comprehensive e-commerce platform for Nordic-themed handcrafted products with advanced vendor and admin management systems.
+A full-stack e-commerce marketplace featuring Nordic-themed artisan products with vendor management, admin controls, and AI assistant integration.
 
-## 🌟 Project Overview
+## 🌟 Features
 
-DostanWebCSS is a full-featured Nordic marketplace that includes:
-- Customer-facing e-commerce website
-- Vendor management panel with comprehensive tools
-- Admin control panel for platform management
-- Category-based product browsing system
-- Dostik AI assistant integration throughout
+- **Multi-Vendor System**: Vendors can create stores, manage products, orders, and analytics
+- **Admin Dashboard**: Comprehensive admin panel for approving vendors, products, and managing platform
+- **Product Management**: Full CRUD with variants, badges, SEO optimization
+- **Order Processing**: Complete order lifecycle from cart to delivery
+- **Dostik AI Assistant**: Wise Nordic dragon assistant providing contextual help
+- **Authentication**: JWT-based auth with role-based access control (Admin, Seller, Buyer)
+- **Address System**: Multiple saved addresses per user
+- **Campaign System**: Flash sales, discounts, buy-X-get-Y deals
+- **Responsive Design**: Mobile-first design with Nordic glassmorphism aesthetic
 
-## ✨ What Makes This Special
+## 🛠️ Tech Stack
 
-DostanWebCSS isn't just another marketplace - it's a **magical journey** through Nordic craftsmanship guided by **Dostik**, your AI dragon companion. Every interaction is designed to create wonder, connection, and emotional engagement with handcrafted treasures.
+### Frontend
+- Vanilla JavaScript (ES6+)
+- HTML5 / CSS3 with CSS Grid & Flexbox
+- Python HTTP Server for static files
 
-## 🎨 Revolutionary Features
+### Backend
+- Node.js + Express.js
+- PostgreSQL (Sequelize ORM)
+- Redis (caching & sessions)
+- JWT authentication
+- Bull (job queues)
 
-### **AI Character Integration - Dostik the Dragon**
-- **Floating dragon mascot** that appears on product interactions
-- **Contextual AI conversations** with unique personality
-- **Typewriter animation effects** for magical messaging
-- **Purchase celebrations** and emotional responses
-- **Achievement system** and bonding mechanics
+## 📦 Installation
 
-### **Anti-Grid Asymmetric Product Cards**
-- **Breathing animations** with subtle movements
-- **Physics-based hover effects** with tilting and scaling
-- **Glassmorphism + Nordic minimalism** design fusion
-- **Emotional color coding** (warm/cold/premium categories)
-- **AI speech bubbles** with personalized insights
+### Prerequisites
+- Node.js 16+
+- PostgreSQL 14+
+- Redis 6+
+- Python 3.x (for frontend server)
 
-### **Nordic-Inspired Aesthetics**
-- **Deep forest color palette**: Forest greens, warm browns, soft creams
-- **Aurora borealis gradients** and magical particle effects
-- **Natural textures** with wood grain and stone influences
-- **Custom typography** blending modern sans-serif with handwritten accents
-- **Organic shapes** and flowing layouts
+### Setup
 
-### **Innovative UX Patterns**
-- **Parallax storytelling** for immersive artisan backgrounds
-- **Interactive product journeys** from maker to buyer
-- **Custom cursor effects** with physics-based interactions
-- **Morphing shapes on scroll** for dynamic visual interest
-- **Micro-interactions everywhere** for delightful user engagement
+1. **Clone the repository**
+```bash
+git clone <your-repo-url>
+cd dosttanpalas-railway
+```
 
-## 🏗️ Technical Architecture
+2. **Backend Setup**
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Edit .env with your database credentials
+```
 
-### **Modern Web Standards**
-- **Pure HTML5, CSS3, Vanilla JavaScript** - No framework dependencies
-- **CSS Grid & Flexbox** for advanced layouts
-- **CSS Custom Properties** for theming and consistency
-- **Modern CSS features**: backdrop-filter, clip-path, custom animations
-- **Web Components** architecture for modularity
+3. **Database Setup**
+```bash
+# Create PostgreSQL database
+createdb your_database_name
 
-### **Progressive Web App (PWA)**
-- **Service Worker** with intelligent caching strategies
-- **Offline functionality** with cached content and data sync
-- **Background sync** for seamless online/offline transitions
-- **Push notifications** for engagement
-- **Installable** on desktop and mobile devices
+# Run migrations and seed data
+npm run db:sync
+npm run seed
+```
 
-### **Performance Optimizations**
-- **Lazy loading** for images and heavy content
-- **Intersection Observer** for scroll-triggered animations
-- **Throttled event handlers** for smooth scrolling
-- **CSS-only animations** where possible for 60fps performance
-- **Resource preloading** for critical assets
+4. **Start Backend**
+```bash
+npm run dev
+# Runs on http://localhost:8080
+```
 
-### **Advanced JavaScript Features**
-- **ES6+ modules** with clean separation of concerns
-- **Custom event system** for component communication
-- **Local storage management** with data persistence
-- **Web Audio API integration** for sound effects
-- **Canvas-based particle systems** for magical effects
+5. **Start Frontend**
+```bash
+# In project root
+python -m http.server 5500
+# Runs on http://localhost:5500
+```
+
+## 🔑 Default Credentials
+
+After running seed script:
+
+**Admin Panel**: http://localhost:5500/admincss/login.html
+- Email: `admin@dostanmarket.com`
+- Password: `Admin@123456`
+
+**Vendor Panel**: http://localhost:5500/vendorcss/login.html
+- Email: `erik.nordstrom@nordic.com`
+- Password: `Seller123!`
+
+**Buyer Account**:
+- Email: `anna.mueller@email.com`
+- Password: `Buyer123!`
+
+See `TEST-LOGIN-CREDENTIALS.txt` for more test accounts.
 
 ## 📁 Project Structure
 
 ```
-dostanwebcss4/
-├── 📄 index.html              # Main marketplace homepage
-├── 📄 cart.html               # Shopping cart page
-├── 📄 product-detail.html     # Product details page
-├── 📄 profile.html            # User profile page
-├── 📄 wood-carvings.html      # Wood carvings category
-├── 📄 glass-art.html          # Glass art category
-├── 📂 assets/
-│   ├── 📂 css/
-│   │   └── 📄 style.css       # Main stylesheet
-│   ├── 📂 js/
-│   │   └── 📄 script.js       # Main JavaScript
-│   └── 📂 images/             # Product and UI images
-├── 📂 vendorcss/
-│   ├── 📄 index.html          # Vendor dashboard
-│   ├── 📄 vendor-dashboard.css # Vendor panel styles
-│   └── 📄 vendor-dashboard.js  # Vendor panel functionality
-└── 📂 admincss/
-    ├── 📄 index.html          # Admin dashboard
-    ├── 📄 admin-dashboard.css  # Admin panel styles
-    └── 📄 admin-dashboard.js   # Admin panel functionality
+dosttanpalas-railway/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/    # Request handlers
+│   │   ├── models/         # Sequelize models
+│   │   ├── routes/         # API routes
+│   │   ├── services/       # Business logic
+│   │   ├── middleware/     # Auth, validation, etc.
+│   │   └── config/         # Configuration files
+│   └── package.json
+├── assets/
+│   ├── css/                # Stylesheets
+│   ├── js/                 # Frontend JavaScript
+│   └── images/             # Static images
+├── vendorcss/              # Vendor dashboard
+├── admincss/               # Admin dashboard
+├── pages/                  # Customer pages
+└── index.html              # Homepage
 ```
 
-## 🚀 Getting Started
+## 🐛 Known Issues
 
-### Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Local web server (optional, for testing)
+See [BUGS.md](BUGS.md) for current issues and planned fixes:
+- Image upload handler missing (CRITICAL)
+- Product re-approval workflow needed
+- Category validation disabled
 
-### Installation
-1. Download or clone the project
-2. Open `index.html` in your browser for the main site
-3. Navigate to `vendorcss/index.html` for vendor panel
-4. Navigate to `admincss/index.html` for admin panel
+## 🚀 API Endpoints
 
-### Development Server
-```bash
-# Navigate to project directory
-cd dostanwebcss4
+### Authentication
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh token
 
-# Start local server (Python)
-python -m http.server 8080
+### Products
+- `GET /api/v1/products` - List products
+- `POST /api/v1/products` - Create product (Seller)
+- `PUT /api/v1/products/:id` - Update product
+- `PATCH /api/v1/products/:id/status` - Approve/Reject (Admin)
 
-# Or use Node.js
-npx http-server
+### Stores
+- `GET /api/v1/stores` - List stores
+- `GET /api/v1/stores/my` - Get authenticated seller's store
+- `POST /api/v1/stores` - Create store (Seller)
 
-# Access at http://localhost:8080
+### Orders
+- `GET /api/v1/stores/:id/orders` - Store orders (Seller)
+- `POST /api/v1/orders` - Create order
+- `PATCH /api/v1/orders/:id/status` - Update order status
+
+See full API documentation in `/backend/src/routes/`
+
+## 🔧 Configuration
+
+Edit `backend/.env`:
+```env
+DATABASE_URL=postgres://user:pass@localhost:5432/dbname
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=your-secret-key
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=secure-password
 ```
 
-## 🚄 Railway Deploy
+## 📝 License
 
-1. Create a new project on [Railway](https://railway.app/) and connect this repository.
-2. In the **Deployments** tab set the build and start commands:
-   - **Build Command:** `cd backend && npm install`
-   - **Start Command:** `cd backend && npm run dev`
-3. Under **Variables**, add the required environment keys:
-
-   ```bash
-   DATABASE_URL=${{ postgres-volume.DATABASE_URL }}
-   REDIS_URL=${{ redis-volume.REDIS_URL }}
-   PORT=8080
-   NODE_ENV=development
-   ```
-
-4. Trigger a deploy – Railway will install dependencies, run the backend, and expose the `/health` endpoint for quick checks.
-5. Seed demo data any time with `npm run seed` executed in the `backend` directory.
-
-## 🎯 Key Features
-
-### E-commerce Functionality
-- **Product Categories**: Wood carvings, glass art, textiles, etc.
-- **Shopping Cart**: Add/remove items, quantity management
-- **User Profiles**: Customer account management
-- **Product Details**: Comprehensive product information
-
-### Performance Optimizations
-- **CSS Variables**: Consistent theming and easy customization
-- **Efficient Animations**: Hardware-accelerated transitions
-- **Responsive Images**: Optimized for different screen sizes
-- **Accessibility**: ARIA labels, keyboard navigation support
-
-### Responsive Design
-- **Mobile First**: Optimized for mobile devices
-- **Tablet Support**: Intermediate breakpoints
-- **Desktop Enhanced**: Rich desktop experience
-- **Touch Friendly**: Large click targets and gestures
-
-## 🏪 Vendor Panel Features
-
-### Dashboard Sections
-1. **📊 Dashboard** - Overview statistics and recent activity
-2. **📦 Products** - Product catalog management
-3. **📋 Orders** - Order processing and tracking
-4. **📈 Analytics** - Sales and performance metrics
-5. **📝 Inventory** - Stock level management
-6. **🔄 Returns & Refunds** - Return request handling
-7. **🏪 Store Management** - Store info and branding
-8. **🚚 Shipping & Logistics** - Shipping zones and carriers
-9. **🔍 SEO & Marketing** - Meta tags and social media
-10. **💬 Messages** - Customer communication
-11. **⚙️ Settings** - Account and preferences
-
-### Key Features
-- **Real-time Updates**: Live notifications and badges
-- **Theme Support**: Light/dark mode toggle
-- **Mobile Responsive**: Works on all devices
-- **Dostik Integration**: AI-powered tips and guidance
-
-## 👑 Admin Panel Features
-
-### Management Sections
-1. **📊 Dashboard** - System overview and metrics
-2. **👥 Users** - Customer and vendor management
-3. **🏪 Vendors** - Vendor approval and monitoring
-4. **📦 Products** - Product catalog oversight
-5. **📋 Orders** - Order management and fulfillment
-6. **💰 Finances** - Revenue and commission tracking
-7. **📈 Analytics** - Platform performance metrics
-8. **🛡️ Security** - Security monitoring and logs
-9. **⚙️ Settings** - Platform configuration
-10. **📞 Support** - Customer support tools
-
-## 🐉 Dostik AI Integration
-
-### Personality & Features
-- **Wise Dragon Assistant**: Provides Nordic wisdom and guidance
-- **Interactive Tips**: Context-aware suggestions and advice
-- **Floating Wisdom Box**: Positioned outside sidebar for accessibility
-- **Performance Celebrations**: Encourages good vendor practices
-- **Cultural Insights**: Shares Nordic traditions and craftsmanship knowledge
-
-## 🛠 Technical Stack
-
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Design**: CSS Variables, Flexbox, Grid
-- **Animations**: CSS Keyframes, Transitions
-- **Responsive**: Mobile-first design approach
-- **Performance**: Optimized CSS, lazy loading ready
-
-## 🔧 Customization
-
-### Colors and Theming
-Edit CSS variables in respective stylesheets:
-```css
-:root {
-    --vendor-primary: #2d6853;
-    --vendor-secondary: #4a8b6c;
-    --vendor-accent: #8b6d47;
-    /* ... */
-}
-```
-
-### Dostik AI Messages
-Modify tip arrays in JavaScript files:
-```javascript
-const tips = [
-    "Quality over quantity, young artisan...",
-    "Winter approaches! Consider seasonal...",
-    // Add your custom tips
-];
-```
-
-## 📱 Browser Support
-
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Edge 90+
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+This project is proprietary and confidential.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+This is a private project. Contact the owner for contribution guidelines.
 
-## 📋 Recent Updates
+## 📧 Support
 
-### Version 2.0 (Current)
-- ✅ Enhanced vendor panel with 4 new sections
-- ✅ Improved admin panel functionality
-- ✅ Dostik AI sidebar positioning fix
-- ✅ Performance optimizations
-- ✅ Accessibility improvements
-- ✅ Mobile responsive enhancements
-
-## 📞 Support
-
-For questions or issues:
-- Check the code comments for inline documentation
-- Review the CSS variables for customization options
-- Test changes in multiple browsers
-- Ensure mobile compatibility
-
-## 🎨 Design Philosophy
-
-**Nordic Minimalism**: Clean, functional design inspired by Scandinavian aesthetics
-**User Experience**: Intuitive navigation and clear visual hierarchy
-**Performance First**: Optimized for speed and efficiency
-**Accessibility**: Inclusive design for all users
+For issues or questions, please create an issue in this repository.
 
 ---
 
-*Built with ❤️ and guided by Dostik the Wise Dragon 🐉*
+**Built with 🐉 Dostik's Wisdom**

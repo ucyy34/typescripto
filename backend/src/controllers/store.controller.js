@@ -32,6 +32,19 @@ class StoreController {
   });
 
   /**
+   * Get store by slug
+   * GET /api/v1/stores/slug/:slug
+   */
+  getStoreBySlug = asyncHandler(async (req, res) => {
+    const requester = req.user
+      ? { id: req.user.id, role: req.user.role }
+      : null;
+    const store = await storeService.getStoreBySlug(req.params.slug, requester);
+
+    return success(res, store, 'Store retrieved successfully');
+  });
+
+  /**
    * Get all stores with filters
    * GET /api/v1/stores
    */

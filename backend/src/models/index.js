@@ -26,6 +26,7 @@ const Shipment = require('./Shipment');
 const ShipmentItem = require('./ShipmentItem');
 const ShipmentEvent = require('./ShipmentEvent');
 const Campaign = require('./Campaign');
+const Address = require('./Address');
 
 // Define Associations
 
@@ -57,6 +58,19 @@ User.hasMany(Review, {
 User.hasMany(WishlistItem, {
   foreignKey: 'user_id',
   as: 'wishlistItems',
+  onDelete: 'CASCADE',
+});
+
+User.hasMany(Address, {
+  foreignKey: 'user_id',
+  as: 'addresses',
+  onDelete: 'CASCADE',
+});
+
+// Address associations
+Address.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
   onDelete: 'CASCADE',
 });
 
@@ -485,4 +499,5 @@ module.exports = {
   ShipmentEvent,
   Campaign,
   WishlistItem,
+  Address,
 };

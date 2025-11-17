@@ -301,11 +301,11 @@ class ProductsPageAPI {
 
         if (window.wishlistManager) {
             window.wishlistManager
-                .getWishlist()
-                .then(() => window.dostanApp?.refreshWishlistButtons())
-                .catch(() => window.dostanApp?.refreshWishlistButtons());
+                .ensureInitialized()
+                .then(() => window.dostanApp?.updateAllWishlistButtons())
+                .catch(() => window.dostanApp?.updateAllWishlistButtons());
         } else {
-            window.dostanApp?.refreshWishlistButtons();
+            window.dostanApp?.updateAllWishlistButtons();
         }
 
         // Re-initialize Dostik bubbles if available

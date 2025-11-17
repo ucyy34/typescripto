@@ -36,12 +36,11 @@ const shippingRoutes = require('./routes/shipping.routes');
 const reviewRoutes = require('./routes/review.routes');
 const campaignRoutes = require('./routes/campaign.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
-const initializeWorkers = require('./workers');
+const addressRoutes = require('./routes/address.routes');
+require('./workers'); // Initialize workers on startup
 
 // Create Express app
 const app = express();
-
-initializeWorkers();
 
 // Security middleware
 // Configure CSP for local development
@@ -170,6 +169,7 @@ app.use(`/api/${API_VERSION}/coupons`, couponRoutes);
 app.use(`/api/${API_VERSION}/shipping`, shippingRoutes);
 app.use(`/api/${API_VERSION}/campaigns`, campaignRoutes);
 app.use(`/api/${API_VERSION}/wishlist`, wishlistRoutes);
+app.use(`/api/${API_VERSION}/addresses`, addressRoutes);
 app.use(`/api/${API_VERSION}`, reviewRoutes);
 
 // Welcome route
@@ -189,4 +189,5 @@ app.use(notFound);
 // Global error handler (must be last)
 app.use(errorHandler);
 
+// Address management feature added
 module.exports = app;

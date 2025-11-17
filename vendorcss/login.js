@@ -152,7 +152,7 @@ window.fillTestCredentials = (type = 'seller') => {
     const passwordInput = document.getElementById('password');
 
     if (type === 'seller') {
-        emailInput.value = 'seller@test.com';
+        emailInput.value = 'erik.nordstrom@nordic.com';
         passwordInput.value = 'Seller123!';
     } else if (type === 'admin') {
         emailInput.value = 'admin@dostanmarket.com';

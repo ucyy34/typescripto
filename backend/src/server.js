@@ -32,9 +32,10 @@ const startServer = async () => {
       throw new Error('Failed to connect to PostgreSQL');
     }
 
+    // Sync database schema (force: true will drop and recreate tables)
     if (NODE_ENV === 'development') {
       logger.info('Synchronizing database schema for development');
-      const synced = await syncDatabase({ alter: true });
+      const synced = await syncDatabase({ force: true });
 
       if (!synced) {
         throw new Error('Failed to synchronize database schema');

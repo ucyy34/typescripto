@@ -22,7 +22,7 @@
         }
 
         init() {
-            this.createMarketplaceUI();
+            this.createTriggerButton();
         }
 
         resolveApiBaseUrl() {
@@ -41,7 +41,7 @@
             return 'http://localhost:5050/api/v1';
         }
 
-        createMarketplaceUI() {
+        createTriggerButton() {
             if (document.querySelector('.marketplace-browse-trigger')) {
                 return;
             }
@@ -51,6 +51,21 @@
             trigger.innerHTML = '🏪';
             trigger.title = 'Çarşı Pazar Gez';
 
+            document.body.appendChild(trigger);
+
+            trigger.addEventListener('click', () => {
+                // Lazy load: modal'ı ilk tıklamada oluştur
+                if (!this.modal) {
+                    this.createMarketplaceModal();
+                }
+                this.modal.classList.add('open');
+                this.loadRandomProducts();
+            });
+
+            this.trigger = trigger;
+        }
+
+        createMarketplaceModal() {
             const modal = document.createElement('div');
             modal.className = 'marketplace-modal';
             modal.innerHTML = `
@@ -72,13 +87,7 @@
                 </div>
             `;
 
-            document.body.appendChild(trigger);
             document.body.appendChild(modal);
-
-            trigger.addEventListener('click', () => {
-                modal.classList.add('open');
-                this.loadRandomProducts();
-            });
 
             modal.querySelector('.marketplace-modal-close').addEventListener('click', () => {
                 modal.classList.remove('open');
@@ -126,7 +135,6 @@
                 }
             });
 
-            this.trigger = trigger;
             this.modal = modal;
         }
 
