@@ -64,9 +64,9 @@ router.post('/', authenticate, requireSeller, validate(createProductSchema), pro
 /**
  * @route   GET /api/v1/products
  * @desc    Get all products with filters
- * @access  Public
+ * @access  Public (optionalAuth for includeAllStatuses)
  */
-router.get('/', validateQuery(productQuerySchema), productController.getProducts);
+router.get('/', optionalAuth, validateQuery(productQuerySchema), productController.getProducts);
 
 /**
  * @route   GET /api/v1/products/:id

@@ -74,6 +74,9 @@ class VendorDashboard {
     async init() {
         vdLog('Starting initialization...');
 
+        // Initialize edit mode tracking
+        this.currentEditProductId = null;
+
         // Load store information first
         await this.loadStoreInfo();
 
@@ -564,9 +567,10 @@ class VendorDashboard {
             vdLog('Products response:', response);
 
             // Handle different response structures
-            const products = response.data || response;
+            // API returns: { success: true, data: { products: [], pagination: {} } }
+            const products = response.data?.products || response.data || response;
 
-            if (!products || products.length === 0) {
+            if (!products || !Array.isArray(products) || products.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center;padding:3rem;color:#64748b;">
                         <div style="font-size:3rem;margin-bottom:1rem;">📦</div>
@@ -766,8 +770,41 @@ class VendorDashboard {
                             </div>
                         </div>
 
+                        <!-- Rejection Reason (if rejected) -->
+                        ${isRejected && product.rejection_reason ? `
+                            <div style="
+                                grid-column: 1 / -1;
+                                background: #fee2e2;
+                                padding: 0.75rem 1rem;
+                                border-radius: 8px;
+                                border-left: 4px solid #dc2626;
+                                margin-top: 0.5rem;
+                            ">
+                                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                                    <span style="font-size: 1.2rem;">❌</span>
+                                    <div>
+                                        <strong style="color: #dc2626; display: block; margin-bottom: 0.25rem;">Ret Sebebi:</strong>
+                                        <p style="color: #7f1d1d; margin: 0; line-height: 1.5;">${product.rejection_reason}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <!-- Actions -->
                         <div style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 120px;">
+                            <button class="full-edit-product-btn" data-product-id="${product.id}" style="
+                                padding: 0.6rem 1rem;
+                                background: #3b82f6;
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                font-size: 0.9rem;
+                            " onmouseover="this.style.background='#2563eb';" onmouseout="this.style.background='#3b82f6';">
+                                ✏️ Düzenle
+                            </button>
                             <button class="save-product-btn" data-product-id="${product.id}" style="
                                 padding: 0.6rem 1rem;
                                 background: var(--vendor-primary);
@@ -1949,10 +1986,51 @@ class VendorDashboard {
         const cancelBtn = document.getElementById('cancelProductBtn');
         const productForm = document.getElementById('productForm');
 
-        // Open modal
+        // Open modal for creating new product
         if (addProductBtn) {
             addProductBtn.addEventListener('click', () => {
-                this.openProductModal();
+                // Reset edit mode
+                this.currentEditProductId = null;
+
+                // Reset modal title
+                const modalTitle = modal?.querySelector('h2');
+                if (modalTitle) {
+                    modalTitle.textContent = '➕ Yeni Ürün Ekle';
+                }
+
+                // Reset submit button text
+                const submitBtn = document.getElementById('submitProductBtn');
+                if (submitBtn) {
+                    submitBtn.textContent = '➕ Ürün Ekle';
+                }
+
+                // Clear form
+                productForm.reset();
+
+                // Explicitly reset category dropdown
+                const categorySelect = document.getElementById('productCategory');
+                if (categorySelect) {
+                    categorySelect.value = '';
+                }
+
+                // Clear badges
+                document.querySelectorAll('input[name="badge"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+
+                // Clear image preview
+                const imagePreview = document.getElementById('productImagePreview');
+                if (imagePreview) {
+                    imagePreview.innerHTML = '<div style="color: #94a3b8; font-size: 0.9rem;">Resim seçilmedi</div>';
+                    delete imagePreview.dataset.imageUrl;
+                }
+
+                // Show modal
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+
+                vdLog('Product modal opened for new product. Categories available:', this.categories ? this.categories.length : 0);
             });
         }
 
@@ -1960,6 +2038,23 @@ class VendorDashboard {
         const closeModalFunc = () => {
             modal.style.display = 'none';
             productForm.reset();
+
+            // Reset edit mode
+            this.currentEditProductId = null;
+
+            // Reset modal title
+            const modalTitle = modal?.querySelector('h2');
+            if (modalTitle) {
+                modalTitle.textContent = '➕ Yeni Ürün Ekle';
+            }
+
+            // Reset submit button
+            const submitBtn = document.getElementById('submitProductBtn');
+            if (submitBtn) {
+                submitBtn.textContent = '➕ Ürün Ekle';
+            }
+
+            vdLog('Modal closed and edit mode reset');
         };
 
         if (closeModal) {
@@ -1984,6 +2079,9 @@ class VendorDashboard {
                 this.createProduct();
             });
         }
+
+        // Image upload handler
+        this.setupImageUpload();
 
         // SEO character counters
         this.setupSEOCounters();
@@ -2023,16 +2121,29 @@ class VendorDashboard {
             if (response.success && response.data) {
                 this.categories = response.data;
                 this.populateCategoryDropdown();
-                vdLog('Categories loaded:', this.categories.length);
+                vdLog('Categories loaded successfully:', this.categories.length, 'categories');
+                vdLog('Category IDs:', this.categories.map(c => ({ id: c.id, name: c.name })));
+            } else {
+                console.error('[Vendor Dashboard] Failed to load categories:', response);
+                this.showError('Kategoriler yüklenemedi. Lütfen sayfayı yenileyin.');
             }
         } catch (error) {
             console.error('[Vendor Dashboard] Error loading categories:', error);
+            this.showError('Kategoriler yüklenirken hata oluştu: ' + error.message);
         }
     }
 
     populateCategoryDropdown() {
         const categorySelect = document.getElementById('productCategory');
-        if (!categorySelect || !this.categories) return;
+        if (!categorySelect) {
+            console.error('[Vendor Dashboard] Category select element not found!');
+            return;
+        }
+
+        if (!this.categories || this.categories.length === 0) {
+            console.error('[Vendor Dashboard] No categories available to populate');
+            return;
+        }
 
         // Clear existing options (keep the first placeholder)
         categorySelect.innerHTML = '<option value="">Select a category...</option>';
@@ -2043,7 +2154,10 @@ class VendorDashboard {
             option.value = category.id;
             option.textContent = `${category.icon || '📦'} ${category.name}`;
             categorySelect.appendChild(option);
+            vdLog('Added category option:', category.id, category.name);
         });
+
+        vdLog('Category dropdown populated with', this.categories.length, 'categories');
     }
 
     async loadCategoryVariantsForForm(categoryId) {
@@ -2129,6 +2243,108 @@ class VendorDashboard {
         });
     }
 
+    // ==========================================
+    // FULL PRODUCT EDIT MODAL
+    // ==========================================
+
+    async openEditProductModal(productId) {
+        try {
+            vdLog('Opening edit modal for product:', productId);
+
+            // Ensure categories are loaded
+            if (!this.categories || this.categories.length === 0) {
+                vdLog('Categories not loaded, loading now...');
+                await this.loadCategories();
+            }
+
+            // Fetch product details
+            const response = await this.apiClient.get(`/products/${productId}`);
+            if (!response.success || !response.data) {
+                this.showError('Ürün bilgileri yüklenemedi');
+                return;
+            }
+
+            const product = response.data;
+            vdLog('Product loaded for editing:', product);
+
+            // Store current edit product ID
+            this.currentEditProductId = productId;
+
+            // Open the product modal
+            const modal = document.getElementById('productModal');
+            if (!modal) {
+                console.error('[Vendor Dashboard] Product modal element not found');
+                return;
+            }
+
+            // Change modal title
+            const modalTitle = modal.querySelector('h2');
+            if (modalTitle) {
+                modalTitle.textContent = '✏️ Ürünü Düzenle';
+            }
+
+            // Fill form fields (use correct element IDs from HTML)
+            document.getElementById('productTitle').value = product.title || '';
+            document.getElementById('productDescription').value = product.description || '';
+            document.getElementById('productShortDesc').value = product.short_description || '';
+            document.getElementById('productPrice').value = product.price || '';
+            document.getElementById('productStock').value = product.stock || 0;
+            document.getElementById('productCategory').value = product.category_id || '';
+
+            // Fill SEO fields
+            document.getElementById('productSeoTitle').value = product.seo_title || '';
+            document.getElementById('productSeoDescription').value = product.seo_description || '';
+
+            // Fill badges
+            document.querySelectorAll('input[name="badge"]').forEach(checkbox => {
+                checkbox.checked = product.badges && product.badges.includes(checkbox.value);
+            });
+
+            // Fill image
+            const imagePreview = document.getElementById('productImagePreview');
+            if (imagePreview && product.images && product.images.length > 0) {
+                const imageUrl = product.images[0];
+                const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${this.apiClient.baseURL}${imageUrl}`;
+                imagePreview.dataset.imageUrl = imageUrl;
+                imagePreview.innerHTML = `
+                    <img src="${fullUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <button type="button" onclick="vendorDashboard.removeProductImage()" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: #dc2626;
+                        color: white;
+                        border: none;
+                        border-radius: 50%;
+                        width: 30px;
+                        height: 30px;
+                        cursor: pointer;
+                        font-size: 18px;
+                        line-height: 1;
+                    ">×</button>
+                `;
+            }
+
+            // Change submit button text
+            const submitBtn = document.getElementById('submitProductBtn');
+            if (submitBtn) {
+                submitBtn.textContent = '💾 Güncelle';
+            }
+
+            // Show modal (use display instead of class to match existing pattern)
+            modal.style.display = 'flex';
+
+            // Load category variants if category is selected
+            if (product.category_id) {
+                await this.loadCategoryVariantsForForm(product.category_id);
+            }
+
+        } catch (error) {
+            console.error('[Vendor Dashboard] Error opening edit modal:', error);
+            this.showError('Ürün düzenleme ekranı açılamadı: ' + error.message);
+        }
+    }
+
     async createProduct() {
         try {
             if (!this.storeId) {
@@ -2153,6 +2369,8 @@ class VendorDashboard {
                 shortDesc,
                 description,
                 categoryId,
+                categoryIdType: typeof categoryId,
+                categoryIdLength: categoryId ? categoryId.length : 0,
                 priceInput,
                 stockInput,
                 imageUrl
@@ -2165,6 +2383,10 @@ class VendorDashboard {
             }
 
             if (!categoryId) {
+                console.error('[Vendor Dashboard] Category not selected');
+                console.error('Available categories:', this.categories);
+                console.error('Category select element:', document.getElementById('productCategory'));
+                console.error('Category select value:', document.getElementById('productCategory')?.value);
                 this.showError('Lütfen bir kategori seçin.');
                 return;
             }
@@ -2193,11 +2415,14 @@ class VendorDashboard {
             // Prepare product data (matching backend schema exactly)
             const productData = {
                 store_id: this.storeId,
-                category_id: categoryId,
+                category_id: categoryId,  // Send as-is (should be UUID string)
                 title: title,
                 price: price,
                 stock: stock
             };
+
+            vdLog('Product data being sent:', productData);
+            vdLog('Category ID type:', typeof categoryId, 'value:', categoryId);
 
             // Add optional fields only if they have values
             if (shortDesc) {
@@ -2245,16 +2470,26 @@ class VendorDashboard {
                 productData.meta_keywords = metaKeywords.split(',').map(k => k.trim()).filter(k => k);
             }
 
-            vdLog('Creating product with data:', productData);
+            // Determine if this is create or update
+            const isEdit = !!this.currentEditProductId;
+            const actionText = isEdit ? 'güncelleniyor' : 'oluşturuluyor';
+            const successText = isEdit ? 'Ürün başarıyla güncellendi!' : 'Ürün başarıyla oluşturuldu! Admin onayı bekleniyor.';
+
+            vdLog(isEdit ? 'Updating product' : 'Creating product', 'with data:', productData);
 
             // Show loading
             const submitBtn = document.querySelector('#productForm button[type="submit"]');
             const originalText = submitBtn.textContent;
             submitBtn.disabled = true;
-            submitBtn.textContent = '⏳ Oluşturuluyor...';
+            submitBtn.textContent = `⏳ ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}...`;
 
-            // Call API
-            const response = await this.apiClient.post('/products', productData);
+            // Call API (POST for create, PUT for update)
+            let response;
+            if (isEdit) {
+                response = await this.apiClient.put(`/products/${this.currentEditProductId}`, productData);
+            } else {
+                response = await this.apiClient.post('/products', productData);
+            }
 
             vdLog('API response:', response);
 
@@ -2262,11 +2497,29 @@ class VendorDashboard {
             submitBtn.textContent = originalText;
 
             if (response.success) {
-                this.showSuccess('✅ Ürün başarıyla oluşturuldu! Admin onayı bekleniyor.');
+                this.showSuccess(`✅ ${successText}`);
 
-                // Close modal
-                document.getElementById('productModal').style.display = 'none';
+                // Close modal and reset
+                const modal = document.getElementById('productModal');
+                modal.classList.remove('show');
+                modal.style.display = 'none';
                 document.getElementById('productForm').reset();
+
+                // Clear image preview
+                const imagePreview = document.getElementById('productImagePreview');
+                if (imagePreview) {
+                    imagePreview.innerHTML = '<div style="color: #94a3b8; font-size: 0.9rem;">Resim seçilmedi</div>';
+                    delete imagePreview.dataset.imageUrl;
+                }
+
+                // Reset edit mode
+                this.currentEditProductId = null;
+
+                // Reset modal title to default
+                const modalTitle = modal.querySelector('h2');
+                if (modalTitle) {
+                    modalTitle.textContent = '➕ Yeni Ürün Ekle';
+                }
 
                 // Reload products
                 if (this.currentSection === 'products') {
@@ -2274,7 +2527,7 @@ class VendorDashboard {
                 }
             } else {
                 // Show detailed error message
-                const errorMsg = response.message || response.error || 'Ürün oluşturulamadı';
+                const errorMsg = response.message || response.error || (isEdit ? 'Ürün güncellenemedi' : 'Ürün oluşturulamadı');
                 console.error('[Vendor Dashboard] API error:', response);
                 this.showError(errorMsg);
             }
@@ -2306,10 +2559,18 @@ class VendorDashboard {
     attachProductActionListeners() {
         vdLog('Attaching product action listeners');
 
+        // Full edit product buttons
+        document.querySelectorAll('.full-edit-product-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const productId = e.currentTarget.dataset.productId;
+                await this.openEditProductModal(productId);
+            });
+        });
+
         // Save product buttons
         document.querySelectorAll('.save-product-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const productId = e.target.dataset.productId;
+                const productId = e.currentTarget.dataset.productId;
                 await this.updateProduct(productId);
             });
         });
@@ -2317,7 +2578,7 @@ class VendorDashboard {
         // Delete product buttons
         document.querySelectorAll('.delete-product-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const productId = e.target.dataset.productId;
+                const productId = e.currentTarget.dataset.productId;
                 if (confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
                     await this.deleteProduct(productId);
                 }
@@ -2327,8 +2588,8 @@ class VendorDashboard {
         // Toggle active/inactive buttons
         document.querySelectorAll('.toggle-active-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const productId = e.target.dataset.productId;
-                const isActive = e.target.dataset.active === 'true';
+                const productId = e.currentTarget.dataset.productId;
+                const isActive = e.currentTarget.dataset.active === 'true';
                 await this.toggleProductActive(productId, !isActive);
             });
         });
@@ -2598,13 +2859,15 @@ VendorDashboard.prototype.setupSEOCounters = function() {
     if (seoTitleInput && seoTitleCounter) {
         seoTitleInput.addEventListener('input', () => {
             const length = seoTitleInput.value.length;
-            seoTitleCounter.textContent = `Characters: ${length}/60`;
-            
-            // Color coding
+            seoTitleCounter.textContent = `Characters: ${length}/200`;
+
+            // Color coding (50-60 is optimal for search results, but 200 is backend limit)
             if (length >= 50 && length <= 60) {
-                seoTitleCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 60) {
-                seoTitleCounter.style.color = '#ef4444'; // Red - too long
+                seoTitleCounter.style.color = '#10b981'; // Green - optimal for SEO
+            } else if (length > 200) {
+                seoTitleCounter.style.color = '#ef4444'; // Red - exceeds backend limit
+            } else if (length > 60 && length <= 200) {
+                seoTitleCounter.style.color = '#f59e0b'; // Orange - acceptable but long
             } else {
                 seoTitleCounter.style.color = '#666'; // Gray - default
             }
@@ -2614,19 +2877,136 @@ VendorDashboard.prototype.setupSEOCounters = function() {
     if (seoDescInput && seoDescCounter) {
         seoDescInput.addEventListener('input', () => {
             const length = seoDescInput.value.length;
-            seoDescCounter.textContent = `Characters: ${length}/160`;
-            
-            // Color coding
+            seoDescCounter.textContent = `Characters: ${length}/500`;
+
+            // Color coding (150-160 is optimal for search results, but 500 is backend limit)
             if (length >= 150 && length <= 160) {
-                seoDescCounter.style.color = '#10b981'; // Green - optimal
-            } else if (length > 160) {
-                seoDescCounter.style.color = '#ef4444'; // Red - too long
+                seoDescCounter.style.color = '#10b981'; // Green - optimal for SEO
+            } else if (length > 500) {
+                seoDescCounter.style.color = '#ef4444'; // Red - exceeds backend limit
+            } else if (length > 160 && length <= 500) {
+                seoDescCounter.style.color = '#f59e0b'; // Orange - acceptable but long
             } else {
                 seoDescCounter.style.color = '#666'; // Gray - default
             }
         });
     }
 }; // Close setupSEOCounters function
+
+// ==========================================
+// IMAGE UPLOAD HANDLER
+// ==========================================
+
+VendorDashboard.prototype.setupImageUpload = function() {
+    const fileInput = document.getElementById('productImageFile');
+    const dropzone = document.querySelector('.image-upload-dropzone');
+    const preview = document.getElementById('productImagePreview');
+
+    if (!fileInput || !dropzone || !preview) {
+        console.warn('[Vendor Dashboard] Image upload elements not found');
+        return;
+    }
+
+    // Click dropzone to open file picker
+    dropzone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Handle file selection
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            this.showError('Lütfen bir resim dosyası seçin (JPEG, PNG, WebP, GIF)');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            this.showError('Resim boyutu 5MB\'dan küçük olmalıdır');
+            return;
+        }
+
+        // Show loading state
+        preview.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%;"><div class="spinner"></div><span style="margin-left: 0.5rem;">Yükleniyor...</span></div>';
+
+        try {
+            vdLog('Uploading image:', file.name, file.size, 'bytes');
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // Get auth token
+            const token = this.apiClient.getAuthToken();
+            if (!token) {
+                throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+            }
+
+            // Upload to backend
+            const response = await fetch(`${this.apiClient.baseURL}/uploads/products`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Resim yüklenemedi');
+            }
+
+            vdLog('Image uploaded successfully:', data.data.url);
+
+            // Store URL in preview element's dataset
+            preview.dataset.imageUrl = data.data.url;
+
+            // Show preview
+            const fullUrl = `${this.apiClient.baseURL}${data.data.url}`;
+            preview.innerHTML = `
+                <img src="${fullUrl}"
+                     alt="Product preview"
+                     style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                <button type="button"
+                        onclick="vendorDashboard.removeProductImage()"
+                        style="position: absolute; top: 8px; right: 8px; background: rgba(220, 38, 38, 0.9); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    ×
+                </button>
+            `;
+
+            this.showSuccess('Resim başarıyla yüklendi!');
+
+        } catch (error) {
+            console.error('[Vendor Dashboard] Image upload error:', error);
+            this.showError('Resim yüklenirken hata oluştu: ' + error.message);
+
+            // Reset preview
+            preview.innerHTML = '<span style="color: #94a3b8;">Seçilmiş görsel yok</span>';
+            delete preview.dataset.imageUrl;
+            fileInput.value = '';
+        }
+    });
+
+    vdLog('Image upload handler configured');
+};
+
+VendorDashboard.prototype.removeProductImage = function() {
+    const fileInput = document.getElementById('productImageFile');
+    const preview = document.getElementById('productImagePreview');
+
+    if (fileInput) fileInput.value = '';
+    if (preview) {
+        preview.innerHTML = '<span style="color: #94a3b8;">Seçilmiş görsel yok</span>';
+        delete preview.dataset.imageUrl;
+    }
+
+    vdLog('Product image removed');
+};
 
 // ==========================================
 // CAMPAIGNS MANAGEMENT

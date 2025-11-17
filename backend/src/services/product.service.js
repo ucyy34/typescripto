@@ -8,6 +8,7 @@ const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { cache } = require('../config/redis');
+const logger = require('../utils/logger');
 const slugify = require('slugify');
 
 const BADGE_ALLOW_LIST = new Set([
@@ -41,7 +42,8 @@ class ProductService {
       throw new ApiError('Store must be approved before adding products', StatusCodes.BAD_REQUEST);
     }
 
-    // Check if category exists (temporarily disabled for testing)
+    // TEMPORARILY DISABLED: Category validation
+    // TODO: Re-enable with proper UUID handling
     // const category = await Category.findByPk(productData.category_id);
     // if (!category) {
     //   throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
@@ -65,30 +67,37 @@ class ProductService {
       status: 'pending',
     };
 
-    // Create product
-    const product = await Product.create(payload);
+    // Use transaction to ensure product and variants are created atomically
+    const transaction = await Product.sequelize.transaction();
 
-    // Create variants if provided
-    if (Array.isArray(productData.variants) && productData.variants.length > 0) {
-      try {
+    try {
+      // Create product
+      const product = await Product.create(payload, { transaction });
+
+      // Create variants if provided
+      if (Array.isArray(productData.variants) && productData.variants.length > 0) {
         for (const v of productData.variants) {
           await ProductVariant.create({
             product_id: product.id,
             category_variant_id: v.category_variant_id,
             variant_name: v.variant_name,
             selected_options: v.selected_options,
-          });
+          }, { transaction });
         }
-      } catch (e) {
-        // Do not fail product creation if variants fail; log only
-        console.warn('[product] Failed to create variants:', e.message);
       }
+
+      // Commit transaction
+      await transaction.commit();
+
+      // Clear cache
+      await cache.delPattern('products:*');
+
+      return product;
+    } catch (error) {
+      // Rollback transaction on any error
+      await transaction.rollback();
+      throw error;
     }
-
-    // Clear cache
-    await cache.delPattern('products:*');
-
-    return product;
   }
 
   prepareProductData(productData = {}, options = {}) {
@@ -167,31 +176,34 @@ class ProductService {
    * Get product by ID
    * @param {string} productId
    * @param {boolean} includeInactive
+   * @param {string} requestUserId - If provided, allows owner to see their inactive products
    * @returns {Promise<Product>}
    */
-  async getProductById(productId, includeInactive = false) {
-    // Try cache first
+  async getProductById(productId, includeInactive = false, requestUserId = null) {
+    // Try cache first (only for public requests)
     const cacheKey = `product:${productId}`;
     const cached = await cache.get(cacheKey);
-    if (cached && !includeInactive) {
+    if (cached && !includeInactive && !requestUserId) {
       return cached;
     }
 
+    // If checking ownership, fetch without filters first to check ownership
+    const checkOwnership = !includeInactive && requestUserId;
     const where = { id: productId };
 
-    if (!includeInactive) {
+    if (!includeInactive && !checkOwnership) {
       where.status = 'approved';
       where.is_active = true;
       where.stock = { [Op.gt]: 0 };
     }
 
     const product = await Product.findOne({
-      where,
+      where: checkOwnership ? { id: productId } : where,
       include: [
         {
           model: Store,
           as: 'store',
-          attributes: ['id', 'name', 'slug', 'logo', 'rating'],
+          attributes: ['id', 'name', 'slug', 'logo', 'rating', 'user_id'],
         },
         {
           model: Category,
@@ -209,11 +221,24 @@ class ProductService {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
     }
 
+    // If checking ownership, verify and apply filters if not owner
+    if (checkOwnership) {
+      const isOwner = product.store && product.store.user_id === requestUserId;
+      if (!isOwner) {
+        // Not owner, check if it meets public criteria
+        if (product.status !== 'approved' || !product.is_active || product.stock <= 0) {
+          throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
+        }
+      }
+      // If owner, return as is (no filters applied)
+      logger.info(`[ProductService] Vendor ${requestUserId} accessing their ${product.is_active ? 'active' : 'inactive'} product ${productId}`);
+    }
+
     // Increment views (async, don't wait)
     product.incrementViews().catch(() => {});
 
-    // Cache for 1 hour
-    if (!includeInactive) {
+    // Cache for 1 hour (only public products)
+    if (!includeInactive && !requestUserId) {
       await cache.set(cacheKey, product, 3600);
     }
 
@@ -223,9 +248,10 @@ class ProductService {
   /**
    * Get products with filters and pagination
    * @param {Object} filters
+   * @param {Object} user - Authenticated user (optional)
    * @returns {Promise<Object>}
    */
-  async getProducts(filters) {
+  async getProducts(filters, user = null) {
     const {
       page = 1,
       limit = 20,
@@ -243,6 +269,27 @@ class ProductService {
 
     // Parse includeAllStatuses from string (query params are strings)
     const shouldIncludeAll = includeAllStatuses === 'true' || includeAllStatuses === true;
+
+    // Verify ownership if includeAllStatuses is used by non-admin
+    if (shouldIncludeAll && user && user.role !== 'admin') {
+      if (!store_id) {
+        throw new ApiError('store_id is required for non-admin users', StatusCodes.BAD_REQUEST);
+      }
+
+      // Get store to verify ownership
+      const { Store } = require('../models');
+      const store = await Store.findByPk(store_id);
+
+      if (!store) {
+        throw new ApiError('Store not found', StatusCodes.NOT_FOUND);
+      }
+
+      if (store.user_id !== user.id) {
+        throw new ApiError('You can only view products from your own store', StatusCodes.FORBIDDEN);
+      }
+
+      logger.info(`[ProductService] Vendor ${user.id} viewing all statuses for their store ${store_id}`);
+    }
 
     const offset = (page - 1) * limit;
     const where = {};
@@ -271,18 +318,14 @@ class ProductService {
       where.stock = { [Op.gt]: 0 };
     }
 
-    // If no status filter and includeAllStatuses is not true, only show approved and active products
-    // This allows vendors to see all their products (pending, approved, rejected, active, inactive) by setting includeAllStatuses=true
-    if (!shouldIncludeAll) {
-      const shouldEnforceAvailability = !status || status === 'approved';
-      if (shouldEnforceAvailability) {
-        where.status = 'approved';
-        if (where.is_active === undefined) {
-          where.is_active = true;
-        }
-        if (!where.stock) {
-          where.stock = { [Op.gt]: 0 };
-        }
+    // If includeAllStatuses is true, vendor sees ALL their products (pending, approved, rejected, active, inactive)
+    // Otherwise, only show approved, active, and in-stock products to public
+    if (!shouldIncludeAll && !status) {
+      // No status filter specified, enforce availability for public view
+      where.status = 'approved';
+      where.is_active = true;
+      if (!where.stock) {
+        where.stock = { [Op.gt]: 0 };
       }
     }
 
@@ -292,8 +335,8 @@ class ProductService {
     const sortDirection = sort.startsWith('-') ? 'DESC' : 'ASC';
     order.push([sortField, sortDirection]);
 
-    // Try cache for common queries
-    const cacheKey = `products:${JSON.stringify({ where, offset, limit, order })}`;
+    // Try cache for common queries (include shouldIncludeAll in cache key)
+    const cacheKey = `products:${JSON.stringify({ where, offset, limit, order, includeAll: shouldIncludeAll })}`;
     const cached = await cache.get(cacheKey);
     if (cached) {
       return cached;
@@ -386,7 +429,7 @@ class ProductService {
     if (sanitizedUpdate.badges) {
       sanitizedUpdate.badges = [...new Set(
         sanitizedUpdate.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean)
-      )];
+      )].filter((badge) => BADGE_ALLOW_LIST.has(badge));
     }
 
     if (sanitizedUpdate.tags) {
@@ -434,11 +477,45 @@ class ProductService {
       }
     }
 
+    // Check if stock is being set to zero and product is currently active
+    let stockWarning = null;
+    let stockInfo = null;
+    if (sanitizedUpdate.stock !== undefined) {
+      const newStock = Number(sanitizedUpdate.stock);
+      const oldStock = product.stock || 0;
+
+      // Auto-deactivate when stock reaches zero
+      if (newStock <= 0 && product.is_active) {
+        sanitizedUpdate.is_active = false;
+        stockWarning = 'Product has been automatically deactivated due to zero stock';
+        logger.warn(`[ProductService] ${stockWarning}: ${product.title} (ID: ${productId})`);
+      }
+
+      // Auto-reactivate when stock is replenished (from zero to positive)
+      // Only reactivate if: 1) product is approved, 2) currently inactive, 3) was previously at zero stock
+      if (newStock > 0 && oldStock === 0 && !product.is_active && product.status === 'approved') {
+        sanitizedUpdate.is_active = true;
+        stockInfo = 'Product has been automatically reactivated due to stock replenishment';
+        logger.info(`[ProductService] ${stockInfo}: ${product.title} (ID: ${productId})`);
+      }
+    }
+
     await product.update(sanitizedUpdate);
 
     // Clear cache
     await cache.del(`product:${productId}`);
     await cache.delPattern('products:*');
+
+    // Reload product to get updated values
+    await product.reload();
+
+    // Add warning/info messages to product object if they exist
+    if (stockWarning) {
+      product.dataValues.warning = stockWarning;
+    }
+    if (stockInfo) {
+      product.dataValues.info = stockInfo;
+    }
 
     return product;
   }

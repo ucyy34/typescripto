@@ -188,6 +188,7 @@ const productQuerySchema = Joi.object({
       '-created_at'
     )
     .default('-created_at'),
+  includeAllStatuses: Joi.boolean().optional(), // Allow vendors to see all their products (inactive, rejected, etc.)
 });
 
 module.exports = {

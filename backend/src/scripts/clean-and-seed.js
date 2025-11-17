@@ -17,6 +17,7 @@ const {
   sequelize
 } = require('../models');
 const bcrypt = require('bcrypt');
+const { cache } = require('../config/redis');
 
 // Seller data
 const sellers = [
@@ -368,6 +369,17 @@ async function main() {
 
     await cleanDatabase();
     await seedData();
+
+    // Clear Redis cache to ensure fresh category UUIDs
+    console.log('\n🧹 Clearing Redis cache...');
+    try {
+      await cache.delPattern('categories:*');
+      await cache.delPattern('products:*');
+      console.log('✅ Cache cleared! Fresh data will be loaded from database.\n');
+    } catch (cacheError) {
+      console.error('⚠️  Cache clear failed:', cacheError.message);
+      console.log('⚠️  You may need to manually clear cache or restart Redis.\n');
+    }
 
     console.log('\n✅ Database cleanup and seed completed successfully!\n');
     console.log('📝 Test Credentials:');

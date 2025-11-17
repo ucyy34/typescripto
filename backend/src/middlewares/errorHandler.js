@@ -60,6 +60,15 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'SequelizeForeignKeyConstraintError') {
     statusCode = StatusCodes.BAD_REQUEST;
     message = 'Referenced resource does not exist';
+
+    // Log for debugging
+    console.error('[Error Handler] Foreign key constraint error:', {
+      table: err.table,
+      field: err.fields,
+      value: err.value,
+      index: err.index,
+      parent: err.parent
+    });
   }
 
   // Handle Sequelize database connection errors

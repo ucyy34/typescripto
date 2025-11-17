@@ -32,7 +32,8 @@ class ProductController {
    */
   getProduct = asyncHandler(async (req, res) => {
     const includeInactive = req.user?.role === 'admin';
-    const product = await productService.getProductById(req.params.id, includeInactive);
+    const requestUserId = req.user?.id; // Pass user ID for ownership check
+    const product = await productService.getProductById(req.params.id, includeInactive, requestUserId);
 
     return success(res, product, 'Product retrieved successfully');
   });
@@ -53,7 +54,32 @@ class ProductController {
    * GET /api/v1/products
    */
   getProducts = asyncHandler(async (req, res) => {
-    const result = await productService.getProducts(req.query);
+    // Handle includeAllStatuses flag for vendors/admins
+    const { includeAllStatuses, store_id, ...otherQuery } = req.query;
+
+    // If includeAllStatuses is requested, validate authorization
+    if (includeAllStatuses === 'true' || includeAllStatuses === true) {
+      // Only authenticated users can use this flag
+      if (!req.user) {
+        throw new ApiError('Authentication required to view all product statuses', StatusCodes.UNAUTHORIZED);
+      }
+
+      // Admins can see all products
+      if (req.user.role !== 'admin') {
+        // Non-admin users must specify store_id and it must be their own store
+        if (!store_id) {
+          throw new ApiError('store_id is required when using includeAllStatuses', StatusCodes.BAD_REQUEST);
+        }
+
+        // Verify user owns the store (checked in service layer)
+        // Pass user info to service for ownership verification
+      }
+    }
+
+    const result = await productService.getProducts(
+      { includeAllStatuses, store_id, ...otherQuery },
+      req.user
+    );
 
     return paginated(res, result.products, result.pagination, result.meta);
   });

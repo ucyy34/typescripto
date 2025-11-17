@@ -572,8 +572,11 @@ class AdminDashboard {
      * Reject product
      */
     async rejectProduct(productId) {
-        const reason = prompt('Reddetme sebebini girin:');
-        if (!reason) return;
+        const reason = prompt('Reddetme sebebini girin (zorunlu):');
+        if (!reason || reason.trim().length === 0) {
+            this.showError('Reddetme sebebi boş olamaz!');
+            return;
+        }
 
         try {
             const result = await this.api.updateProductStatus(productId, 'rejected', reason);
