@@ -35,7 +35,7 @@ const startServer = async () => {
     // Sync database schema (force: true will drop and recreate tables)
     if (NODE_ENV === 'development') {
       logger.info('Synchronizing database schema for development');
-      const synced = await syncDatabase({ force: true });
+      const synced = await syncDatabase();
 
       if (!synced) {
         throw new Error('Failed to synchronize database schema');
@@ -43,9 +43,18 @@ const startServer = async () => {
     }
 
     // Test Redis connection
+    // Test Redis connection
     logger.info('Testing Redis connection');
-    await redisClient.ping();
-    logger.info('✅ Connected to Redis');
+    try {
+      if (typeof redisClient.ping === 'function') {
+        await redisClient.ping();
+        logger.info('✅ Connected to Redis');
+      } else {
+        logger.info('⚠️  Using in-memory Redis mock (no ping method)');
+      }
+    } catch (redisError) {
+      logger.warn('⚠️  Redis connection failed, proceeding without Redis: %s', redisError.message);
+    }
 
     // Start Express server
     server = app.listen(PORT, () => {

@@ -415,35 +415,7 @@ class DostikAI {
                 animation: bounce 3s infinite;
             }
 
-            .global-selector-trigger {
-                position: fixed;
-                bottom: 170px;
-                right: 30px;
-                width: 60px;
-                height: 60px;
-                background: var(--aurora-blue);
-                border: none;
-                border-radius: 50%;
-                font-size: 1.6rem;
-                color: white;
-                cursor: pointer;
-                box-shadow: var(--shadow-medium);
-                transition: all var(--transition-medium);
-                z-index: 2050;
-                animation: globePulse 3s infinite;
-            }
-
-            .global-selector-trigger:hover {
-                transform: scale(1.1);
-                box-shadow: var(--shadow-strong);
-                animation: none;
-            }
-
-            @keyframes globePulse {
-                0% { box-shadow: var(--shadow-medium); }
-                50% { box-shadow: var(--shadow-strong), 0 0 30px rgba(107, 141, 181, 0.3); }
-                100% { box-shadow: var(--shadow-medium); }
-            }
+            /* Global selector removed - replaced with floating cart */
 
             .marketplace-browse-trigger:hover {
                 transform: scale(1.1);
@@ -865,16 +837,13 @@ class DostikAI {
         // Event listeners will be set up by individual components
     }
 
-    // Create chat + selector triggers (marketplace handled by separate module)
+    // Create chat trigger (marketplace handled by separate module)
     createMarketplaceTrigger() {
         if (document.querySelector('.dostik-chat-widget')) {
             return;
         }
 
-        const globalSelectorTrigger = document.createElement('button');
-        globalSelectorTrigger.className = 'global-selector-trigger';
-        globalSelectorTrigger.innerHTML = '🌍';
-        globalSelectorTrigger.title = 'Choose Your Country - Ülkeni Seç';
+        // Global selector removed - replaced with floating cart
 
         const chatTrigger = document.createElement('button');
         chatTrigger.className = 'dostik-chat-trigger';
@@ -899,13 +868,10 @@ class DostikAI {
             </div>
         `;
 
-        document.body.appendChild(globalSelectorTrigger);
         document.body.appendChild(chatTrigger);
         document.body.appendChild(chatWidget);
 
-        globalSelectorTrigger.addEventListener('click', () => {
-            this.showCountrySelector();
-        });
+        // Global selector event listener removed
 
         chatTrigger.addEventListener('click', () => {
             chatWidget.classList.toggle('open');

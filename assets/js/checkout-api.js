@@ -493,7 +493,8 @@ class CheckoutPageAPI {
 
         const contactSection = document.querySelector('.checkout-form .form-section');
         if (contactSection) {
-            contactSection.style.display = mode === 'member' && this.isLoggedIn ? 'none' : 'block';
+            // Always show contact section so users can verify/edit their details (especially phone)
+            contactSection.style.display = 'block';
         }
 
         const savedAddresses = document.getElementById('saved-addresses');
@@ -1080,7 +1081,7 @@ class CheckoutPageAPI {
                         // Try to find the district option
                         const option = Array.from(shippingDistrict.options).find(
                             opt => opt.value.toLowerCase() === districtValue.toLowerCase() ||
-                                   opt.text.toLowerCase() === districtValue.toLowerCase()
+                                opt.text.toLowerCase() === districtValue.toLowerCase()
                         );
                         if (option) {
                             shippingDistrict.value = option.value;
@@ -1311,17 +1312,36 @@ class CheckoutPageAPI {
         for (const [htmlId, backendName] of Object.entries(fieldMapping)) {
             const input = document.getElementById(htmlId);
 
-            // Skip contact fields if form is hidden (using saved address) OR if user is logged in
-            if (['firstName', 'lastName', 'email', 'phone'].includes(backendName) && (!isAddressFormVisible || this.isLoggedIn)) {
-                // Check if value exists in this.shippingAddress (from saved address or user data)
-                if (!this.shippingAddress[backendName]) {
-                    console.warn(`[Checkout] Contact field missing ${backendName}`);
-                    errors.push(`${backendName} is required`);
-                    missingFields.push(backendName);
+            // Skip contact fields ONLY if form is hidden (using saved address) AND we are not validating contact info
+            // Actually, we should always validate contact info from inputs if the contact section is visible
+            const contactSection = document.querySelector('.checkout-form .form-section');
+            const isContactVisible = contactSection && contactSection.style.display !== 'none';
+
+            if (['firstName', 'lastName', 'email', 'phone'].includes(backendName)) {
+                if (isContactVisible) {
+                    // Read from input
+                    if (!input) {
+                        console.warn(`[Checkout] Field not found in DOM: ${htmlId} (${backendName})`);
+                        errors.push(`${backendName} field is missing`);
+                        missingFields.push(backendName);
+                    } else if (!input.value.trim()) {
+                        console.log(`[Checkout] Field empty: ${htmlId} (${backendName})`);
+                        errors.push(`${backendName} is required`);
+                        missingFields.push(backendName);
+                    } else {
+                        this.shippingAddress[backendName] = input.value.trim();
+                        console.log(`[Checkout] Field valid: ${htmlId} = ${input.value.trim()}`);
+                    }
+                    continue;
                 } else {
-                    console.log(`[Checkout] Using existing value for ${backendName}: ${this.shippingAddress[backendName]}`);
+                    // Fallback to existing data if section is hidden (should not happen with new logic)
+                    if (!this.shippingAddress[backendName]) {
+                        console.warn(`[Checkout] Contact field missing ${backendName}`);
+                        errors.push(`${backendName} is required`);
+                        missingFields.push(backendName);
+                    }
+                    continue;
                 }
-                continue;
             }
 
             // Skip address form fields if form is hidden (using saved address)

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E Sepet Testi</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/product-cards.css">
+    <link rel="stylesheet" href="assets/css/product-modal.css">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        #log { border: 1px solid #ccc; padding: 10px; min-height: 100px; margin-top: 20px; background-color: #f9f9f9; }
+        .product-card { border: 1px solid #eee; padding: 10px; margin: 10px; display: inline-block; width: 250px; vertical-align: top; }
+        .cart-item { display: flex; align-items: center; border-bottom: 1px solid #eee; padding: 10px 0; }
+        .cart-item img { width: 50px; height: 50px; margin-right: 10px; object-fit: cover; }
+        .cart-item-details { flex-grow: 1; }
+        .cart-item-title { font-weight: bold; }
+        .cart-item-quantity { font-size: 0.9em; color: #555; }
+        .cart-empty-state { text-align: center; color: #777; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>E2E Sepet Testi</h1>
+
+        <div style="margin-bottom: 20px;">
+            <button id="loginBuyerBtn">Alıcı Olarak Giriş Yap (anna.mueller@email.com)</button>
+            <button id="logoutBtn">Çıkış Yap</button>
+            <button id="loadProductsBtn">Ürünleri Yükle</button>
+            <button id="showCartBtn">Sepeti Göster/Yenile</button>
+        </div>
+
+        <h2>Ürünler</h2>
+        <div id="products-grid">
+            <p>Ürünleri yüklemek için 'Ürünleri Yükle' butonuna tıklayın.</p>
+        </div>
+
+        <h2>Sepet İçeriği</h2>
+        <div id="cart-contents">
+            <div class="cart-empty-state">Sepetiniz boş veya yüklenmedi.</div>
+        </div>
+        <div id="cart-totals" style="margin-top: 10px; font-weight: bold;">
+            Toplam: ₺0.00 | Ürün Sayısı: 0
+        </div>
+
+
+        <h2>Test Günlüğü</h2>
+        <pre id="log"></pre>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/security-utils.js"></script>
+    <script src="assets/js/error-handler.js"></script>
+    <script src="assets/js/lazy-load.js"></script>
+    <script src="assets/js/performance-monitor.js"></script>
+    <script src="assets/js/api-cache.js"></script>
+    <script src="assets/js/seo-meta.js"></script>
+
+    <script src="assets/js/auth-manager.js"></script>
+    <script src="assets/js/api-config.js"></script>
+    <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/wishlist-manager.js"></script>
+    <script src="assets/js/cart-manager.js"></script>
+    <script src="assets/js/cart-ui.js"></script>
+    <script src="assets/js/dostik-ai.js"></script>
+    <script src="assets/js/carsi-pazar-browser.js"></script>
+    <script src="assets/js/main.js"></script>
+    <script src="assets/js/product-modal.js"></script>
+    <script src="assets/js/home-api.js"></script>
+
+    <script>
+        const logElement = document.getElementById('log');
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        async function updateCartDisplay() {
+            try {
+                const cartItems = await window.cartManager.getCart(true); // Force refresh
+                const cartTotals = window.cartManager.getTotals();
+                const cartContentsDiv = document.getElementById('cart-contents');
+                const cartTotalsDiv = document.getElementById('cart-totals');
+
+                if (cartItems.length === 0) {
+                    cartContentsDiv.innerHTML = '<div class="cart-empty-state">Sepetiniz boş.</div>';
+                } else {
+                    cartContentsDiv.innerHTML = cartItems.map(item => `
+                        <div class="cart-item">
+                            <img src="${item.product?.images?.[0] || 'assets/images/placeholder.jpg'}" alt="${item.product?.title}">
+                            <div class="cart-item-details">
+                                <span class="cart-item-title">${item.product?.title}</span>
+                                <span class="cart-item-quantity">Adet: ${item.quantity}</span>
+                                <span class="cart-item-price">₺${(item.item_total || item.product?.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                cartTotalsDiv.textContent = `Toplam: ₺${cartTotals.subtotal.toFixed(2)} | Ürün Sayısı: ${cartTotals.item_count}`;
+                log(`Sepet güncellendi. Toplam ${cartTotals.item_count} ürün.`);
+            } catch (error) {
+                log(`Sepet güncellenirken hata oluştu: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        document.getElementById('loginBuyerBtn').addEventListener('click', async () => {
+            log('Alıcı olarak giriş yapılıyor...');
+            try {
+                const success = await authManager.login('anna.mueller@email.com', 'Buyer123!');
+                if (success) {
+                    log('Giriş başarılı. Sepet birleştiriliyor...');
+                    await window.cartManager.mergeGuestCart(); // Merge guest cart if any
+                    await updateCartDisplay();
+                    log('Sepet birleştirme ve görüntüleme başarılı.');
+                } else {
+                    log('Giriş başarısız.');
+                }
+            } catch (error) {
+                log(`Giriş sırasında hata oluştu: ${error.message}`);
+                console.error(error);
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            log('Çıkış yapılıyor...');
+            try {
+                await authManager.logout();
+                log('Çıkış başarılı. Sepet temizleniyor...');
+                await window.cartManager.clearCart(); // Clear local cart after logout
+                await updateCartDisplay();
+                log('Sepet temizleme ve görüntüleme başarılı.');
+            } catch (error) {
+                log(`Çıkış sırasında hata oluştu: ${error.message}`);
+                console.error(error);
+            }
+        });
+
+        document.getElementById('loadProductsBtn').addEventListener('click', async () => {
+            log('Ürünler yükleniyor...');
+            try {
+                const products = await HomeAPI.fetchProducts(5); // Fetch first 5 products
+                const productsGrid = document.getElementById('products-grid');
+                productsGrid.innerHTML = ''; // Clear previous products
+
+                if (products.length > 0) {
+                    products.forEach(product => {
+                        const productCardHtml = HomeAPI.createProductCard(product);
+                        productsGrid.insertAdjacentHTML('beforeend', productCardHtml);
+                    });
+
+                    // Re-bind add to cart listeners manually because renderProducts is not used directly
+                    productsGrid.querySelectorAll('[data-action="add-to-cart"]').forEach(button => {
+                        button.addEventListener('click', async (e) => {
+                            const productId = e.target.dataset.productId;
+                            log(`'${productId}' ID'li ürünü sepete ekle butonu tıklandı.`);
+                            try {
+                                await addToCart(productId); // Call the global addToCart function
+                                log(`'${productId}' ID'li ürün sepete eklendi.`);
+                                await updateCartDisplay();
+                                log('Sepet görüntülemesi güncellendi.');
+                            } catch (error) {
+                                log(`'${productId}' ID'li ürün sepete eklenirken hata: ${error.message}`);
+                                console.error(error);
+                            }
+                        });
+                    });
+                    log(`${products.length} ürün yüklendi ve görüntülendi.`);
+                } else {
+                    productsGrid.innerHTML = '<p>Hiç ürün bulunamadı.</p>';
+                    log('Hiç ürün bulunamadı.');
+                }
+            } catch (error) {
+                log(`Ürünler yüklenirken hata oluştu: ${error.message}`);
+                console.error(error);
+            }
+        });
+
+        document.getElementById('showCartBtn').addEventListener('click', updateCartDisplay);
+
+        // Initial cart display on load
+        window.addEventListener('DOMContentLoaded', updateCartDisplay);
+        window.addEventListener('cart-updated', updateCartDisplay); // Listen for cart updates from manager
+
+        // Override default addToCart to use the correct one in HomeAPI
+        // This is important because the e2e-test-cart.html also loads home-api.js
+        // and home-api.js defines its own addToCart.
+        // We ensure we're using the correct one defined globally after the fix.
+        // (The fixed home-api.js only has one addToCart)
+        window.addToCart = async function(productId) {
+            log(`Genel 'addToCart' fonksiyonu çağrıldı. Ürün ID: ${productId}`);
+            const originalAddToCart = HomeAPI.addToCart || window.addToCart; // Fallback in case HomeAPI.addToCart is not exposed directly
+            if (originalAddToCart) {
+                 await originalAddToCart(productId);
+            } else {
+                console.error("HomeAPI.addToCart not found. Ensure it's correctly exposed or remove this override.");
+            }
+        };
+
+    </script>
+</body>
+</html>

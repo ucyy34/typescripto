@@ -375,13 +375,13 @@ class ProfileAPI {
 
                 <div id="address-list" style="display: grid; gap: 1.5rem;">
                     ${this.addresses.length === 0
-                        ? `<div class="empty-state" style="text-align:center; padding: 3rem; color: #6b7280; background: #f9fafb; border-radius: 16px;">
+                ? `<div class="empty-state" style="text-align:center; padding: 3rem; color: #6b7280; background: #f9fafb; border-radius: 16px;">
                             <div style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
                             <h3>No saved addresses</h3>
                             <p>Add an address to make checkout faster and easier.</p>
                         </div>`
-                        : this.addresses.map(addr => this.renderAddressCard(addr)).join('')
-                    }
+                : this.addresses.map(addr => this.renderAddressCard(addr)).join('')
+            }
                 </div>
 
                 <!-- Address Form Modal (hidden by default) -->
@@ -427,11 +427,31 @@ class ProfileAPI {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                 <div>
                                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">City / İl *</label>
-                                    <input type="text" id="address-city" required placeholder="İstanbul (City/İl)" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    <select id="address-city" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; background-color: white;">
+                                        <option value="">Şehir Seçin</option>
+                                        <option value="istanbul">İstanbul</option>
+                                        <option value="ankara">Ankara</option>
+                                        <option value="izmir">İzmir</option>
+                                        <option value="bursa">Bursa</option>
+                                        <option value="antalya">Antalya</option>
+                                        <option value="adana">Adana</option>
+                                        <option value="konya">Konya</option>
+                                        <option value="gaziantep">Gaziantep</option>
+                                        <option value="kayseri">Kayseri</option>
+                                        <option value="mersin">Mersin</option>
+                                        <option value="eskisehir">Eskişehir</option>
+                                        <option value="diyarbakir">Diyarbakır</option>
+                                        <option value="samsun">Samsun</option>
+                                        <option value="denizli">Denizli</option>
+                                        <option value="malatya">Malatya</option>
+                                        <option value="other">Diğer</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">District / İlçe</label>
-                                    <input type="text" id="address-state" placeholder="Beşiktaş (District/İlçe)" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    <select id="address-district" required disabled style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; background-color: white;">
+                                        <option value="">Önce şehir seçin</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -472,6 +492,76 @@ class ProfileAPI {
         const form = document.getElementById('address-form');
         if (form) {
             form.addEventListener('submit', (e) => this.handleAddressSubmit(e));
+        }
+
+        // Setup city/district selection
+        this.setupCityDistrictSelection();
+    }
+
+    setupCityDistrictSelection() {
+        const districts = {
+            'istanbul': [
+                'Kadıköy', 'Beşiktaş', 'Şişli', 'Beyoğlu', 'Üsküdar', 'Fatih',
+                'Bakırköy', 'Maltepe', 'Ataşehir', 'Pendik', 'Kartal', 'Tuzla',
+                'Avcılar', 'Başakşehir', 'Beylikdüzü', 'Büyükçekmece', 'Çekmeköy',
+                'Esenler', 'Esenyurt', 'Gaziosmanpaşa', 'Güngören', 'Kağıthane'
+            ],
+            'ankara': [
+                'Çankaya', 'Keçiören', 'Yenimahalle', 'Mamak', 'Sincan', 'Etimesgut',
+                'Gölbaşı', 'Pursaklar', 'Altındağ', 'Polatlı', 'Elmadağ', 'Kalecik'
+            ],
+            'izmir': [
+                'Konak', 'Karşıyaka', 'Bornova', 'Buca', 'Çiğli', 'Gaziemir',
+                'Narlıdere', 'Balçova', 'Bayraklı', 'Güzelbahçe', 'Karabağlar', 'Torbalı'
+            ],
+            'bursa': [
+                'Osmangazi', 'Nilüfer', 'Yıldırım', 'Mudanya', 'Gemlik', 'İnegöl',
+                'Karacabey', 'Mustafakemalpaşa', 'Orhangazi', 'Büyükorhan'
+            ],
+            'antalya': [
+                'Muratpaşa', 'Kepez', 'Konyaaltı', 'Döşemealtı', 'Aksu', 'Alanya',
+                'Manavgat', 'Serik', 'Kemer', 'Kaş', 'Demre', 'Finike'
+            ],
+            'adana': ['Seyhan', 'Çukurova', 'Yüreğir', 'Sarıçam', 'Ceyhan', 'Kozan'],
+            'konya': ['Selçuklu', 'Meram', 'Karatay', 'Ereğli', 'Akşehir'],
+            'gaziantep': ['Şahinbey', 'Şehitkamil', 'Nizip'],
+            'kayseri': ['Melikgazi', 'Kocasinan', 'Talas', 'Develi'],
+            'mersin': ['Yenişehir', 'Mezitli', 'Toroslar', 'Akdeniz', 'Tarsus', 'Erdemli'],
+            'eskisehir': ['Odunpazarı', 'Tepebaşı'],
+            'diyarbakir': ['Bağlar', 'Kayapınar', 'Yenişehir', 'Sur'],
+            'samsun': ['İlkadım', 'Atakum', 'Canik', 'Tekkeköy', 'Bafra', 'Çarşamba'],
+            'denizli': ['Pamukkale', 'Merkezefendi'],
+            'malatya': ['Battalgazi', 'Yeşilyurt']
+        };
+
+        const citySelect = document.getElementById('address-city');
+        const districtSelect = document.getElementById('address-district');
+
+        if (citySelect && districtSelect) {
+            citySelect.addEventListener('change', (e) => {
+                const selectedCity = e.target.value.toLowerCase();
+                districtSelect.innerHTML = '<option value="">İlçe Seçin</option>';
+
+                if (selectedCity && districts[selectedCity]) {
+                    districts[selectedCity].forEach(districtName => {
+                        const option = document.createElement('option');
+                        option.value = districtName;
+                        option.textContent = districtName;
+                        districtSelect.appendChild(option);
+                    });
+                    districtSelect.disabled = false;
+                } else if (selectedCity === 'other') {
+                    // For 'other', allow free text or generic option (simplified here)
+                    const option = document.createElement('option');
+                    option.value = 'Merkez';
+                    option.textContent = 'Merkez / Diğer';
+                    districtSelect.appendChild(option);
+                    districtSelect.disabled = false;
+                } else {
+                    districtSelect.innerHTML = '<option value="">Önce şehir seçin</option>';
+                    districtSelect.disabled = true;
+                }
+            });
         }
     }
 
@@ -534,6 +624,13 @@ class ProfileAPI {
         document.getElementById('address-id').value = '';
         document.getElementById('address-country').value = 'Turkey';
 
+        // Reset district select
+        const districtSelect = document.getElementById('address-district');
+        if (districtSelect) {
+            districtSelect.innerHTML = '<option value="">Önce şehir seçin</option>';
+            districtSelect.disabled = true;
+        }
+
         if (addressId) {
             // Edit mode
             title.textContent = 'Edit Address';
@@ -546,8 +643,37 @@ class ProfileAPI {
                 document.getElementById('address-email').value = address.email || '';
                 document.getElementById('address-line1').value = address.address_line1;
                 document.getElementById('address-line2').value = address.address_line2 || '';
-                document.getElementById('address-city').value = address.city;
-                document.getElementById('address-state').value = address.state || '';
+
+                // Handle City and District
+                const citySelect = document.getElementById('address-city');
+                if (citySelect && address.city) {
+                    citySelect.value = address.city.toLowerCase();
+
+                    // Trigger change to load districts
+                    const event = new Event('change');
+                    citySelect.dispatchEvent(event);
+
+                    // Set district after options are loaded
+                    // Since our handler is synchronous, we can set it immediately
+                    const districtVal = address.state || address.district || '';
+                    if (districtSelect && districtVal) {
+                        // Try to match value or text
+                        let matched = false;
+                        for (let i = 0; i < districtSelect.options.length; i++) {
+                            if (districtSelect.options[i].value.toLowerCase() === districtVal.toLowerCase() ||
+                                districtSelect.options[i].text.toLowerCase() === districtVal.toLowerCase()) {
+                                districtSelect.selectedIndex = i;
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched && districtVal) {
+                            // If exact match not found but we have a value, maybe add it or just log warning
+                            console.warn('District value not found in options:', districtVal);
+                        }
+                    }
+                }
+
                 document.getElementById('address-postal').value = address.postal_code;
                 document.getElementById('address-country').value = address.country;
                 document.getElementById('address-notes').value = address.notes || '';
@@ -586,7 +712,7 @@ class ProfileAPI {
             address_line1: document.getElementById('address-line1').value,
             address_line2: document.getElementById('address-line2').value,
             city: document.getElementById('address-city').value,
-            state: document.getElementById('address-state').value,
+            state: document.getElementById('address-district').value, // Use district select value
             postal_code: document.getElementById('address-postal').value,
             country: document.getElementById('address-country').value,
             notes: document.getElementById('address-notes').value,
@@ -687,8 +813,8 @@ class ProfileAPI {
                     ? { name: item.store }
                     : item.store
                 : item.artisan
-                ? { name: item.artisan }
-                : null,
+                    ? { name: item.artisan }
+                    : null,
         };
 
         return {
@@ -780,38 +906,38 @@ class ProfileAPI {
                 });
                 localStorage.setItem('wishlist', JSON.stringify(wishlist));
             }
-        } catch (_) {}
+        } catch (_) { }
     }
 
     async moveWishlistItemToCart(productId) {
         const item = this.wishlistItems.find((entry) => entry.product_id === productId);
         if (!item) return;
 
-          try {
-              if (!window.cartManager || typeof window.cartManager.addItem !== 'function') {
-                  alert('Sepet yöneticisi hazır değil. Lütfen sayfayı yenileyin.');
-                  return;
-              }
+        try {
+            if (!window.cartManager || typeof window.cartManager.addItem !== 'function') {
+                alert('Sepet yöneticisi hazır değil. Lütfen sayfayı yenileyin.');
+                return;
+            }
 
-              let productData = item.product;
-              if (!productData) {
-                  const response = await this.apiClient.getProduct(productId);
-                  if (response.success) {
-                      productData = response.data;
-                  }
-              }
+            let productData = item.product;
+            if (!productData) {
+                const response = await this.apiClient.getProduct(productId);
+                if (response.success) {
+                    productData = response.data;
+                }
+            }
 
-              const added = await window.cartManager.addItem(productId, productData || { id: productId, title: 'Wishlist Item' }, 1);
-              if (added) {
-                  await this.removeWishlistItem(productId);
-                  alert('Ürün sepete taşındı!');
-              } else {
-                  alert('Ürün sepete eklenemedi');
-              }
-          } catch (error) {
-              console.error('[Profile API] Failed to move wishlist item to cart:', error);
-              alert('Ürün sepete eklenemedi');
-          }
+            const added = await window.cartManager.addItem(productId, productData || { id: productId, title: 'Wishlist Item' }, 1);
+            if (added) {
+                await this.removeWishlistItem(productId);
+                alert('Ürün sepete taşındı!');
+            } else {
+                alert('Ürün sepete eklenemedi');
+            }
+        } catch (error) {
+            console.error('[Profile API] Failed to move wishlist item to cart:', error);
+            alert('Ürün sepete eklenemedi');
+        }
     }
 
     /**
@@ -971,10 +1097,10 @@ class ProfileAPI {
                     ${returns.length > 0 ? `
                         <div class="returns-list">
                             ${returns.map(ret => {
-                                const statusInfo = returnAPI.formatReturnStatus(ret.status);
-                                const reasonText = returnAPI.formatReturnReason(ret.reason);
-                                
-                                return `
+                const statusInfo = returnAPI.formatReturnStatus(ret.status);
+                const reasonText = returnAPI.formatReturnReason(ret.reason);
+
+                return `
                                     <div class="return-card" style="background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                                             <div>
@@ -1047,7 +1173,7 @@ class ProfileAPI {
                                         </div>
                                     </div>
                                 `;
-                            }).join('')}
+            }).join('')}
                         </div>
                     ` : `
                         <div style="text-align: center; padding: 3rem; color: #6b7280;">
@@ -1098,7 +1224,7 @@ class ProfileAPI {
         try {
             const response = await returnAPI.getReturnRequest(returnId);
             const ret = response.data;
-            
+
             // Show detailed return information in a modal or alert
             alert(`İade Detayı:\n\n` +
                 `İade No: ${ret.return_number}\n` +
@@ -1121,7 +1247,7 @@ class ProfileAPI {
         }
 
         const reason = prompt('İptal sebebini belirtiniz (opsiyonel):');
-        
+
         try {
             await returnAPI.cancelReturnRequest(returnId, reason || 'Müşteri tarafından iptal edildi');
             alert('İade talebi iptal edildi.');
@@ -1147,7 +1273,7 @@ class ProfileAPI {
             // Check if already has a return request
             const existingReturns = await returnAPI.getUserReturns({ status: 'pending' });
             const hasExistingReturn = existingReturns.data?.some(ret => ret.order_id === orderId);
-            
+
             if (hasExistingReturn) {
                 alert('Bu sipariş için zaten bir iade talebi mevcut.');
                 return;

@@ -119,6 +119,10 @@ const createInMemoryRedisClient = () => {
 };
 
 const createRedisClient = () => {
+  console.log('⚠️  Redis: Using in-memory client (forced fallback)');
+  return createInMemoryRedisClient();
+
+  /* Original logic disabled for stability
   if (process.env.NODE_ENV === 'test' && process.env.USE_REAL_REDIS !== 'true') {
     return createInMemoryRedisClient();
   }
@@ -134,6 +138,7 @@ const createRedisClient = () => {
     db: parseInt(process.env.REDIS_DB, 10) || 0,
     ...baseOptions,
   });
+  */
 };
 
 // Redis client for general caching

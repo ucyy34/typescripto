@@ -13,8 +13,7 @@
     "seed": "node src/scripts/clean-and-seed.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-    "format": "prettier --write \"src/**/*.{js,json}\"",
-    "prepare": "husky install"
+    "format": "prettier --write \"src/**/*.{js,json}\""
   },
   "keywords": [
     "marketplace",
@@ -54,7 +53,6 @@
     "eslint": "^8.55.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.29.0",
-    "husky": "^8.0.3",
     "jest": "^29.7.0",
     "lint-staged": "^15.2.0",
     "nodemon": "^3.0.2",

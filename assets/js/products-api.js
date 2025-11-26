@@ -429,12 +429,15 @@ class ProductsPageAPI {
         `;
 
         // Click to view details
+        // Click to view details - DISABLED to allow Product Modal to work
+        /*
         card.addEventListener('click', (e) => {
             // Don't navigate if clicking on buttons
             if (!e.target.closest('button')) {
                 window.location.href = `product-detail.html?id=${product.id}`;
             }
         });
+        */
 
         return card;
     }

@@ -55,6 +55,10 @@ class CartManager {
             });
 
             if (response.success && response.data) {
+                // Invalidate cart cache
+                if (window.apiCache) {
+                    window.apiCache.clear(API_CONFIG.ENDPOINTS.CART.BASE);
+                }
                 this._applyCartResponse(response.data);
                 return true;
             }
@@ -78,6 +82,10 @@ class CartManager {
             );
 
             if (response.success && response.data) {
+                // Invalidate cart cache
+                if (window.apiCache) {
+                    window.apiCache.clear(API_CONFIG.ENDPOINTS.CART.BASE);
+                }
                 this._applyCartResponse(response.data);
                 return true;
             }
@@ -100,6 +108,10 @@ class CartManager {
             );
 
             if (response.success && response.data) {
+                // Invalidate cart cache
+                if (window.apiCache) {
+                    window.apiCache.clear(API_CONFIG.ENDPOINTS.CART.BASE);
+                }
                 this._applyCartResponse(response.data);
                 return true;
             }
@@ -118,6 +130,11 @@ class CartManager {
     async clearCart() {
         try {
             const response = await this.apiClient.delete(API_CONFIG.ENDPOINTS.CART.BASE);
+            // Invalidate cart cache
+            if (window.apiCache) {
+                window.apiCache.clear(API_CONFIG.ENDPOINTS.CART.BASE);
+            }
+
             if (response.success && response.data) {
                 this._applyCartResponse(response.data);
             } else {
@@ -168,14 +185,19 @@ class CartManager {
 
         const normalizedItems = Array.isArray(response.items)
             ? response.items
-                  .map((item) => this._normalizeItem(item))
-                  .filter((item) => item !== null)
+                .map((item) => this._normalizeItem(item))
+                .filter((item) => item !== null)
             : [];
 
         this.lastCart = {
             items: normalizedItems,
             totals: response.totals || { subtotal: 0, item_count: 0 },
         };
+
+        // Dispatch event to notify UI
+        window.dispatchEvent(new CustomEvent('cart-updated', {
+            detail: this.lastCart
+        }));
     }
 
     _normalizeItem(item) {

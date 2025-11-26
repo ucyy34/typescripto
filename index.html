@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="DostanWebCSS - Revolutionary Nordic marketplace featuring handcrafted treasures, AI-powered shopping assistant Dostik, and magical user experiences">
+    <meta name="description"
+        content="DostanWebCSS - Revolutionary Nordic marketplace featuring handcrafted treasures, AI-powered shopping assistant Dostik, and magical user experiences">
     <meta name="keywords" content="nordic marketplace, handcrafted goods, artisan products, AI shopping assistant">
     <meta name="author" content="DostanWebCSS">
 
@@ -151,11 +153,13 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen" aria-label="Loading page content">
         <div style="text-align: center;">
-            <div style="font-size: 4rem; margin-bottom: 1rem; animation: spin 2s linear infinite;" role="img" aria-label="Dragon loading animation">🐉</div>
+            <div style="font-size: 4rem; margin-bottom: 1rem; animation: spin 2s linear infinite;" role="img"
+                aria-label="Dragon loading animation">🐉</div>
             <h2 style="color: var(--forest-deep); margin-bottom: 1rem;">Awakening Nordic Magic...</h2>
             <div class="loading-spinner" role="progressbar" aria-label="Loading progress"></div>
         </div>
@@ -171,7 +175,8 @@
             <div class="nav-search">
                 <div class="search-container">
                     <label for="globalSearch" class="sr-only">Search for treasures</label>
-                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch" aria-label="Search for treasures">
+                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch"
+                        aria-label="Search for treasures">
                     <span class="search-icon" aria-hidden="true">🔍</span>
                 </div>
             </div>
@@ -186,10 +191,7 @@
                 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" type="button">
                     <span aria-hidden="true">🌙</span>
                 </button>
-                <a href="pages/cart.html" class="cart-icon" aria-label="Shopping cart">
-                    <span aria-hidden="true">🛒</span>
-                    <span class="cart-count" aria-label="0 items in cart">0</span>
-                </a>
+
                 <a href="pages/profile.html" class="profile-btn" aria-label="User profile">
                     <span aria-hidden="true">👤</span>
                 </a>
@@ -201,33 +203,39 @@
     <main id="main-content">
         <!-- Hero Section -->
         <section class="hero-section parallax-container" aria-labelledby="hero-title">
-            <div class="parallax-layer parallax-back" style="background: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3') center/cover; opacity: 0.1;" aria-hidden="true"></div>
+            <div class="parallax-layer parallax-back"
+                style="background: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3') center/cover; opacity: 0.1;"
+                aria-hidden="true"></div>
 
             <div class="container">
                 <div class="hero-content">
                     <h1 id="hero-title" class="hero-title">
                         Welcome to the Nordic Realm
-                        <span class="accent-text" style="display: block; font-size: 0.6em; margin-top: var(--space-sm);">
+                        <span class="accent-text"
+                            style="display: block; font-size: 0.6em; margin-top: var(--space-sm);">
                             where ancient crafts meet modern magic
                         </span>
                     </h1>
 
-                <p class="hero-text hero-subtitle">
-                    Discover handcrafted treasures from Nordic artisans, guided by Dostik,
-                    your mystical dragon companion through this revolutionary marketplace experience.
-                </p>
+                    <p class="hero-text hero-subtitle">
+                        Discover handcrafted treasures from Nordic artisans, guided by Dostik,
+                        your mystical dragon companion through this revolutionary marketplace experience.
+                    </p>
 
-                <div class="hero-cta" style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
-                    <a href="#featured-products" class="btn btn-primary" aria-describedby="hero-description">
-                        <span aria-hidden="true">🌟</span> Explore Treasures
-                    </a>
-                    <a href="pages/artisan.html" class="btn btn-secondary">
-                        <span aria-hidden="true">🎨</span> Meet Artisans
-                    </a>
-                    <button class="btn btn-accent" onclick="window.dostikAI && window.dostikAI.chatWidget.classList.add('open')" type="button" aria-label="Open chat with Dostik AI assistant">
-                        <span aria-hidden="true">🐉</span> Chat with Dostik
-                    </button>
-                </div>
+                    <div class="hero-cta"
+                        style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
+                        <a href="#featured-products" class="btn btn-primary" aria-describedby="hero-description">
+                            <span aria-hidden="true">🌟</span> Explore Treasures
+                        </a>
+                        <a href="pages/artisan.html" class="btn btn-secondary">
+                            <span aria-hidden="true">🎨</span> Meet Artisans
+                        </a>
+                        <button class="btn btn-accent"
+                            onclick="window.dostikAI && window.dostikAI.chatWidget.classList.add('open')" type="button"
+                            aria-label="Open chat with Dostik AI assistant">
+                            <span aria-hidden="true">🐉</span> Chat with Dostik
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -237,178 +245,208 @@
             <div class="container">
                 <h2 id="category-title" class="category-slider-title">Explore by Category</h2>
                 <div class="category-slider-container">
-                    <button class="slider-arrow slider-arrow-left" id="categorySliderLeft" aria-label="Previous categories" type="button">‹</button>
+                    <button class="slider-arrow slider-arrow-left" id="categorySliderLeft"
+                        aria-label="Previous categories" type="button">‹</button>
                     <div class="category-slider" id="categorySlider" role="tablist" aria-label="Product categories">
-                    <div class="category-slide active" data-category="all">
-                        <div class="category-icon">✨</div>
-                        <span class="category-name">All Treasures</span>
+                        <div class="category-slide active" data-category="all">
+                            <div class="category-icon">✨</div>
+                            <span class="category-name">All Treasures</span>
+                        </div>
+                        <div class="category-slide" data-category="wood-carvings">
+                            <div class="category-icon">🌲</div>
+                            <span class="category-name">Wood Carvings</span>
+                        </div>
+                        <div class="category-slide" data-category="glass-art">
+                            <div class="category-icon">💎</div>
+                            <span class="category-name">Glass Art</span>
+                        </div>
+                        <div class="category-slide" data-category="leather-goods">
+                            <div class="category-icon">🛡️</div>
+                            <span class="category-name">Leather Goods</span>
+                        </div>
+                        <div class="category-slide" data-category="ceramics">
+                            <div class="category-icon">🏺</div>
+                            <span class="category-name">Ceramics</span>
+                        </div>
+                        <div class="category-slide" data-category="candles-scents">
+                            <div class="category-icon">🕯️</div>
+                            <span class="category-name">Candles & Scents</span>
+                        </div>
+                        <div class="category-slide" data-category="spiritual-art">
+                            <div class="category-icon">🔮</div>
+                            <span class="category-name">Spiritual Art</span>
+                        </div>
+                        <div class="category-slide" data-category="textiles">
+                            <div class="category-icon">🧶</div>
+                            <span class="category-name">Textiles</span>
+                        </div>
+                        <div class="category-slide" data-category="jewelry">
+                            <div class="category-icon">💍</div>
+                            <span class="category-name">Jewelry</span>
+                        </div>
+                        <div class="category-slide" data-category="home-decor">
+                            <div class="category-icon">🏠</div>
+                            <span class="category-name">Home Décor</span>
+                        </div>
                     </div>
-                    <div class="category-slide" data-category="wood-carvings">
-                        <div class="category-icon">🌲</div>
-                        <span class="category-name">Wood Carvings</span>
-                    </div>
-                    <div class="category-slide" data-category="glass-art">
-                        <div class="category-icon">💎</div>
-                        <span class="category-name">Glass Art</span>
-                    </div>
-                    <div class="category-slide" data-category="leather-goods">
-                        <div class="category-icon">🛡️</div>
-                        <span class="category-name">Leather Goods</span>
-                    </div>
-                    <div class="category-slide" data-category="ceramics">
-                        <div class="category-icon">🏺</div>
-                        <span class="category-name">Ceramics</span>
-                    </div>
-                    <div class="category-slide" data-category="candles-scents">
-                        <div class="category-icon">🕯️</div>
-                        <span class="category-name">Candles & Scents</span>
-                    </div>
-                    <div class="category-slide" data-category="spiritual-art">
-                        <div class="category-icon">🔮</div>
-                        <span class="category-name">Spiritual Art</span>
-                    </div>
-                    <div class="category-slide" data-category="textiles">
-                        <div class="category-icon">🧶</div>
-                        <span class="category-name">Textiles</span>
-                    </div>
-                    <div class="category-slide" data-category="jewelry">
-                        <div class="category-icon">💍</div>
-                        <span class="category-name">Jewelry</span>
-                    </div>
-                    <div class="category-slide" data-category="home-decor">
-                        <div class="category-icon">🏠</div>
-                        <span class="category-name">Home Décor</span>
-                    </div>
-                    </div>
-                    <button class="slider-arrow slider-arrow-right" id="categorySliderRight" aria-label="Next categories" type="button">›</button>
+                    <button class="slider-arrow slider-arrow-right" id="categorySliderRight"
+                        aria-label="Next categories" type="button">›</button>
                 </div>
             </div>
         </section>
 
-    <!-- Featured Products Section -->
-    <section id="featured-products" class="section">
-        <div class="container">
-            <div class="text-center mb-xl">
-                <h2>Featured Treasures</h2>
-                <p class="hero-text">Handpicked by our Nordic artisans and blessed by Dostik</p>
-            </div>
+        <!-- Featured Products Section -->
+        <section id="featured-products" class="section">
+            <div class="container">
+                <div class="text-center mb-xl">
+                    <h2>Featured Treasures</h2>
+                    <p class="hero-text">Handpicked by our Nordic artisans and blessed by Dostik</p>
+                </div>
 
-            <div id="products-grid" class="products-container asymmetric-grid">
-                <!-- Product cards will be dynamically loaded from API -->
-                <div class="loading-products" style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🐉</div>
-                    <p style="font-size: 1.2rem; color: var(--forest-medium);">Dostik is fetching treasures from the vault...</p>
-                    <div style="margin-top: 1rem;">
-                        <div class="spinner" style="width: 40px; height: 40px; border: 3px solid var(--cream-warm); border-top-color: var(--forest-medium); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <div id="products-grid" class="products-container asymmetric-grid">
+                    <!-- Product cards will be dynamically loaded from API -->
+                    <div class="loading-products" style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🐉</div>
+                        <p style="font-size: 1.2rem; color: var(--forest-medium);">Dostik is fetching treasures from the
+                            vault...</p>
+                        <div style="margin-top: 1rem;">
+                            <div class="spinner"
+                                style="width: 40px; height: 40px; border: 3px solid var(--cream-warm); border-top-color: var(--forest-medium); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-xl"
+                    style="display: flex; justify-content: center; gap: var(--space-lg); align-items: center;">
+                    <button class="btn btn-primary" id="loadMoreTreasures">
+                        🌟 Load More Treasures
+                    </button>
+                    <a href="pages/products.html" class="btn btn-secondary">
+                        🏰 View All Treasures
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Nordic Crafts Collection Section -->
+        <section class="section">
+            <div class="container">
+                <!-- Mini Hero Slider -->
+                <div class="mini-hero-slider">
+                    <div class="mini-slide active"
+                        style="background: linear-gradient(135deg, rgba(var(--forest-deep-rgb), 0.8), rgba(var(--aurora-blue-rgb), 0.6)), url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
+                        <div class="mini-slide-content">
+                            <h3>Nordic Crafts Collection</h3>
+                            <p>Discover authentic handmade treasures from the heart of Scandinavia</p>
+                        </div>
+                    </div>
+                    <div class="mini-slide"
+                        style="background: linear-gradient(135deg, rgba(var(--aurora-green-rgb), 0.8), rgba(var(--forest-medium-rgb), 0.6)), url('https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
+                        <div class="mini-slide-content">
+                            <h3>Traditional Techniques</h3>
+                            <p>Time-honored methods passed down through generations</p>
+                        </div>
+                    </div>
+                    <div class="mini-slide"
+                        style="background: linear-gradient(135deg, rgba(var(--aurora-purple-rgb), 0.8), rgba(var(--cream-warm-rgb), 0.6)), url('https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
+                        <div class="mini-slide-content">
+                            <h3>Limited Edition</h3>
+                            <p>Exclusive pieces available for a limited time only</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Artisan Stories Section -->
+        <section class="section"
+            style="background: linear-gradient(135deg, var(--cream-warm) 0%, var(--cream-soft) 100%);">
+            <div class="container">
+                <div class="text-center mb-xl">
+                    <h2>Meet Our Nordic Artisans</h2>
+                    <p class="hero-text">The masterful creators behind every treasure</p>
+                </div>
+
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-xl);">
+                    <div class="glass-card text-center">
+                        <div
+                            style="width: 100px; height: 100px; background: var(--aurora-green); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                            🎨</div>
+                        <h3>Erik Nordström</h3>
+                        <p class="accent-text">Master Wood Carver</p>
+                        <p>With 30 years of experience, Erik transforms ancient Nordic trees into spiritual sculptures
+                            that carry the essence of the forest.</p>
+                        <a href="pages/artisan.html?artisan=erik" class="btn btn-secondary mt-md">View Profile</a>
+                    </div>
+
+                    <div class="glass-card text-center">
+                        <div
+                            style="width: 100px; height: 100px; background: var(--aurora-blue); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                            💎</div>
+                        <h3>Astrid Björk</h3>
+                        <p class="accent-text">Glass & Crystal Artist</p>
+                        <p>Astrid captures the Northern Lights in glass, creating pieces that seem to hold the aurora's
+                            magical energy within their depths.</p>
+                        <a href="pages/artisan.html?artisan=astrid" class="btn btn-secondary mt-md">View Profile</a>
+                    </div>
+
+                    <div class="glass-card text-center">
+                        <div
+                            style="width: 100px; height: 100px; background: var(--aurora-purple); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                            ⚔️</div>
+                        <h3>Magnus Eriksson</h3>
+                        <p class="accent-text">Leather & Metal Craftsman</p>
+                        <p>Magnus forges the spirit of Viking warriors into leather goods and metal works, each piece
+                            telling tales of ancient adventures.</p>
+                        <a href="pages/artisan.html?artisan=magnus" class="btn btn-secondary mt-md">View Profile</a>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <div class="text-center mt-xl" style="display: flex; justify-content: center; gap: var(--space-lg); align-items: center;">
-                <button class="btn btn-primary" id="loadMoreTreasures">
-                    🌟 Load More Treasures
-                </button>
-                <a href="pages/products.html" class="btn btn-secondary">
-                    🏰 View All Treasures
-                </a>
-            </div>
-        </div>
-    </section>
+        <!-- Newsletter Section -->
+        <section class="section">
+            <div class="container">
+                <div class="glass-card text-center" style="max-width: 600px; margin: 0 auto;">
+                    <h3 style="margin-bottom: var(--space-md);">🐉 Join Dostik's Circle</h3>
+                    <p class="mb-lg">Subscribe to receive mystical updates about new treasures, artisan stories, and
+                        exclusive Nordic wisdom from Dostik himself.</p>
 
-    <!-- Nordic Crafts Collection Section -->
-    <section class="section">
-        <div class="container">
-            <!-- Mini Hero Slider -->
-            <div class="mini-hero-slider">
-                <div class="mini-slide active" style="background: linear-gradient(135deg, rgba(var(--forest-deep-rgb), 0.8), rgba(var(--aurora-blue-rgb), 0.6)), url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
-                    <div class="mini-slide-content">
-                        <h3>Nordic Crafts Collection</h3>
-                        <p>Discover authentic handmade treasures from the heart of Scandinavia</p>
+                    <div style="display: flex; gap: var(--space-md); max-width: 400px; margin: 0 auto;">
+                        <input type="email" placeholder="Enter your email..."
+                            style="flex: 1; padding: var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg);">
+                        <button class="btn btn-primary">Subscribe</button>
                     </div>
-                </div>
-                <div class="mini-slide" style="background: linear-gradient(135deg, rgba(var(--aurora-green-rgb), 0.8), rgba(var(--forest-medium-rgb), 0.6)), url('https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
-                    <div class="mini-slide-content">
-                        <h3>Traditional Techniques</h3>
-                        <p>Time-honored methods passed down through generations</p>
-                    </div>
-                </div>
-                <div class="mini-slide" style="background: linear-gradient(135deg, rgba(var(--aurora-purple-rgb), 0.8), rgba(var(--cream-warm-rgb), 0.6)), url('https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
-                    <div class="mini-slide-content">
-                        <h3>Limited Edition</h3>
-                        <p>Exclusive pieces available for a limited time only</p>
-                    </div>
+
+                    <p style="margin-top: var(--space-md); font-size: 0.9rem; color: var(--warm-brown);">
+                        ✨ Dostik promises to guard your email like a dragon guards treasure
+                    </p>
                 </div>
             </div>
+        </section>
 
-        </div>
-    </section>
+        <!-- Modal will be created dynamically by JavaScript -->
 
-    <!-- Artisan Stories Section -->
-    <section class="section" style="background: linear-gradient(135deg, var(--cream-warm) 0%, var(--cream-soft) 100%);">
-        <div class="container">
-            <div class="text-center mb-xl">
-                <h2>Meet Our Nordic Artisans</h2>
-                <p class="hero-text">The masterful creators behind every treasure</p>
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-xl);">
-                <div class="glass-card text-center">
-                    <div style="width: 100px; height: 100px; background: var(--aurora-green); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">🎨</div>
-                    <h3>Erik Nordström</h3>
-                    <p class="accent-text">Master Wood Carver</p>
-                    <p>With 30 years of experience, Erik transforms ancient Nordic trees into spiritual sculptures that carry the essence of the forest.</p>
-                    <a href="pages/artisan.html?artisan=erik" class="btn btn-secondary mt-md">View Profile</a>
-                </div>
-
-                <div class="glass-card text-center">
-                    <div style="width: 100px; height: 100px; background: var(--aurora-blue); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">💎</div>
-                    <h3>Astrid Björk</h3>
-                    <p class="accent-text">Glass & Crystal Artist</p>
-                    <p>Astrid captures the Northern Lights in glass, creating pieces that seem to hold the aurora's magical energy within their depths.</p>
-                    <a href="pages/artisan.html?artisan=astrid" class="btn btn-secondary mt-md">View Profile</a>
-                </div>
-
-                <div class="glass-card text-center">
-                    <div style="width: 100px; height: 100px; background: var(--aurora-purple); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">⚔️</div>
-                    <h3>Magnus Eriksson</h3>
-                    <p class="accent-text">Leather & Metal Craftsman</p>
-                    <p>Magnus forges the spirit of Viking warriors into leather goods and metal works, each piece telling tales of ancient adventures.</p>
-                    <a href="pages/artisan.html?artisan=magnus" class="btn btn-secondary mt-md">View Profile</a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Newsletter Section -->
-    <section class="section">
-        <div class="container">
-            <div class="glass-card text-center" style="max-width: 600px; margin: 0 auto;">
-                <h3 style="margin-bottom: var(--space-md);">🐉 Join Dostik's Circle</h3>
-                <p class="mb-lg">Subscribe to receive mystical updates about new treasures, artisan stories, and exclusive Nordic wisdom from Dostik himself.</p>
-
-                <div style="display: flex; gap: var(--space-md); max-width: 400px; margin: 0 auto;">
-                    <input type="email" placeholder="Enter your email..." style="flex: 1; padding: var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg);">
-                    <button class="btn btn-primary">Subscribe</button>
-                </div>
-
-                <p style="margin-top: var(--space-md); font-size: 0.9rem; color: var(--warm-brown);">
-                    ✨ Dostik promises to guard your email like a dragon guards treasure
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Modal will be created dynamically by JavaScript -->
+        <!-- Floating Cart Button -->
+        <button class="floating-cart-trigger" title="Sepetim">
+            <span style="font-size: 1.5rem;">🛒</span>
+            <span class="floating-cart-badge">0</span>
+        </button>
 
     </main>
 
     <!-- Footer -->
     <footer class="section" role="contentinfo" style="background: var(--forest-deep); color: var(--cream-soft);">
         <div class="container">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
                 <div>
                     <h3 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h3>
-                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where
+                        ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
                     <div style="display: flex; gap: var(--space-md);">
                         <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
                         <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
@@ -420,20 +458,36 @@
                 <div>
                     <h4 style="margin-bottom: var(--space-md);">Quick Links</h4>
                     <ul style="list-style: none; padding: 0;">
-                        <li><a href="pages/products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
-                        <li><a href="pages/artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
-                        <li><a href="pages/cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
-                        <li><a href="pages/profile.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Your Profile</a></li>
+                        <li><a href="pages/products.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All
+                                Treasures</a></li>
+                        <li><a href="pages/artisan.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet
+                                Artisans</a></li>
+                        <li><a href="pages/cart.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping
+                                Cart</a></li>
+                        <li><a href="pages/profile.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Your
+                                Profile</a></li>
                     </ul>
                 </div>
 
                 <div>
                     <h4 style="margin-bottom: var(--space-md);">Support</h4>
                     <ul style="list-style: none; padding: 0;">
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help
+                                Center</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping
+                                Info</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a>
+                        </li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy
+                                Policy</a></li>
                     </ul>
                 </div>
 
@@ -448,7 +502,8 @@
                 </div>
             </div>
 
-            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+            <div
+                style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
                 <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
             </div>
         </div>
@@ -470,6 +525,7 @@
     <script src="assets/js/api-client.js"></script>
     <script src="assets/js/wishlist-manager.js"></script>
     <script src="assets/js/cart-manager.js"></script>
+    <script src="assets/js/cart-ui.js"></script>
     <script src="assets/js/dostik-ai.js"></script>
     <script src="assets/js/carsi-pazar-browser.js"></script>
     <script src="assets/js/main.js"></script>
@@ -674,20 +730,40 @@
 
     <style>
         @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
 
         @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 
 </body>
+
 </html>

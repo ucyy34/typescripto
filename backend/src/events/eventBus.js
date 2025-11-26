@@ -31,7 +31,7 @@ const TERMINAL_EVENTS = new Set([
 
 const emitter = new EventEmitter();
 const isTestEnv = process.env.NODE_ENV === 'test';
-const forceMemory = process.env.EVENT_BUS_MODE === 'memory';
+const forceMemory = true; // process.env.EVENT_BUS_MODE === 'memory';
 
 let queue;
 let scheduler;

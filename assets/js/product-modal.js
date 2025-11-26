@@ -11,6 +11,8 @@ class ProductModal {
         this.chatMessages = [];
         this.timeOnPage = 0;
         this.originalUrl = window.location.href;
+        this.apiClient = window.apiClient || new ApiClient();
+        this.isLoadingProduct = false;
 
         this.init();
     }
@@ -55,6 +57,7 @@ class ProductModal {
         document.addEventListener('click', (e) => {
             const productCard = e.target.closest('.product-card');
             if (productCard && !e.target.closest('.btn-add-cart, .btn-wishlist')) {
+                console.log('[ProductModal] Product card clicked:', productCard);
                 e.preventDefault();
                 this.openModal(productCard);
             }
@@ -162,12 +165,231 @@ class ProductModal {
         }, 1000);
     }
 
-    openModal(productCard) {
-        this.currentProduct = this.extractProductData(productCard);
-        this.createModalHTML();
-        this.populateModal();
-        this.showModal();
-        this.pushModalState();
+    async openModal(productCard) {
+        try {
+            // Show loading modal first
+            this.showLoadingModal();
+
+            // Get product ID from card
+            const productId = productCard?.dataset?.productId;
+
+            if (productId) {
+                // Try to fetch from API first
+                const apiProduct = await this.fetchProductData(productId);
+                if (apiProduct) {
+                    this.currentProduct = this.transformAPIProductToModalFormat(apiProduct);
+                } else {
+                    // Fallback to extracting from DOM
+                    console.warn('[ProductModal] API fetch failed, falling back to DOM extraction');
+                    this.currentProduct = this.extractProductData(productCard);
+                }
+            } else {
+                // No product ID, extract from DOM
+                console.log('[ProductModal] No product ID found, using DOM extraction');
+                this.currentProduct = this.extractProductData(productCard);
+            }
+
+            // Validate product data
+            if (!this.currentProduct || !this.currentProduct.title) {
+                throw new Error('Invalid product data');
+            }
+
+            // Hide loading and show actual modal
+            this.createModalHTML();
+            this.populateModal();
+            this.showModal();
+            this.pushModalState();
+        } catch (error) {
+            console.error('[ProductModal] Error opening modal:', error);
+            this.showErrorModal('Ürün yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+        }
+    }
+
+    /**
+     * Show error modal
+     */
+    showErrorModal(message) {
+        const existingModal = document.getElementById('productModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const errorHTML = `
+            <div class="modal-overlay" id="productModal">
+                <div class="modal-content modal-error">
+                    <button class="modal-close" aria-label="Close modal">&times;</button>
+                    <div class="modal-error-content">
+                        <div class="error-icon">⚠️</div>
+                        <h3>Bir Hata Oluştu</h3>
+                        <p>${message}</p>
+                        <button class="modal-btn modal-btn-primary" onclick="document.getElementById('productModal').remove(); document.body.style.overflow = '';">
+                            Kapat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', errorHTML);
+        document.body.style.overflow = 'hidden';
+
+        // Auto-close after 3 seconds
+        setTimeout(() => {
+            const modal = document.getElementById('productModal');
+            if (modal && modal.querySelector('.modal-error')) {
+                modal.remove();
+                document.body.style.overflow = '';
+                this.isOpen = false;
+            }
+        }, 5000);
+    }
+
+    /**
+     * Show loading state while fetching product data
+     */
+    showLoadingModal() {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('productModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const loadingHTML = `
+            <div class="modal-overlay" id="productModal">
+                <div class="modal-content modal-loading">
+                    <div class="modal-loader">
+                        <div class="loader-spinner"></div>
+                        <p>Ürün yükleniyor...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', loadingHTML);
+        document.body.style.overflow = 'hidden';
+        this.isOpen = true;
+    }
+
+    /**
+     * Fetch product data from API
+     * @param {string} productId - UUID of the product
+     * @returns {Object|null} - Product data or null if failed
+     */
+    async fetchProductData(productId) {
+        if (!productId) return null;
+
+        try {
+            this.isLoadingProduct = true;
+            console.log('[ProductModal] Fetching product from API:', productId);
+
+            const response = await this.apiClient.getProduct(productId);
+
+            if (response.success && response.data) {
+                console.log('[ProductModal] Product fetched successfully:', response.data);
+                return response.data;
+            } else {
+                console.warn('[ProductModal] Failed to fetch product:', response.message);
+                return null;
+            }
+        } catch (error) {
+            console.error('[ProductModal] Error fetching product:', error);
+            return null;
+        } finally {
+            this.isLoadingProduct = false;
+        }
+    }
+
+    /**
+     * Transform API product response to modal format
+     * @param {Object} apiProduct - Product from backend API
+     * @returns {Object} - Product in modal format
+     */
+    transformAPIProductToModalFormat(apiProduct) {
+        // Extract first image or use placeholder
+        const mainImage = Array.isArray(apiProduct.images) && apiProduct.images.length > 0
+            ? apiProduct.images[0]
+            : 'https://images.unsplash.com/photo-1610701596007-11502861dcfa?w=500&fit=crop';
+
+        // Format price with Turkish Lira symbol
+        const price = apiProduct.price ? `₺ ${parseFloat(apiProduct.price).toFixed(0)}` : '₺ 0';
+        const originalPrice = apiProduct.compare_price
+            ? `₺ ${parseFloat(apiProduct.compare_price).toFixed(0)}`
+            : null;
+
+        // Extract store/artisan name
+        const artisan = apiProduct.store?.name || 'Unknown Artisan';
+
+        // Map badges
+        const badges = Array.isArray(apiProduct.badges)
+            ? apiProduct.badges
+            : [];
+
+        // Extract category
+        const category = apiProduct.category?.name || 'Handmade';
+
+        // Build modal format
+        return {
+            id: apiProduct.id,
+            slug: apiProduct.slug,
+            title: apiProduct.title || 'Product',
+            artisan: artisan,
+            description: apiProduct.description || apiProduct.short_description || '',
+            price: price,
+            originalPrice: originalPrice,
+            image: mainImage,
+            images: apiProduct.images || [mainImage],
+            rating: (apiProduct.rating && typeof apiProduct.rating === 'number') ? apiProduct.rating.toFixed(1) : '5.0',
+            reviews: `${apiProduct.total_sales || 0} sold`,
+            badges: badges,
+            category: category,
+            material: this.extractMaterial(apiProduct),
+            dimensions: this.extractDimensions(apiProduct),
+            weight: this.extractWeight(apiProduct),
+            technique: 'Traditional handcraft',
+            artisanBio: apiProduct.store?.description || 'Master artisan with years of experience.',
+            artisanLocation: apiProduct.store?.location || 'Nordic Region',
+            stock: apiProduct.stock || 0,
+            variants: apiProduct.productVariants || [],
+            // Keep API product for reference
+            _apiProduct: apiProduct
+        };
+    }
+
+    /**
+     * Extract material from product data
+     */
+    extractMaterial(product) {
+        // Try to find material in description or use default
+        if (product.description && product.description.toLowerCase().includes('seramik')) {
+            return 'Doğal Seramik';
+        }
+        if (product.description && product.description.toLowerCase().includes('wood')) {
+            return 'Natural Wood';
+        }
+        return 'Premium Materials';
+    }
+
+    /**
+     * Extract dimensions from product
+     */
+    extractDimensions(product) {
+        if (product.dimensions && typeof product.dimensions === 'object') {
+            const { length, width, height } = product.dimensions;
+            if (length && width && height) {
+                return `${length}cm × ${width}cm × ${height}cm`;
+            }
+        }
+        return '15cm × 10cm × 8cm';
+    }
+
+    /**
+     * Extract weight from product
+     */
+    extractWeight(product) {
+        if (product.weight) {
+            return `${product.weight}kg`;
+        }
+        return '1.0kg';
     }
 
     openModalFromState(productData) {
@@ -423,7 +645,10 @@ class ProductModal {
     }
 
     setupProductOptions() {
-        // Color selection
+        // Render variants from API data
+        this.renderProductVariants();
+
+        // Color selection (if exists)
         document.querySelectorAll('.color-option').forEach(option => {
             option.addEventListener('click', () => {
                 document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('active'));
@@ -431,15 +656,131 @@ class ProductModal {
             });
         });
 
+        // Size change handler (if exists)
+        const sizeSelect = document.getElementById('productSize');
+        if (sizeSelect) {
+            sizeSelect.addEventListener('change', (e) => {
+                const selectedSize = e.target.value;
+                if (selectedSize) {
+                    // Update price based on size if needed
+                    this.updatePriceBySize(selectedSize);
+                }
+            });
+        }
+    }
 
-        // Size change handler
-        document.getElementById('productSize').addEventListener('change', (e) => {
-            const selectedSize = e.target.value;
-            if (selectedSize) {
-                // Update price based on size if needed
-                this.updatePriceBySize(selectedSize);
+    /**
+     * Render product variants from API data
+     */
+    renderProductVariants() {
+        const container = document.getElementById('modalProductOptions');
+        if (!container || !this.currentProduct.variants) return;
+
+        const variants = Array.isArray(this.currentProduct.variants) ? this.currentProduct.variants : [];
+
+        if (variants.length === 0) {
+            // No variants from API, keep default HTML
+            return;
+        }
+
+        // Clear existing options
+        container.innerHTML = '';
+
+        // Group variants by variant_name
+        const variantGroups = {};
+        variants.forEach(variant => {
+            const name = variant.variant_name || 'Variant';
+            if (!variantGroups[name]) {
+                variantGroups[name] = new Map();
             }
+
+            const options = Array.isArray(variant.selected_options) ? variant.selected_options : [];
+            options.forEach(opt => {
+                const key = String(opt.value);
+                if (!variantGroups[name].has(key)) {
+                    variantGroups[name].set(key, opt);
+                }
+            });
         });
+
+        // Render each variant group
+        Object.entries(variantGroups).forEach(([variantName, optionsMap]) => {
+            const optionGroup = document.createElement('div');
+            optionGroup.className = 'option-group';
+
+            // Determine if this is a color variant (render as color swatches)
+            const isColorVariant = variantName.toLowerCase().includes('color') ||
+                variantName.toLowerCase().includes('renk');
+
+            if (isColorVariant) {
+                // Render as color swatches
+                optionGroup.innerHTML = `
+                    <label class="option-label">${variantName}:</label>
+                    <div class="color-options" data-variant-name="${variantName}">
+                        ${Array.from(optionsMap.values()).map((opt, idx) => `
+                            <div class="color-option ${idx === 0 ? 'active' : ''}"
+                                 data-variant-name="${variantName}"
+                                 data-variant-value="${opt.value}"
+                                 style="background: ${this.getColorCode(opt.value)};"
+                                 title="${opt.label || opt.value}">
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                // Add click handlers for color options
+                optionGroup.querySelectorAll('.color-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        optionGroup.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('active'));
+                        option.classList.add('active');
+                    });
+                });
+            } else {
+                // Render as select dropdown
+                optionGroup.innerHTML = `
+                    <label class="option-label">${variantName}:</label>
+                    <select class="option-select" data-variant-name="${variantName}">
+                        <option value="">${variantName} Seçin</option>
+                        ${Array.from(optionsMap.values()).map((opt, idx) => `
+                            <option value="${opt.value}" ${idx === 0 ? 'selected' : ''}>
+                                ${opt.label || opt.value}
+                            </option>
+                        `).join('')}
+                    </select>
+                `;
+            }
+
+            container.appendChild(optionGroup);
+        });
+    }
+
+    /**
+     * Get color code for color variant values
+     */
+    getColorCode(value) {
+        const colorMap = {
+            'natural': '#f5f2eb',
+            'doğal': '#f5f2eb',
+            'forest': '#2d6853',
+            'orman': '#2d6853',
+            'bark': '#8b6d47',
+            'kabuk': '#8b6d47',
+            'warm': '#a0845c',
+            'sıcak': '#a0845c',
+            'white': '#ffffff',
+            'beyaz': '#ffffff',
+            'black': '#000000',
+            'siyah': '#000000',
+            'red': '#d32f2f',
+            'kırmızı': '#d32f2f',
+            'blue': '#1976d2',
+            'mavi': '#1976d2',
+            'green': '#388e3c',
+            'yeşil': '#388e3c',
+        };
+
+        const lowerValue = value.toLowerCase();
+        return colorMap[lowerValue] || '#cccccc';
     }
 
     updatePriceBySize(size) {
@@ -448,7 +789,7 @@ class ProductModal {
         const basePrice = parseFloat(this.currentProduct.price.replace(/[^\d.]/g, ''));
 
         let multiplier = 1;
-        switch(size) {
+        switch (size) {
             case 'xs': multiplier = 0.8; break;
             case 's': multiplier = 0.9; break;
             case 'm': multiplier = 1.0; break;
@@ -494,11 +835,11 @@ class ProductModal {
 
     generateThumbnails() {
         const thumbnailContainer = document.getElementById('modalThumbnails');
-        const images = [
-            this.currentProduct.image,
-            this.currentProduct.image.replace('photo-', 'photo-1571781926291-c477ebfd024b?w=100&h=100&fit=crop" alt="View 2'),
-            this.currentProduct.image.replace('photo-', 'photo-1565193566173-7a0ee3dbe261?w=100&h=100&fit=crop" alt="View 3')
-        ];
+
+        // Use images from API or fallback to single image
+        const images = Array.isArray(this.currentProduct.images) && this.currentProduct.images.length > 0
+            ? this.currentProduct.images
+            : [this.currentProduct.image];
 
         thumbnailContainer.innerHTML = images.map((img, index) => `
             <div class="modal-thumbnail ${index === 0 ? 'active' : ''}" data-image="${img}">
@@ -753,16 +1094,18 @@ class ProductModal {
                 return response;
             }
         }
-        return responses.default;
+
+        return responses['default'];
     }
 
     updateDostikMessages() {
         const messagesDiv = document.getElementById('dostikMessages');
+        if (!messagesDiv) return;
+
         messagesDiv.innerHTML = this.chatMessages.map(msg => `
             <div class="dostik-message ${msg.type}">
-                <div class="message-bubble">
-                    ${msg.message}
-                </div>
+                ${msg.type === 'dostik' ? '<span class="dostik-avatar-small">🐉</span>' : ''}
+                <div class="dostik-message-text">${msg.message}</div>
             </div>
         `).join('');
 
@@ -772,42 +1115,45 @@ class ProductModal {
     async addToCart() {
         if (!this.currentProduct) return;
 
-        // Get selected options
-        const selectedSize = document.getElementById('productSize')?.value || 'M';
+        // Get selected options from modal
+        const selectedSizeElement = document.getElementById('productSize');
+        const selectedSize = selectedSizeElement?.value ||
+                           document.querySelector('.option-select[data-variant-name*="oyut"], .option-select[data-variant-name*="ize"]')?.value ||
+                           'M';
+
         const selectedColorElement = document.querySelector('.color-option.active');
-        const selectedColor = selectedColorElement?.dataset.color || 'natural';
-        const quantity = 1; // Fixed quantity of 1
+        const selectedColor = selectedColorElement?.dataset?.variantValue ||
+                             selectedColorElement?.dataset?.color ||
+                             'natural';
 
-        // Validate required selections
-        if (!selectedSize) {
-            this.addDostikMessage('Lütfen bir boyut seçin! 📏');
-            return;
-        }
+        const quantity = 1;
 
-        // Extract product ID from current product
-        // Try to get from data attribute or generate from title
-        const productCard = document.querySelector(`[data-product-title="${this.currentProduct.title}"]`);
-        const productId = productCard?.dataset?.productId || 
-                         this.currentProduct.id || 
+        // Use product ID from API (preferred) or fallback to generated ID
+        const productId = this.currentProduct.id ||
+                         this.currentProduct.slug ||
                          this.generateProductId(this.currentProduct);
 
         // Get current price (may be updated by size)
         const currentPrice = document.getElementById('modalPrice')?.textContent || this.currentProduct.price;
         const priceValue = parseFloat(currentPrice.replace(/[^\d.]/g, ''));
 
-        // Create product data in CartManager format
+        // Create product data in CartManager format using API data
         const productData = {
             id: productId,
             title: this.currentProduct.title,
             price: priceValue,
-            images: [this.currentProduct.image],
-            stock: 99, // Default stock
-            store: {
+            images: this.currentProduct.images || [this.currentProduct.image],
+            stock: this.currentProduct.stock || 99,
+            store: this.currentProduct._apiProduct?.store || {
+                id: this.currentProduct._apiProduct?.store_id,
                 name: this.currentProduct.artisan
             },
-            // Additional metadata
-            size: selectedSize,
-            color: selectedColor
+            category: this.currentProduct._apiProduct?.category,
+            // Variant selections
+            selectedVariants: {
+                size: selectedSize,
+                color: selectedColor
+            }
         };
 
         console.log('[ProductModal] Adding to cart:', productId, productData);
@@ -816,7 +1162,7 @@ class ProductModal {
         if (window.cartManager) {
             try {
                 const success = await window.cartManager.addItem(productId, productData, quantity);
-                
+
                 if (success) {
                     // Update cart counter
                     this.updateCartCounter();
@@ -825,15 +1171,9 @@ class ProductModal {
                     this.showAddToCartSuccess();
 
                     // Add Dostik message with selection details
-                    const colorNames = {
-                        'natural': 'Doğal',
-                        'forest': 'Orman Yeşili',
-                        'bark': 'Kabuk Kahvesi',
-                        'warm': 'Sıcak Kahve'
-                    };
-
                     setTimeout(() => {
-                        this.addDostikMessage(`Harika! ${this.currentProduct.title} (${selectedSize.toUpperCase()}, ${colorNames[selectedColor]}) sepetine eklendi! 🛒✨`);
+                        const sizeText = selectedSize ? ` (Boyut: ${ selectedSize.toUpperCase() })` : '';
+                        this.addDostikMessage(`Harika! ${ this.currentProduct.title }${ sizeText } sepetine eklendi! 🛒✨`);
                     }, 500);
                 } else {
                     console.error('[ProductModal] Failed to add to cart');
@@ -855,16 +1195,31 @@ class ProductModal {
         const heartBtn = document.querySelector('.modal-heart-btn');
         if (!heartBtn) return;
 
-        const productId = this.currentProduct.id || this.generateProductId(this.currentProduct);
+        // Use product ID from API (preferred) or fallback to generated ID
+        const productId = this.currentProduct.id ||
+                         this.currentProduct.slug ||
+                         this.generateProductId(this.currentProduct);
+
+        // Build metadata using API data
         const metadata = {
             product: {
                 id: productId,
                 title: this.currentProduct.title,
+                slug: this.currentProduct.slug,
                 price: this.parsePrice(this.currentProduct.price),
-                images: this.currentProduct.image ? [this.currentProduct.image] : [],
-                store: this.currentProduct.artisan ? { name: this.currentProduct.artisan } : null,
+                images: this.currentProduct.images || (this.currentProduct.image ? [this.currentProduct.image] : []),
+                rating: parseFloat(this.currentProduct.rating),
+                total_sales: this.currentProduct._apiProduct?.total_sales || 0,
+                badges: this.currentProduct.badges || [],
+                store: this.currentProduct._apiProduct?.store || {
+                    id: this.currentProduct._apiProduct?.store_id,
+                    name: this.currentProduct.artisan
+                },
+                category: this.currentProduct._apiProduct?.category
             }
         };
+
+        console.log('[ProductModal] Toggling wishlist:', productId, metadata);
 
         try {
             let added;
@@ -879,10 +1234,10 @@ class ProductModal {
 
             if (added) {
                 setTimeout(() => {
-                    this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
+                    this.addDostikMessage(`${ this.currentProduct.title } favorilerine eklendi! 💖`);
                 }, 300);
             } else {
-                this.addDostikMessage(`${this.currentProduct.title} favorilerden çıkarıldı.`);
+                this.addDostikMessage(`${ this.currentProduct.title } favorilerden çıkarıldı.`);
             }
         } catch (error) {
             console.error('[ProductModal] Failed to toggle wishlist:', error);
@@ -991,8 +1346,8 @@ class ProductModal {
 
         // Position it at button location
         const buttonRect = button.getBoundingClientRect();
-        flyingCart.style.left = `${buttonRect.left + buttonRect.width / 2}px`;
-        flyingCart.style.top = `${buttonRect.top + buttonRect.height / 2}px`;
+        flyingCart.style.left = `${ buttonRect.left + buttonRect.width / 2 } px`;
+        flyingCart.style.top = `${ buttonRect.top + buttonRect.height / 2 } px`;
 
         document.body.appendChild(flyingCart);
 
@@ -1008,7 +1363,7 @@ class ProductModal {
         // Start animation
         setTimeout(() => {
             flyingCart.classList.add('flying');
-            flyingCart.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.5)`;
+            flyingCart.style.transform = `translate(${ deltaX }px, ${ deltaY }px) scale(0.5)`;
             flyingCart.style.opacity = '0';
         }, 50);
 
@@ -1033,8 +1388,13 @@ class ProductModal {
     }
 
     goToFullProductPage() {
-        // Navigate to Stage 2 - Full Product Detail Page
+        // Navigate to Full Product Detail Page
         this.closeModal();
+
+        if (!this.currentProduct) {
+            console.error('[ProductModal] No product data to navigate');
+            return;
+        }
 
         // Get the current path
         const currentPath = window.location.pathname;
@@ -1043,13 +1403,14 @@ class ProductModal {
         // Build the correct path to product-detail.html
         const detailPagePath = isInPagesFolder ? 'product-detail.html' : 'pages/product-detail.html';
 
-        // Store product data in sessionStorage for Stage 2
-        if (this.currentProduct) {
-            sessionStorage.setItem('selectedProduct', JSON.stringify(this.currentProduct));
-        }
+        // Use product ID from API (preferred) or fallback to slug/generated ID
+        const productId = this.currentProduct.id ||
+                         this.currentProduct.slug ||
+                         this.generateProductId(this.currentProduct);
 
-        // Navigate to detailed product page
-        window.location.href = detailPagePath;
+        // Navigate to detailed product page with product ID parameter
+        // Product detail page will fetch fresh data from API using this ID
+        window.location.href = `${detailPagePath}?id=${encodeURIComponent(productId)}`;
     }
 
     showModal() {
