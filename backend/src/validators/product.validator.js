@@ -64,28 +64,34 @@ const createProductSchema = Joi.object({
     width: Joi.number().min(0).optional(),
     height: Joi.number().min(0).optional(),
   }).optional(),
+  material: Joi.string().max(200).optional().allow('').trim(),
+  technique: Joi.string().max(200).optional().allow('').trim(),
   attributes: Joi.object().optional().default({}),
   tags: Joi.array().items(Joi.string().max(50)).max(20).default([]),
   badges: Joi.array()
-    .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
+    .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan', 'bestseller', 'new', 'organic'))
     .max(10)
     .default([])
     .messages({
-      'any.only': 'Badge must be one of: handmade, limited, eco-friendly, spiritual, traditional, artisan',
+      'any.only': 'Badge must be one of: handmade, limited, eco-friendly, spiritual, traditional, artisan, bestseller, new, organic',
     }),
+  // New cascading dropdown variant format
   variants: Joi.array().items(
     Joi.object({
-      category_variant_id: Joi.string().uuid().required(),
-      variant_name: Joi.string().min(1).required(),
-      selected_options: Joi.array()
-        .items(
-          Joi.object({
-            label: Joi.string().allow('', null),
-            value: Joi.alternatives(Joi.string(), Joi.number()).required(),
-          })
-        )
-        .min(1)
-        .required(),
+      color_hex: Joi.string().max(7).optional().allow(null, ''),
+      color_name: Joi.string().max(50).optional().allow(null, ''),
+      variant_type: Joi.string().max(50).optional().allow(null, ''),
+      variant_value: Joi.string().max(100).optional().allow(null, ''),
+      price: Joi.number().min(0).precision(2).required().messages({
+        'any.required': 'Variant price is required',
+        'number.min': 'Variant price cannot be negative',
+      }),
+      stock: Joi.number().integer().min(0).required().messages({
+        'any.required': 'Variant stock is required',
+        'number.min': 'Variant stock cannot be negative',
+      }),
+      sku: Joi.string().max(100).optional().allow(null, ''),
+      image_url: Joi.string().max(2048).optional().allow(null, ''),
     })
   ).optional().default([]),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
@@ -115,14 +121,16 @@ const updateProductSchema = Joi.object({
     width: Joi.number().min(0).optional(),
     height: Joi.number().min(0).optional(),
   }).optional(),
+  material: Joi.string().max(200).optional().allow('').trim(),
+  technique: Joi.string().max(200).optional().allow('').trim(),
   attributes: Joi.object().optional(),
   tags: Joi.array().items(Joi.string().max(50)).max(20).optional(),
   badges: Joi.array()
-    .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan'))
+    .items(Joi.string().valid('handmade', 'limited', 'eco-friendly', 'spiritual', 'traditional', 'artisan', 'bestseller', 'new', 'organic'))
     .max(10)
     .optional()
     .messages({
-      'any.only': 'Badge must be one of: handmade, limited, eco-friendly, spiritual, traditional, artisan',
+      'any.only': 'Badge must be one of: handmade, limited, eco-friendly, spiritual, traditional, artisan, bestseller, new, organic',
     }),
   seo_title: Joi.string().max(200).optional().allow('').trim(),
   seo_description: Joi.string().max(500).optional().allow('').trim(),

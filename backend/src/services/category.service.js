@@ -294,6 +294,71 @@ class CategoryService {
 
     return variants;
   }
+
+  /**
+   * Create variant for a category (admin only)
+   * @param {string} categoryId
+   * @param {Object} variantData
+   * @returns {Promise<CategoryVariant>}
+   */
+  async createCategoryVariant(categoryId, variantData) {
+    // Verify category exists
+    const category = await Category.findByPk(categoryId);
+    if (!category) {
+      throw new ApiError('Category not found', StatusCodes.NOT_FOUND);
+    }
+
+    const variant = await CategoryVariant.create({
+      ...variantData,
+      category_id: categoryId,
+    });
+
+    // Clear cache
+    await cache.del(`category:${categoryId}:variants`);
+
+    return variant;
+  }
+
+  /**
+   * Update variant (admin only)
+   * @param {string} variantId
+   * @param {Object} updateData
+   * @returns {Promise<CategoryVariant>}
+   */
+  async updateCategoryVariant(variantId, updateData) {
+    const variant = await CategoryVariant.findByPk(variantId);
+
+    if (!variant) {
+      throw new ApiError('Variant not found', StatusCodes.NOT_FOUND);
+    }
+
+    await variant.update(updateData);
+
+    // Clear cache
+    await cache.del(`category:${variant.category_id}:variants`);
+
+    return variant;
+  }
+
+  /**
+   * Delete variant (admin only)
+   * @param {string} variantId
+   * @returns {Promise<void>}
+   */
+  async deleteCategoryVariant(variantId) {
+    const variant = await CategoryVariant.findByPk(variantId);
+
+    if (!variant) {
+      throw new ApiError('Variant not found', StatusCodes.NOT_FOUND);
+    }
+
+    const categoryId = variant.category_id;
+    await variant.destroy();
+
+    // Clear cache
+    await cache.del(`category:${categoryId}:variants`);
+  }
 }
 
 module.exports = new CategoryService();
+

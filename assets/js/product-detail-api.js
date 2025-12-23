@@ -74,6 +74,36 @@ class ProductDetailAPI {
         });
     }
 
+    getSelectedVariantDetails() {
+        const details = [];
+        const variants = Array.isArray(this.product?.productVariants) ? this.product.productVariants : [];
+        const byName = variants.reduce((acc, v) => {
+            const key = v.variant_name || 'Variant';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(v);
+            return acc;
+        }, {});
+
+        Object.entries(this.selectedVariants || {}).forEach(([name, set]) => {
+            const values = Array.from(set || []);
+            values.forEach((val) => {
+                const opts = (byName[name] || []).flatMap(v => Array.isArray(v.selected_options) ? v.selected_options : []);
+                const match = opts.find(o => String(o.value) === String(val));
+                const detail = {
+                    name,
+                    value: val,
+                    label: match?.label || val,
+                };
+                if (match?.sku) detail.sku = match.sku;
+                if (typeof match?.price === 'number') detail.price = match.price;
+                if (typeof match?.stock === 'number') detail.stock = match.stock;
+                details.push(detail);
+            });
+        });
+
+        return details;
+    }
+
     getProductIdFromURL() {
         const params = new URLSearchParams(window.location.search);
         return params.get('id');
@@ -279,17 +309,17 @@ class ProductDetailAPI {
         const store = this.product.store;
 
         container.innerHTML = `
-            <h3>Seller Information</h3>
+            <h3>Satıcı Bilgileri</h3>
             <div class="store-card">
                 ${store.logo ? `<img class="store-logo" src="${store.logo}" alt="${store.name}">` : ''}
                 <div class="store-details">
                     <h4>${store.name}</h4>
                     ${store.description ? `<p>${store.description.substring(0, 150)}...</p>` : ''}
                     <div class="store-stats">
-                        <span>⭐ ${Number(store.rating || 0).toFixed(1)} rating</span>
-                        <span>📦 ${store.total_sales || 0} products sold</span>
+                        <span>⭐ ${Number(store.rating || 0).toFixed(1)} puan</span>
+                        <span>📦 ${store.total_sales || 0} ürün satıldı</span>
                     </div>
-                    <a href="store.html?id=${store.id}" class="btn btn-secondary">Visit Store</a>
+                    <a href="products.html?store=${store.id}" class="btn btn-secondary">Mağazayı Ziyaret Et</a>
                 </div>
             </div>
         `;
@@ -301,27 +331,43 @@ class ProductDetailAPI {
 
         const specs = [];
 
-        if (this.product.sku) {
-            specs.push({ label: 'SKU', value: this.product.sku });
+        // Material (Malzeme)
+        if (this.product.material) {
+            specs.push({ label: 'Malzeme', value: this.product.material });
         }
 
+        // Technique (Teknik)
+        if (this.product.technique) {
+            specs.push({ label: 'Teknik', value: this.product.technique });
+        }
+
+        // Weight (Ağırlık)
         if (this.product.weight) {
-            specs.push({ label: 'Weight', value: `${this.product.weight} kg` });
+            specs.push({ label: 'Ağırlık', value: `${this.product.weight} kg` });
         }
 
+        // Dimensions (Boyutlar)
         if (this.product.dimensions) {
             const dim = this.product.dimensions;
-            const dimStr = `${dim.length || 0} × ${dim.width || 0} × ${dim.height || 0} cm`;
-            specs.push({ label: 'Dimensions', value: dimStr });
+            if (dim.length || dim.width || dim.height) {
+                const dimStr = `${dim.length || 0} × ${dim.width || 0} × ${dim.height || 0} cm`;
+                specs.push({ label: 'Boyutlar', value: dimStr });
+            }
         }
 
+        // SKU
+        if (this.product.sku) {
+            specs.push({ label: 'Ürün Kodu', value: this.product.sku });
+        }
+
+        // Category (Kategori)
         if (this.product.category) {
-            specs.push({ label: 'Category', value: this.product.category.name });
+            specs.push({ label: 'Kategori', value: this.product.category.name });
         }
 
         if (specs.length > 0) {
             container.innerHTML = `
-                <h3>Product Specifications</h3>
+                <h3>Ürün Özellikleri</h3>
                 <table class="specs-table">
                     ${specs.map(spec => `
                         <tr>
@@ -331,6 +377,8 @@ class ProductDetailAPI {
                     `).join('')}
                 </table>
             `;
+        } else {
+            container.innerHTML = '';
         }
     }
 
@@ -452,16 +500,33 @@ class ProductDetailAPI {
             }
 
             // Serialize selected variants as array
-            const variantsSelected = Object.entries(this.selectedVariants || {}).map(([name, set]) => ({
-                name,
-                values: Array.from(set || []),
-            }));
+            const variantDetails = this.getSelectedVariantDetails();
 
             if (!window.cartManager) {
                 throw new Error('Cart system unavailable');
             }
 
-            const success = await window.cartManager.addItem(this.productId, this.product, this.quantity);
+            const variantPriceEntry = variantDetails.find(v => typeof v.price === 'number');
+            const variantStockEntry = variantDetails.find(v => typeof v.stock === 'number');
+
+            if (variantStockEntry && variantStockEntry.stock <= 0) {
+                this.showError('Seçtiğiniz varyant stokta yok');
+                return;
+            }
+            if (variantStockEntry && variantStockEntry.stock < this.quantity) {
+                this.showError(`Bu varyant için mevcut stok: ${variantStockEntry.stock} `);
+                return;
+            }
+
+            const payload = {
+                ...this.product,
+                selectedVariants: variantDetails,
+                price: variantPriceEntry ? variantPriceEntry.price : this.product.price,
+                stock: variantStockEntry?.stock ?? this.product.stock,
+                sku: variantDetails.find(v => v.sku)?.sku || this.product.sku,
+            };
+
+            const success = await window.cartManager.addItem(this.productId, payload, this.quantity);
 
             if (!success) {
                 throw new Error('Failed to add to cart');
@@ -541,7 +606,7 @@ class ProductDetailAPI {
             container.innerHTML = `
                 <div class="loading-state" style="text-align: center; padding: 3rem;">
                     <div class="spinner" style="margin: 0 auto 1rem;"></div>
-                    <p>Loading product details...</p>
+                    <p>Ürün detayları yükleniyor...</p>
                 </div>
             `;
         }
@@ -557,9 +622,9 @@ class ProductDetailAPI {
             container.innerHTML = `
                 <div class="error-state" style="text-align: center; padding: 3rem; color: #dc2626;">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
-                    <h2>Error</h2>
+                    <h2>Hata</h2>
                     <p>${message}</p>
-                    <button class="btn btn-primary" onclick="location.href='products.html'">Browse Products</button>
+                    <button class="btn btn-primary" onclick="location.href='products.html'">Ürünlere Göz At</button>
                 </div>
             `;
         }
@@ -577,7 +642,7 @@ class ProductDetailAPI {
             color: white;
             padding: 1rem 1.5rem;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 10000;
             animation: slideIn 0.3s ease;
         `;

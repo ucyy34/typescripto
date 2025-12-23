@@ -74,14 +74,24 @@ class ProductService {
       // Create product
       const product = await Product.create(payload, { transaction });
 
-      // Create variants if provided
+      // Create variants if provided (supports both old and new format)
       if (Array.isArray(productData.variants) && productData.variants.length > 0) {
         for (const v of productData.variants) {
           await ProductVariant.create({
             product_id: product.id,
-            category_variant_id: v.category_variant_id,
-            variant_name: v.variant_name,
-            selected_options: v.selected_options,
+            // New cascade format fields
+            color_hex: v.color_hex || null,
+            color_name: v.color_name || null,
+            variant_type: v.variant_type || null,
+            variant_value: v.variant_value || null,
+            price: v.price ?? null,
+            stock: v.stock ?? null,
+            sku: v.sku || null,
+            image_url: v.image_url || null,
+            // Legacy fields for backward compatibility
+            category_variant_id: v.category_variant_id || null,
+            variant_name: v.variant_name || null,
+            selected_options: v.selected_options || null,
           }, { transaction });
         }
       }
@@ -119,26 +129,26 @@ class ProductService {
     const tags = Array.isArray(productData.tags)
       ? [...new Set(productData.tags.map((tag) => tag.trim()).filter(Boolean))]
       : isUpdate && Array.isArray(existingProduct.tags)
-      ? [...new Set(existingProduct.tags.map((tag) => tag.trim()).filter(Boolean))]
-      : [];
+        ? [...new Set(existingProduct.tags.map((tag) => tag.trim()).filter(Boolean))]
+        : [];
 
     const badges = Array.isArray(productData.badges)
       ? [...new Set(productData.badges.map((badge) => badge.trim().toLowerCase()).filter(Boolean))].filter(
-          (badge) => BADGE_ALLOW_LIST.has(badge)
-        )
+        (badge) => BADGE_ALLOW_LIST.has(badge)
+      )
       : [];
 
     const images = Array.isArray(productData.images)
       ? [...new Set(productData.images.map((image) => image.trim()).filter(Boolean))]
       : isUpdate && Array.isArray(existingProduct.images)
-      ? [...new Set(existingProduct.images.map((image) => image.trim()).filter(Boolean))]
-      : [];
+        ? [...new Set(existingProduct.images.map((image) => image.trim()).filter(Boolean))]
+        : [];
 
     const metaKeywords = Array.isArray(productData.meta_keywords)
       ? [...new Set(productData.meta_keywords.map((keyword) => keyword.trim()).filter(Boolean))]
       : tags.length > 0
-      ? [...tags]
-      : [];
+        ? [...tags]
+        : [];
 
     const seoTitleSource = productData.seo_title ?? (isUpdate ? existingProduct.seo_title : '') ?? title;
     const seoTitle = seoTitleSource ? seoTitleSource.trim().substring(0, 200) : null;
@@ -235,7 +245,7 @@ class ProductService {
     }
 
     // Increment views (async, don't wait)
-    product.incrementViews().catch(() => {});
+    product.incrementViews().catch(() => { });
 
     // Cache for 1 hour (only public products)
     if (!includeInactive && !requestUserId) {

@@ -158,6 +158,37 @@ const Order = sequelize.define(
       type: DataTypes.STRING(45),
       allowNull: true,
     },
+    // Shipping Support Breakdown (internal tracking)
+    shipping_actual_cost: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Actual shipping cost (hidden from customer)',
+    },
+    shipping_customer_paid: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Amount customer paid as "shipping support"',
+    },
+    shipping_store_covered: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Amount covered by store',
+    },
+    shipping_platform_covered: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Amount covered by platform',
+    },
+    shipping_rule_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Applied shipping support rule ID',
+    },
+    shipping_store_owes_platform: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0.0,
+      comment: 'Amount store owes platform for shipping coverage (charged back)',
+    },
   },
   {
     tableName: 'orders',

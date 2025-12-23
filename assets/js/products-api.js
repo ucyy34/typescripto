@@ -475,6 +475,11 @@ class ProductsPageAPI {
             if (window.updateCartCount) {
                 await window.updateCartCount();
             }
+
+            // Show Siftah recommendation toast if available
+            if (window.SiftahModule && typeof window.SiftahModule.loadForAddToCart === 'function') {
+                window.SiftahModule.loadForAddToCart(productId);
+            }
         } catch (error) {
             console.error('[Products Page API] Error adding to cart:', error);
             this.showError('Failed to add product to cart');

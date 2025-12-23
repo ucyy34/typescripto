@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Stores (Artisan) Page API Integration
  * Fetches approved stores and renders the artisan listing page.
  */
@@ -46,6 +46,11 @@ class StoresPageAPI {
             this.render();
             this.updateHeroStats();
             this.updateFeaturedStore();
+            // Render dynamic sections
+            this.renderDynamicTimeline();
+            this.renderWorkshopGallery();
+            this.renderTestimonials();
+            this.renderTechniqueCards();
         } catch (error) {
             console.error('[Stores Page API] Initialization error:', error);
             this.showError('Ustalarımız şu an görüntülenemiyor. Lütfen daha sonra tekrar deneyin.');
@@ -351,6 +356,185 @@ class StoresPageAPI {
         }
     }
 
+    // ==========================================
+    // DYNAMIC SECTIONS
+    // ==========================================
+
+    /**
+     * Render dynamic artisan journey timeline based on featured store
+     */
+    renderDynamicTimeline() {
+        const container = document.getElementById('artisanJourney');
+        if (!container || this.stores.length === 0) return;
+
+        const featured = [...this.stores]
+            .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0];
+
+        if (!featured) return;
+
+        const createdYear = featured.created_at ? new Date(featured.created_at).getFullYear() : new Date().getFullYear();
+        const approvedYear = featured.approved_at ? new Date(featured.approved_at).getFullYear() : createdYear;
+
+        container.innerHTML = `
+            <div class="journey-timeline">
+                <h2 style="margin-bottom: var(--space-xl);">🌟 ${featured.name}'s Journey</h2>
+                
+                <div class="timeline-item">
+                    <div class="timeline-year">${createdYear}</div>
+                    <h4 class="timeline-title">The Beginning</h4>
+                    <p>${featured.name} started their journey as a master artisan, bringing traditional craftsmanship to life.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-year">${createdYear + 1}</div>
+                    <h4 class="timeline-title">First Masterpiece</h4>
+                    <p>Created their signature style that would later become recognized across the Nordic region.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-year">${approvedYear}</div>
+                    <h4 class="timeline-title">Joined DostanWebCSS</h4>
+                    <p>Became a verified artisan on our platform, bringing authentic Nordic treasures to collectors worldwide.</p>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-year">Today</div>
+                    <h4 class="timeline-title">Master Artisan Status</h4>
+                    <p>With ${featured.total_sales || 0} pieces sold and a ${Number(featured.rating || 0).toFixed(1)} star rating, continues to inspire collectors.</p>
+                </div>
+            </div>
+
+            <div class="journey-image">
+                <img src="${featured.banner || featured.logo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=600'}" alt="${featured.name}'s workshop">
+            </div>
+        `;
+    }
+
+    /**
+     * Render workshop gallery from store images
+     */
+    renderWorkshopGallery() {
+        const container = document.getElementById('workshopGallery');
+        if (!container || this.stores.length === 0) return;
+
+        // Get top 4 stores with banners/logos
+        const storesWithImages = this.stores
+            .filter(s => s.banner || s.logo)
+            .slice(0, 4);
+
+        if (storesWithImages.length === 0) return;
+
+        container.innerHTML = storesWithImages.map(store => `
+            <div class="workshop-image">
+                <img src="${store.banner || store.logo}" alt="${store.name}'s workshop">
+                <div class="workshop-overlay">
+                    <h4>${store.name}'s Studio</h4>
+                    <p>${store.city || 'Nordic'} • ${store.total_sales || 0} pieces crafted</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Render testimonials from real customer reviews
+     */
+    async renderTestimonials() {
+        const container = document.getElementById('testimonialsSlider');
+        if (!container) return;
+
+        try {
+            const response = await this.apiClient.getFeaturedReviews(6);
+
+            if (!response.success || !response.data?.length) {
+                // Keep existing static testimonials as fallback
+                return;
+            }
+
+            container.innerHTML = response.data.map(review => `
+                <div class="testimonial">
+                    <p class="testimonial-text">
+                        "${this.escapeHtml(review.comment || review.title || 'Amazing craftsmanship!')}"
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">${this.getAvatarEmoji(review.user?.name)}</div>
+                        <div>
+                            <strong>${this.escapeHtml(review.user?.name || 'Happy Customer')}</strong><br>
+                            <small style="color: var(--warm-brown);">${review.store?.city || 'Nordic'} Collector • ${'⭐'.repeat(Math.min(5, review.rating || 5))}</small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.warn('[Stores Page] Could not load testimonials:', error);
+        }
+    }
+
+    /**
+     * Render technique cards from categories
+     */
+    async renderTechniqueCards() {
+        const container = document.getElementById('techniqueGrid');
+        if (!container) return;
+
+        try {
+            const response = await this.apiClient.getCategories({ is_active: true, limit: 6 });
+
+            if (!response.success || !response.data?.length) {
+                // Keep existing static techniques as fallback
+                return;
+            }
+
+            const iconMap = {
+                'wood': '🪵', 'woodworking': '🪵', 'ahsap': '🪵',
+                'metal': '🔥', 'forge': '🔥', 'demir': '🔥',
+                'glass': '💎', 'cam': '💎',
+                'textile': '🧶', 'tekstil': '🧶', 'fabric': '🧶',
+                'ceramic': '🏺', 'pottery': '🏺', 'seramik': '🏺',
+                'leather': '🛡️', 'deri': '🛡️',
+                'jewelry': '💍', 'taki': '💍',
+                'default': '🎨'
+            };
+
+            container.innerHTML = response.data.map(category => {
+                const iconKey = Object.keys(iconMap).find(k =>
+                    category.name?.toLowerCase().includes(k) ||
+                    category.slug?.toLowerCase().includes(k)
+                ) || 'default';
+
+                return `
+                    <div class="technique-card">
+                        <div class="technique-icon">${category.icon || iconMap[iconKey]}</div>
+                        <h4 style="margin-bottom: var(--space-md);">${category.name}</h4>
+                        <p style="line-height: 1.6; color: var(--forest-medium);">
+                            ${category.description || 'Traditional Nordic craftsmanship passed down through generations.'}
+                        </p>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.warn('[Stores Page] Could not load techniques:', error);
+        }
+    }
+
+    /**
+     * Helper: Get avatar emoji based on name
+     */
+    getAvatarEmoji(name) {
+        if (!name) return '🪵';
+        const emojis = ['🪵', '🪵', '🪵', '🪵', '🪵', '🪵'];
+        const index = name.charCodeAt(0) % emojis.length;
+        return emojis[index];
+    }
+
+    /**
+     * Helper: Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
     showError(message) {
         if (!this.dom.container) return;
 

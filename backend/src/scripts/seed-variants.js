@@ -20,10 +20,57 @@ async function seedVariants() {
 
     console.log(`Found ${categories.length} categories\n`);
 
-    // Define variant mappings for different category types
+    // Default variants for ANY category that doesn't have specific mappings
+    const defaultVariants = [
+      {
+        name: 'Beden',
+        type: 'text',
+        options: [
+          { label: 'XS', value: 'xs' },
+          { label: 'S', value: 's' },
+          { label: 'M', value: 'm' },
+          { label: 'L', value: 'l' },
+          { label: 'XL', value: 'xl' },
+          { label: 'XXL', value: 'xxl' },
+        ],
+        is_required: false,
+        sort_order: 1,
+      },
+      {
+        name: 'Renk',
+        type: 'color',
+        options: [
+          { label: 'Beyaz', value: '#FFFFFF' },
+          { label: 'Siyah', value: '#000000' },
+          { label: 'Kırmızı', value: '#DC2626' },
+          { label: 'Mavi', value: '#2563EB' },
+          { label: 'Yeşil', value: '#10B981' },
+          { label: 'Sarı', value: '#F59E0B' },
+          { label: 'Turuncu', value: '#F97316' },
+          { label: 'Mor', value: '#9333EA' },
+          { label: 'Gri', value: '#6B7280' },
+          { label: 'Kahverengi', value: '#92400E' },
+        ],
+        is_required: false,
+        sort_order: 2,
+      },
+      {
+        name: 'Boyut',
+        type: 'text',
+        options: [
+          { label: 'Küçük', value: 'small' },
+          { label: 'Orta', value: 'medium' },
+          { label: 'Büyük', value: 'large' },
+        ],
+        is_required: false,
+        sort_order: 3,
+      },
+    ];
+
+    // Define variant mappings for different category types (case-insensitive matching)
     const variantMappings = {
       // Textiles (Clothing & Fabrics)
-      'Textiles': [
+      'textiles': [
         {
           name: 'Beden',
           type: 'text',
@@ -58,7 +105,7 @@ async function seedVariants() {
         },
       ],
       // Wood Products
-      'Wood Carvings': [
+      'wood carvings': [
         {
           name: 'Malzeme',
           type: 'text',
@@ -86,7 +133,7 @@ async function seedVariants() {
         },
       ],
       // Ceramics
-      'Ceramics': [
+      'ceramics': [
         {
           name: 'Renk',
           type: 'color',
@@ -113,7 +160,7 @@ async function seedVariants() {
         },
       ],
       // Jewelry
-      'Jewelry': [
+      'jewelry': [
         {
           name: 'Malzeme',
           type: 'text',
@@ -143,31 +190,34 @@ async function seedVariants() {
       ],
     };
 
+
     // Create variants for each category
     let createdCount = 0;
 
     for (const category of categories) {
-      const variants = variantMappings[category.name];
+      // Case-insensitive matching
+      const categoryNameLower = category.name.toLowerCase();
+      const variants = variantMappings[categoryNameLower] || defaultVariants;
 
-      if (variants) {
-        for (const variantData of variants) {
-          const [variant, created] = await CategoryVariant.findOrCreate({
-            where: {
-              category_id: category.id,
-              name: variantData.name,
-            },
-            defaults: {
-              ...variantData,
-              category_id: category.id,
-            },
-          });
+      console.log(`\n📦 Processing category: ${category.name} (${variants === defaultVariants ? 'using defaults' : 'using specific variants'})`);
 
-          if (created) {
-            console.log(`✅ Created variant: ${category.name} > ${variantData.name}`);
-            createdCount++;
-          } else {
-            console.log(`⏭️  Variant already exists: ${category.name} > ${variantData.name}`);
-          }
+      for (const variantData of variants) {
+        const [variant, created] = await CategoryVariant.findOrCreate({
+          where: {
+            category_id: category.id,
+            name: variantData.name,
+          },
+          defaults: {
+            ...variantData,
+            category_id: category.id,
+          },
+        });
+
+        if (created) {
+          console.log(`  ✅ Created variant: ${variantData.name}`);
+          createdCount++;
+        } else {
+          console.log(`  ⏭️  Already exists: ${variantData.name}`);
         }
       }
     }

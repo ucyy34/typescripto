@@ -128,6 +128,16 @@ const Product = sequelize.define(
       allowNull: true,
       comment: 'Length, width, height in cm',
     },
+    material: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+      comment: 'Product material (e.g., wood, ceramic, glass)',
+    },
+    technique: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+      comment: 'Crafting technique (e.g., hand-carved, blown glass)',
+    },
     attributes: {
       type: DataTypes.JSONB,
       defaultValue: {},

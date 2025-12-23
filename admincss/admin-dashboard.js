@@ -147,6 +147,299 @@ class AdminDashboard {
         }
     }
 
+
+    /**
+     * Load Shipping Support Data
+     */
+    async loadShippingSupportData() {
+        try {
+            // Listener Setup (One time)
+            if (!this.shippingListenersSetup) {
+                const form = document.getElementById('shippingRuleForm');
+                if (form) {
+                    const newForm = form.cloneNode(true);
+                    form.parentNode.replaceChild(newForm, form);
+                    newForm.addEventListener('submit', (e) => this.handleShippingRuleSubmit(e));
+                }
+
+                // Save default shipping cost button
+                const saveDefaultBtn = document.getElementById('saveDefaultShippingBtn');
+                if (saveDefaultBtn) {
+                    saveDefaultBtn.onclick = () => this.saveDefaultShippingCost();
+                }
+
+                this.shippingListenersSetup = true;
+            }
+
+            // Load default cost
+            const defaultRes = await this.api.request('/shipping-support/default');
+            if (defaultRes.success) {
+                document.getElementById('defaultShippingCost').value = defaultRes.data.defaultCost;
+
+                // Also update store charge percentage if present
+                if (defaultRes.data.storeChargePercentage !== undefined) {
+                    const slider = document.getElementById('storeShippingChargePercentage');
+                    const display = document.getElementById('storeChargePercentageValue');
+                    if (slider) {
+                        slider.value = defaultRes.data.storeChargePercentage;
+                    }
+                    if (display) {
+                        display.textContent = `%${defaultRes.data.storeChargePercentage}`;
+                    }
+                }
+
+                // Also update max shipping cap if present
+                if (defaultRes.data.maxShippingCap !== undefined) {
+                    const capInput = document.getElementById('maxShippingCap');
+                    if (capInput) {
+                        capInput.value = defaultRes.data.maxShippingCap;
+                    }
+                }
+            }
+
+            // Setup store charge percentage slider
+            const chargeSlider = document.getElementById('storeShippingChargePercentage');
+            const chargeDisplay = document.getElementById('storeChargePercentageValue');
+            if (chargeSlider && chargeDisplay) {
+                chargeSlider.oninput = () => {
+                    chargeDisplay.textContent = `%${chargeSlider.value}`;
+                };
+            }
+
+            // Setup save store charge button
+            const saveChargeBtn = document.getElementById('saveStoreChargeBtn');
+            if (saveChargeBtn) {
+                saveChargeBtn.onclick = () => this.saveStoreChargePercentage();
+            }
+
+            // Setup save max cap button
+            const saveMaxCapBtn = document.getElementById('saveMaxCapBtn');
+            if (saveMaxCapBtn) {
+                saveMaxCapBtn.onclick = () => this.saveMaxShippingCap();
+            }
+
+            // Load rules
+            const rulesRes = await this.api.request('/shipping-support/admin/rules', { method: 'GET' });
+            if (rulesRes.success) {
+                this.shippingRules = rulesRes.data.rules;
+                this.renderShippingRules(rulesRes.data.rules);
+            }
+
+            // Load report (current month)
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString();
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString();
+
+            const reportRes = await this.api.request('/shipping-support/report', {
+                method: 'GET',
+                params: { startDate: firstDay, endDate: lastDay }
+            });
+            if (reportRes.success) {
+                this.updateShippingReport(reportRes.data);
+            }
+
+            this.dostikComment('shipping-support');
+        } catch (error) {
+            console.error('Failed to load shipping support data:', error);
+            this.showNotification('Kargo verileri yüklenirken hata oluştu', 'error');
+        }
+    }
+
+    renderShippingRules(rules) {
+        const listEl = document.getElementById('shippingRulesList');
+        if (!rules || rules.length === 0) {
+            listEl.innerHTML = `
+                <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                    Henüz tanımlanmış kural yok.
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = rules.map(rule => `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; opacity: ${rule.is_active ? 1 : 0.6};">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600; font-size: 1.1rem;">${rule.name}</span>
+                        ${!rule.is_active ? '<span style="background: #e2e8f0; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px;">Pasif</span>' : ''}
+                        <span style="background: #eff6ff; color: #3b82f6; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px;">Öncelik: ${rule.priority}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #64748b;">
+                        Koşul: ${this.getRuleConditionLabel(rule)} • 
+                        Platform Katkısı: <span style="color: #10b981; font-weight: 600;">%${rule.platform_contribution}</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button onclick="window.adminDashboard.editShippingRule('${rule.id}')" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Düzenle">✏️</button>
+                    <button onclick="window.adminDashboard.deleteShippingRule('${rule.id}')" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Sil">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    getRuleConditionLabel(rule) {
+        switch (rule.condition_type) {
+            case 'cart_total': return `Sepet > ₺${rule.threshold_amount}`;
+            case 'multi_store': return 'Çoklu Mağaza';
+            case 'first_order': return 'İlk Sipariş';
+            case 'campaign': return 'Kampanya';
+            default: return rule.condition_type;
+        }
+    }
+
+    updateShippingReport(data) {
+        document.getElementById('shippingReportOrderCount').textContent = data.orderCount;
+        document.getElementById('shippingReportActualCost').textContent = '₺' + data.totalActualCost;
+        document.getElementById('shippingReportCustomerPaid').textContent = '₺' + data.totalCustomerPaid;
+        document.getElementById('shippingReportPlatformCovered').textContent = '₺' + data.totalPlatformCovered;
+    }
+
+    async editShippingRule(id) {
+        const rule = this.shippingRules?.find(r => r.id === id);
+        if (!rule) return;
+
+        document.getElementById('shippingRuleId').value = rule.id;
+        document.getElementById('ruleName').value = rule.name;
+        document.getElementById('ruleCondition').value = rule.condition_type;
+        document.getElementById('ruleAmount').value = rule.threshold_amount || '';
+        document.getElementById('ruleContribution').value = rule.platform_contribution;
+        document.getElementById('rulePriority').value = rule.priority;
+        document.getElementById('ruleScope').value = rule.scope;
+        document.getElementById('ruleActive').checked = rule.is_active;
+
+        document.getElementById('shippingRuleModal').style.display = 'flex';
+    }
+
+    async handleShippingRuleSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('shippingRuleId').value;
+        const data = {
+            name: document.getElementById('ruleName').value,
+            condition_type: document.getElementById('ruleCondition').value,
+            threshold_amount: document.getElementById('ruleAmount').value || 0,
+            platform_contribution: document.getElementById('ruleContribution').value,
+            priority: document.getElementById('rulePriority').value,
+            scope: document.getElementById('ruleScope').value,
+            is_active: document.getElementById('ruleActive').checked
+        };
+
+        try {
+            let result;
+            const endpoint = id ? `/shipping-support/admin/rules/${id}` : '/shipping-support/admin/rules';
+            const method = id ? 'PUT' : 'POST';
+
+            result = await this.api.request(endpoint, { method, data });
+
+            if (result.success) {
+                this.showNotification(`Kural ${id ? 'güncellendi' : 'oluşturuldu'}`, 'success');
+                document.getElementById('shippingRuleModal').style.display = 'none';
+                document.getElementById('shippingRuleForm').reset();
+                this.loadShippingSupportData();
+            }
+        } catch (error) {
+            console.error(error);
+            this.showNotification('İşlem başarısız', 'error');
+        }
+    }
+
+    async deleteShippingRule(id) {
+        if (!confirm('Bu kuralı silmek istediğinizden emin misiniz?')) return;
+
+        try {
+            const result = await this.api.request(`/shipping-support/admin/rules/${id}`, { method: 'DELETE' });
+            if (result.success) {
+                this.showNotification('Kural silindi', 'success');
+                this.loadShippingSupportData();
+            }
+        } catch (error) {
+            console.error(error);
+            this.showNotification('Kural silinemedi', 'error');
+        }
+    }
+
+    async saveDefaultShippingCost() {
+        const costInput = document.getElementById('defaultShippingCost');
+        const cost = parseFloat(costInput?.value);
+
+        if (isNaN(cost) || cost < 0) {
+            this.showNotification('Geçerli bir kargo maliyeti girin', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.api.request('/shipping-support/default', {
+                method: 'PUT',
+                data: { defaultCost: cost }
+            });
+
+            if (result.success) {
+                this.showNotification('Varsayılan kargo maliyeti güncellendi: ₺' + cost.toFixed(2), 'success');
+            } else {
+                this.showNotification('Güncelleme başarısız: ' + (result.message || 'Bilinmeyen hata'), 'error');
+            }
+        } catch (error) {
+            console.error('Failed to save default shipping cost:', error);
+            this.showNotification('Güncelleme başarısız: ' + error.message, 'error');
+        }
+    }
+
+    async saveStoreChargePercentage() {
+        const slider = document.getElementById('storeShippingChargePercentage');
+        const percentage = parseInt(slider?.value) || 50;
+
+        if (percentage < 0 || percentage > 100) {
+            this.showNotification('Oran %0-100 arasında olmalı', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.api.request('/shipping-support/admin/store-charge', {
+                method: 'PUT',
+                data: { percentage }
+            });
+
+            if (result.success) {
+                this.showNotification(`Mağaza yansıtma oranı güncellendi: %${percentage}`, 'success');
+            } else {
+                this.showNotification('Güncelleme başarısız: ' + (result.message || 'Bilinmeyen hata'), 'error');
+            }
+        } catch (error) {
+            console.error('Failed to save store charge percentage:', error);
+            this.showNotification('Güncelleme başarısız: ' + error.message, 'error');
+        }
+    }
+
+    async saveMaxShippingCap() {
+        const input = document.getElementById('maxShippingCap');
+        const cap = parseFloat(input?.value) || 0;
+
+        if (cap < 0) {
+            this.showNotification('Tavan negatif olamaz', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.api.request('/shipping-support/admin/max-cap', {
+                method: 'PUT',
+                data: { cap }
+            });
+
+            if (result.success) {
+                if (cap === 0) {
+                    this.showNotification('Kargo tavanı kaldırıldı (sınırsız)', 'success');
+                } else {
+                    this.showNotification(`Maksimum kargo tavanı: ₺${cap}`, 'success');
+                }
+            } else {
+                this.showNotification('Güncelleme başarısız: ' + (result.message || 'Bilinmeyen hata'), 'error');
+            }
+        } catch (error) {
+            console.error('Failed to save max shipping cap:', error);
+            this.showNotification('Güncelleme başarısız: ' + error.message, 'error');
+        }
+    }
+
     /**
      * Load pending stores
      */
@@ -283,16 +576,16 @@ class AdminDashboard {
                             </label>
                             <label>Shipping
                               <select data-store-id=\"${store.id}\" class=\"rt-ship\" style=\"width:100%; padding:0.4rem; border:1px solid var(--admin-border); border-radius:6px;\">
-                                <option value=\"none\" ${(store.settings?.return_shipping_policy==='none')?'selected':''}>None</option>
-                                <option value=\"pro_rata\" ${(store.settings?.return_shipping_policy==='pro_rata')?'selected':''}>Pro-rata</option>
-                                <option value=\"full\" ${(store.settings?.return_shipping_policy==='full')?'selected':''}>Full</option>
+                                <option value=\"none\" ${(store.settings?.return_shipping_policy === 'none') ? 'selected' : ''}>None</option>
+                                <option value=\"pro_rata\" ${(store.settings?.return_shipping_policy === 'pro_rata') ? 'selected' : ''}>Pro-rata</option>
+                                <option value=\"full\" ${(store.settings?.return_shipping_policy === 'full') ? 'selected' : ''}>Full</option>
                               </select>
                             </label>
                             <label>Tax
                               <select data-store-id=\"${store.id}\" class=\"rt-tax\" style=\"width:100%; padding:0.4rem; border:1px solid var(--admin-border); border-radius:6px;\">
-                                <option value=\"none\" ${(store.settings?.tax_refund_policy==='none')?'selected':''}>None</option>
-                                <option value=\"pro_rata\" ${(store.settings?.tax_refund_policy==='pro_rata')?'selected':''}>Pro-rata</option>
-                                <option value=\"full\" ${(store.settings?.tax_refund_policy==='full')?'selected':''}>Full</option>
+                                <option value=\"none\" ${(store.settings?.tax_refund_policy === 'none') ? 'selected' : ''}>None</option>
+                                <option value=\"pro_rata\" ${(store.settings?.tax_refund_policy === 'pro_rata') ? 'selected' : ''}>Pro-rata</option>
+                                <option value=\"full\" ${(store.settings?.tax_refund_policy === 'full') ? 'selected' : ''}>Full</option>
                               </select>
                             </label>
                             <div>
@@ -1137,7 +1430,7 @@ class AdminDashboard {
     loadSectionData(sectionName) {
         console.log(`[Admin Dashboard] Loading ${sectionName} data from API...`);
 
-        switch(sectionName) {
+        switch (sectionName) {
             case 'dashboard':
                 this.loadDashboardStats();
                 break;
@@ -1173,6 +1466,9 @@ class AdminDashboard {
                 break;
             case 'security':
                 this.loadSecurityData();
+                break;
+            case 'payouts':
+                this.loadPayoutsData();
                 break;
             case 'settings':
                 this.loadSystemSettings();
@@ -1346,10 +1642,231 @@ class AdminDashboard {
         }
     }
 
-    // Placeholder methods for sections not yet implemented
-    loadAnalyticsData() {
-        console.log('[Admin Dashboard] Analytics data - static display, no API call needed');
+    // =============================================
+    // ADMIN ANALYTICS DASHBOARD
+    // =============================================
+    async loadAnalyticsData() {
+        console.log('[Admin Dashboard] Loading analytics data from API...');
+
+        try {
+            // Fetch all analytics data in parallel
+            const [overviewRes, topStoresRes, revenueRes, activityRes] = await Promise.all([
+                fetch(`${this.api.baseURL}/analytics/admin/overview`, {
+                    headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+                }),
+                fetch(`${this.api.baseURL}/analytics/admin/top-stores?limit=5`, {
+                    headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+                }),
+                fetch(`${this.api.baseURL}/analytics/admin/revenue?days=7`, {
+                    headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+                }),
+                fetch(`${this.api.baseURL}/analytics/admin/activity?limit=15`, {
+                    headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+                })
+            ]);
+
+            // Parse responses
+            const overview = overviewRes.ok ? await overviewRes.json() : null;
+            const topStores = topStoresRes.ok ? await topStoresRes.json() : null;
+            const revenue = revenueRes.ok ? await revenueRes.json() : null;
+            const activity = activityRes.ok ? await activityRes.json() : null;
+
+            // Update UI
+            if (overview?.success) {
+                this.updateAdminOverviewStats(overview.data);
+            }
+
+            if (topStores?.success) {
+                this.renderAdminTopStores(topStores.data);
+            }
+
+            if (revenue?.success) {
+                this.renderAdminRevenueChart(revenue.data);
+            }
+
+            if (activity?.success) {
+                this.renderAdminActivityFeed(activity.data);
+            }
+
+            // Setup chart controls
+            this.setupAdminChartControls();
+
+        } catch (error) {
+            console.error('[Admin Dashboard] Analytics load error:', error);
+        }
     }
+
+    updateAdminOverviewStats(data) {
+        const { users, stores, products, orders, revenue, returns } = data;
+
+        // Revenue
+        const revenueEl = document.getElementById('adminStatRevenue');
+        const revenue30El = document.getElementById('adminStatRevenue30');
+        if (revenueEl) revenueEl.textContent = `₺${revenue.total.toLocaleString('tr-TR')}`;
+        if (revenue30El) revenue30El.textContent = `Son 30 gün: ₺${revenue.last30Days.toLocaleString('tr-TR')}`;
+
+        // Users
+        const usersEl = document.getElementById('adminStatUsers');
+        const newUsersEl = document.getElementById('adminStatNewUsers');
+        if (usersEl) usersEl.textContent = users.total;
+        if (newUsersEl) newUsersEl.textContent = `Yeni (7 gün): ${users.new7Days}`;
+
+        // Orders
+        const ordersEl = document.getElementById('adminStatOrders');
+        const orders7El = document.getElementById('adminStatOrders7');
+        if (ordersEl) ordersEl.textContent = orders.total;
+        if (orders7El) orders7El.textContent = `Son 7 gün: ${orders.last7Days}`;
+
+        // Stores
+        const storesEl = document.getElementById('adminStatStores');
+        const pendingStoresEl = document.getElementById('adminStatPendingStores');
+        if (storesEl) storesEl.textContent = stores.total;
+        if (pendingStoresEl) pendingStoresEl.textContent = `Bekleyen: ${stores.pending}`;
+
+        // Products
+        const productsEl = document.getElementById('adminStatProducts');
+        const pendingProductsEl = document.getElementById('adminStatPendingProducts');
+        if (productsEl) productsEl.textContent = products.total;
+        if (pendingProductsEl) pendingProductsEl.textContent = `Bekleyen: ${products.pending}`;
+
+        // Returns
+        const returnsEl = document.getElementById('adminStatReturns');
+        const pendingReturnsEl = document.getElementById('adminStatPendingReturns');
+        if (returnsEl) returnsEl.textContent = returns.total;
+        if (pendingReturnsEl) pendingReturnsEl.textContent = `Bekleyen: ${returns.pending}`;
+    }
+
+    renderAdminTopStores(stores) {
+        const container = document.getElementById('adminTopStoresList');
+        if (!container) return;
+
+        if (!stores || stores.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #64748b;">Henüz mağaza yok</p>';
+            return;
+        }
+
+        container.innerHTML = stores.map((s, i) => `
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: #fafafa; border-radius: 6px;">
+                <span style="font-weight: 700; color: var(--admin-primary); width: 25px;">#${i + 1}</span>
+                <img src="${s.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(s.name)}" 
+                     style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;" alt="${s.name}">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${s.orders} sipariş · ${s.products} ürün</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 700; color: #10b981; font-size: 0.9rem;">₺${s.revenue.toLocaleString('tr-TR')}</div>
+                    <div style="font-size: 0.7rem; color: #f59e0b;">⭐ ${s.rating.toFixed(1)}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderAdminRevenueChart(salesData) {
+        const canvas = document.getElementById('adminRevenueChart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('adminChartWrapper');
+        canvas.width = wrapper.offsetWidth - 32 || 500;
+        canvas.height = 180;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!salesData || salesData.length === 0) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Henüz gelir verisi yok', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        const maxRevenue = Math.max(...salesData.map(d => d.revenue), 1);
+        const barWidth = (canvas.width - 50) / salesData.length - 4;
+        const chartHeight = canvas.height - 40;
+
+        salesData.forEach((day, i) => {
+            const barHeight = (day.revenue / maxRevenue) * (chartHeight - 20);
+            const x = 40 + i * (barWidth + 4);
+            const y = chartHeight - barHeight;
+
+            const gradient = ctx.createLinearGradient(x, y, x, chartHeight);
+            gradient.addColorStop(0, '#10b981');
+            gradient.addColorStop(1, '#059669');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, barWidth, barHeight);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const dateLabel = new Date(day.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+            ctx.fillText(dateLabel, x + barWidth / 2, canvas.height - 5);
+        });
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`₺${maxRevenue.toLocaleString('tr-TR')}`, 35, 12);
+    }
+
+    renderAdminActivityFeed(activities) {
+        const container = document.getElementById('adminActivityFeed');
+        if (!container) return;
+
+        if (!activities || activities.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #64748b;">Henüz aktivite yok</p>';
+            return;
+        }
+
+        const typeColors = {
+            order: '#10b981',
+            store: '#8b5cf6',
+            product: '#3b82f6'
+        };
+
+        container.innerHTML = activities.map(a => `
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: #f8fafc; border-radius: 6px; border-left: 3px solid ${typeColors[a.type] || '#64748b'};">
+                <span style="font-size: 1.2rem;">${a.icon}</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${a.title}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${a.subtitle}</div>
+                </div>
+                <div style="font-size: 0.7rem; color: #94a3b8; white-space: nowrap;">
+                    ${new Date(a.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    setupAdminChartControls() {
+        const buttons = document.querySelectorAll('.admin-chart-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                buttons.forEach(b => {
+                    b.style.background = 'white';
+                    b.style.color = 'var(--admin-text)';
+                    b.classList.remove('active');
+                });
+                btn.style.background = 'var(--admin-primary)';
+                btn.style.color = 'white';
+                btn.classList.add('active');
+
+                const days = parseInt(btn.dataset.days) || 7;
+                const res = await fetch(`${this.api.baseURL}/analytics/admin/revenue?days=${days}`, {
+                    headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        this.renderAdminRevenueChart(data.data);
+                    }
+                }
+            });
+        });
+    }
+
     loadSecurityData() {
         console.log('[Admin Dashboard] Security data - static display, no API call needed');
     }
@@ -1638,59 +2155,59 @@ function setupLogout() {
 // ===========================================
 
 async function loadCommissionsData() {
-        try {
-            console.log('[Admin Dashboard] Loading commissions...');
+    try {
+        console.log('[Admin Dashboard] Loading commissions...');
 
-            // Get date range (last 30 days)
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - 30);
+        // Get date range (last 30 days)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
 
-            // Fetch summary
-            const summaryRes = await fetch(
-                `${apiClient.baseURL}/commissions/admin/summary?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${apiClient.getToken()}`
-                    }
+        // Fetch summary
+        const summaryRes = await fetch(
+            `${apiClient.baseURL}/commissions/admin/summary?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiClient.getToken()}`
                 }
-            );
+            }
+        );
 
-            if (!summaryRes.ok) throw new Error('Failed to fetch summary');
-            const summaryData = await summaryRes.json();
+        if (!summaryRes.ok) throw new Error('Failed to fetch summary');
+        const summaryData = await summaryRes.json();
 
-            // Fetch transactions
-            const transactionsRes = await fetch(
-                `${apiClient.baseURL}/commissions/admin/all?limit=50`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${apiClient.getToken()}`
-                    }
+        // Fetch transactions
+        const transactionsRes = await fetch(
+            `${apiClient.baseURL}/commissions/admin/all?limit=50`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiClient.getToken()}`
                 }
-            );
+            }
+        );
 
-            if (!transactionsRes.ok) throw new Error('Failed to fetch transactions');
-            const transactionsData = await transactionsRes.json();
+        if (!transactionsRes.ok) throw new Error('Failed to fetch transactions');
+        const transactionsData = await transactionsRes.json();
 
-            renderCommissionSummary(summaryData.data);
-            renderCommissionTransactions(transactionsData.data);
+        renderCommissionSummary(summaryData.data);
+        renderCommissionTransactions(transactionsData.data);
 
-        } catch (error) {
-            console.error('[Admin Dashboard] Error loading commissions:', error);
-            alert('❌ Komisyon verileri yüklenirken hata oluştu: ' + error.message);
-        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error loading commissions:', error);
+        alert('❌ Komisyon verileri yüklenirken hata oluştu: ' + error.message);
     }
+}
 
 function renderCommissionSummary(summary) {
-        const container = document.getElementById('commission-summary');
-        if (!container) return;
+    const container = document.getElementById('commission-summary');
+    if (!container) return;
 
-        const totalRevenue = parseFloat(summary.total_commission || 0).toFixed(2);
-        const totalSales = parseFloat(summary.total_sales || 0).toFixed(2);
-        const pendingPayments = parseFloat(summary.pending_payments || 0).toFixed(2);
-        const paidToSellers = parseFloat(summary.total_paid_to_sellers || 0).toFixed(2);
+    const totalRevenue = parseFloat(summary.total_commission || 0).toFixed(2);
+    const totalSales = parseFloat(summary.total_sales || 0).toFixed(2);
+    const pendingPayments = parseFloat(summary.pending_payments || 0).toFixed(2);
+    const paidToSellers = parseFloat(summary.total_paid_to_sellers || 0).toFixed(2);
 
-        container.innerHTML = `
+    container.innerHTML = `
             <div class="admin-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
                 <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">💰 Platform Revenue</div>
                 <div style="font-size: 2rem; font-weight: 800;">₺${totalRevenue}</div>
@@ -1712,18 +2229,18 @@ function renderCommissionSummary(summary) {
                 <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">${summary.unique_stores || 0} stores</div>
             </div>
         `;
-    }
+}
 
 function renderCommissionTransactions(transactions) {
-        const container = document.getElementById('commission-transactions');
-        if (!container) return;
+    const container = document.getElementById('commission-transactions');
+    if (!container) return;
 
-        if (!transactions || transactions.length === 0) {
-            container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Komisyon kaydı bulunmamaktadır.</p>';
-            return;
-        }
+    if (!transactions || transactions.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Komisyon kaydı bulunmamaktadır.</p>';
+        return;
+    }
 
-        let html = `
+    let html = `
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid var(--admin-border);">
@@ -1740,22 +2257,22 @@ function renderCommissionTransactions(transactions) {
                 <tbody>
         `;
 
-        transactions.forEach(t => {
-            const statusColors = {
-                'calculated': '#3b82f6',
-                'paid_to_seller': '#10b981',
-                'refunded': '#dc2626',
-                'cancelled': '#6b7280'
-            };
+    transactions.forEach(t => {
+        const statusColors = {
+            'calculated': '#3b82f6',
+            'paid_to_seller': '#10b981',
+            'refunded': '#dc2626',
+            'cancelled': '#6b7280'
+        };
 
-            const statusLabels = {
-                'calculated': 'Calculated',
-                'paid_to_seller': 'Paid',
-                'refunded': 'Refunded',
-                'cancelled': 'Cancelled'
-            };
+        const statusLabels = {
+            'calculated': 'Calculated',
+            'paid_to_seller': 'Paid',
+            'refunded': 'Refunded',
+            'cancelled': 'Cancelled'
+        };
 
-            html += `
+        html += `
                 <tr style="border-bottom: 1px solid var(--admin-border);">
                     <td style="padding: 1rem;">
                         <span style="font-family: monospace; font-size: 0.9rem;">${t.order?.order_number || 'N/A'}</span>
@@ -1785,11 +2302,11 @@ function renderCommissionTransactions(transactions) {
                     </td>
                 </tr>
             `;
-        });
+    });
 
-        html += '</tbody></table>';
-        container.innerHTML = html;
-    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 
 // ===========================================
 // COUPON MANAGEMENT METHODS
@@ -1799,51 +2316,51 @@ function renderCommissionTransactions(transactions) {
  * Load coupons data from API
  */
 async function loadCouponsData() {
-        try {
-            console.log('[Admin Dashboard] Loading coupons data...');
+    try {
+        console.log('[Admin Dashboard] Loading coupons data...');
 
-            // Fetch all coupons
-            const response = await apiClient.get('/coupons');
+        // Fetch all coupons
+        const response = await apiClient.get('/coupons');
 
-            if (response.success && response.data) {
-                const coupons = response.data;
+        if (response.success && response.data) {
+            const coupons = response.data;
 
-                // Update stats
-                const totalCoupons = coupons.length;
-                const activeCoupons = coupons.filter(c => c.is_active).length;
+            // Update stats
+            const totalCoupons = coupons.length;
+            const activeCoupons = coupons.filter(c => c.is_active).length;
 
-                document.getElementById('totalCoupons').textContent = totalCoupons;
-                document.getElementById('activeCoupons').textContent = activeCoupons;
-                document.getElementById('totalSavings').textContent = '$0'; // TODO: Calculate from usage
+            document.getElementById('totalCoupons').textContent = totalCoupons;
+            document.getElementById('activeCoupons').textContent = activeCoupons;
+            document.getElementById('totalSavings').textContent = '$0'; // TODO: Calculate from usage
 
-                // Render coupons table
-                renderCouponsTable(coupons);
-            } else {
-                throw new Error('Failed to load coupons');
-            }
+            // Render coupons table
+            renderCouponsTable(coupons);
+        } else {
+            throw new Error('Failed to load coupons');
+        }
 
-        } catch (error) {
-            console.error('[Admin Dashboard] Error loading coupons:', error);
-            const table = document.getElementById('coupons-table');
-            if (table) {
-                table.innerHTML = '<p style="text-align: center; padding: 2rem; color: #dc2626;">Error loading coupons: ' + error.message + '</p>';
-            }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error loading coupons:', error);
+        const table = document.getElementById('coupons-table');
+        if (table) {
+            table.innerHTML = '<p style="text-align: center; padding: 2rem; color: #dc2626;">Error loading coupons: ' + error.message + '</p>';
         }
     }
+}
 
 /**
  * Render coupons table
  */
 function renderCouponsTable(coupons) {
-        const container = document.getElementById('coupons-table');
-        if (!container) return;
+    const container = document.getElementById('coupons-table');
+    if (!container) return;
 
-        if (!coupons || coupons.length === 0) {
-            container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">No coupons found. Create your first coupon!</p>';
-            return;
-        }
+    if (!coupons || coupons.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">No coupons found. Create your first coupon!</p>';
+        return;
+    }
 
-        let html = `
+    let html = `
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: rgba(139, 92, 246, 0.1); border-bottom: 2px solid var(--admin-border);">
@@ -1859,21 +2376,21 @@ function renderCouponsTable(coupons) {
                 <tbody>
         `;
 
-        coupons.forEach(coupon => {
-            const discountDisplay = coupon.discount_type === 'percentage'
-                ? `${coupon.discount_value}%`
-                : coupon.discount_type === 'fixed'
+    coupons.forEach(coupon => {
+        const discountDisplay = coupon.discount_type === 'percentage'
+            ? `${coupon.discount_value}%`
+            : coupon.discount_type === 'fixed'
                 ? `$${coupon.discount_value}`
                 : 'Free Shipping';
 
-            const usageDisplay = coupon.usage_limit
-                ? `${coupon.times_used || 0} / ${coupon.usage_limit}`
-                : `${coupon.times_used || 0} / ∞`;
+        const usageDisplay = coupon.usage_limit
+            ? `${coupon.times_used || 0} / ${coupon.usage_limit}`
+            : `${coupon.times_used || 0} / ∞`;
 
-            const statusColor = coupon.is_active ? '#10b981' : '#6b7280';
-            const statusLabel = coupon.is_active ? 'Active' : 'Inactive';
+        const statusColor = coupon.is_active ? '#10b981' : '#6b7280';
+        const statusLabel = coupon.is_active ? 'Active' : 'Inactive';
 
-            html += `
+        html += `
                 <tr style="border-bottom: 1px solid var(--admin-border);">
                     <td style="padding: 1rem;">
                         <span style="font-family: monospace; font-weight: 600; background: rgba(139, 92, 246, 0.1); padding: 0.25rem 0.5rem; border-radius: 4px;">
@@ -1912,245 +2429,245 @@ function renderCouponsTable(coupons) {
                     </td>
                 </tr>
             `;
-        });
+    });
 
-        html += '</tbody></table>';
-        container.innerHTML = html;
-    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 
 /**
  * Toggle coupon active status
  */
 async function toggleCouponStatus(couponId, newStatus) {
-        try {
-            const response = await apiClient.patch(`/coupons/${couponId}`, {
-                is_active: newStatus
-            });
+    try {
+        const response = await apiClient.patch(`/coupons/${couponId}`, {
+            is_active: newStatus
+        });
 
-            if (response.success) {
-                alert(`✅ Coupon ${newStatus ? 'activated' : 'deactivated'} successfully!`);
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to update coupon');
-            }
-        } catch (error) {
-            console.error('[Admin Dashboard] Error toggling coupon status:', error);
-            alert('❌ Error: ' + error.message);
+        if (response.success) {
+            alert(`✅ Coupon ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to update coupon');
         }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error toggling coupon status:', error);
+        alert('❌ Error: ' + error.message);
     }
+}
 
 /**
  * Delete coupon
  */
 async function deleteCoupon(couponId, couponCode) {
-        if (!confirm(`Are you sure you want to delete coupon "${couponCode}"? This action cannot be undone.`)) {
-            return;
-        }
-
-        try {
-            const response = await apiClient.delete(`/coupons/${couponId}`);
-
-            if (response.success) {
-                alert('✅ Coupon deleted successfully!');
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to delete coupon');
-            }
-        } catch (error) {
-            console.error('[Admin Dashboard] Error deleting coupon:', error);
-            alert('❌ Error: ' + error.message);
-        }
+    if (!confirm(`Are you sure you want to delete coupon "${couponCode}"? This action cannot be undone.`)) {
+        return;
     }
+
+    try {
+        const response = await apiClient.delete(`/coupons/${couponId}`);
+
+        if (response.success) {
+            alert('✅ Coupon deleted successfully!');
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to delete coupon');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error deleting coupon:', error);
+        alert('❌ Error: ' + error.message);
+    }
+}
 
 /**
  * Setup coupon modal handlers
  */
 function setupCouponModal() {
-        const addBtn = document.getElementById('addCouponBtn');
-        const modal = document.getElementById('couponModal');
-        const closeBtn = document.getElementById('closeCouponModal');
-        const cancelBtn = document.getElementById('cancelCouponBtn');
-        const form = document.getElementById('couponForm');
-        const discountType = document.getElementById('discountType');
+    const addBtn = document.getElementById('addCouponBtn');
+    const modal = document.getElementById('couponModal');
+    const closeBtn = document.getElementById('closeCouponModal');
+    const cancelBtn = document.getElementById('cancelCouponBtn');
+    const form = document.getElementById('couponForm');
+    const discountType = document.getElementById('discountType');
 
-        if (!addBtn || !modal || !closeBtn || !form) {
-            console.log('[Admin Dashboard] Coupon modal elements not found');
-            return;
-        }
-
-        // Expose coupon helpers on dashboard instance for inline handlers
-        // These will be bound after instance creation as well
-        window.adminDashboard = window.adminDashboard || {};
-        window.adminDashboard.toggleCouponStatus = window.adminDashboard.toggleCouponStatus || toggleCouponStatus;
-        window.adminDashboard.deleteCoupon = window.adminDashboard.deleteCoupon || deleteCoupon;
-        window.adminDashboard.approveCoupon = window.adminDashboard.approveCoupon || approveCoupon;
-        window.adminDashboard.rejectCoupon = window.adminDashboard.rejectCoupon || rejectCoupon;
-
-        // Open modal
-        addBtn.addEventListener('click', () => {
-            modal.style.display = 'flex';
-            form.reset();
-            document.getElementById('isActive').checked = true;
-            updateDiscountFields();
-        });
-
-        // Close modal
-        const closeModal = () => {
-            modal.style.display = 'none';
-        };
-
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
-
-        // Close on background click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-            }
-        });
-
-        // Update fields when discount type changes
-        discountType.addEventListener('change', () => {
-            updateDiscountFields();
-        });
-
-        // Form submit
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await createCoupon();
-        });
+    if (!addBtn || !modal || !closeBtn || !form) {
+        console.log('[Admin Dashboard] Coupon modal elements not found');
+        return;
     }
+
+    // Expose coupon helpers on dashboard instance for inline handlers
+    // These will be bound after instance creation as well
+    window.adminDashboard = window.adminDashboard || {};
+    window.adminDashboard.toggleCouponStatus = window.adminDashboard.toggleCouponStatus || toggleCouponStatus;
+    window.adminDashboard.deleteCoupon = window.adminDashboard.deleteCoupon || deleteCoupon;
+    window.adminDashboard.approveCoupon = window.adminDashboard.approveCoupon || approveCoupon;
+    window.adminDashboard.rejectCoupon = window.adminDashboard.rejectCoupon || rejectCoupon;
+
+    // Open modal
+    addBtn.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        form.reset();
+        document.getElementById('isActive').checked = true;
+        updateDiscountFields();
+    });
+
+    // Close modal
+    const closeModal = () => {
+        modal.style.display = 'none';
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Update fields when discount type changes
+    discountType.addEventListener('change', () => {
+        updateDiscountFields();
+    });
+
+    // Form submit
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await createCoupon();
+    });
+}
 
 /**
  * Update discount fields based on type
  */
 function updateDiscountFields() {
-        const discountType = document.getElementById('discountType').value;
-        const discountValueDiv = document.getElementById('discountValueDiv');
-        const maxDiscountDiv = document.getElementById('maxDiscountDiv');
+    const discountType = document.getElementById('discountType').value;
+    const discountValueDiv = document.getElementById('discountValueDiv');
+    const maxDiscountDiv = document.getElementById('maxDiscountDiv');
 
-        if (discountType === 'free_shipping') {
-            // Hide discount value for free shipping
-            discountValueDiv.style.display = 'none';
-            maxDiscountDiv.style.display = 'none';
-        } else {
-            discountValueDiv.style.display = 'block';
-            // Only show max discount for percentage
-            maxDiscountDiv.style.display = discountType === 'percentage' ? 'block' : 'none';
-        }
+    if (discountType === 'free_shipping') {
+        // Hide discount value for free shipping
+        discountValueDiv.style.display = 'none';
+        maxDiscountDiv.style.display = 'none';
+    } else {
+        discountValueDiv.style.display = 'block';
+        // Only show max discount for percentage
+        maxDiscountDiv.style.display = discountType === 'percentage' ? 'block' : 'none';
     }
+}
 
 /**
  * Create new coupon
  */
 async function createCoupon() {
-        try {
-            // Collect form data
-            const couponData = {
-                code: document.getElementById('couponCode').value.trim().toUpperCase(),
-                name: document.getElementById('couponName').value.trim(),
-                description: document.getElementById('couponDescription').value.trim() || undefined,
-                discount_type: document.getElementById('discountType').value,
-                discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
-                min_order_amount: parseFloat(document.getElementById('minOrderAmount').value) || 0,
-                max_discount_amount: parseFloat(document.getElementById('maxDiscount').value) || null,
-                usage_limit: parseInt(document.getElementById('usageLimit').value) || null,
-                usage_limit_per_user: parseInt(document.getElementById('perUserLimit').value) || 1,
-                first_order_only: document.getElementById('firstOrderOnly').checked,
-                is_active: document.getElementById('isActive').checked,
-                notes: document.getElementById('couponNotes').value.trim() || undefined
-            };
+    try {
+        // Collect form data
+        const couponData = {
+            code: document.getElementById('couponCode').value.trim().toUpperCase(),
+            name: document.getElementById('couponName').value.trim(),
+            description: document.getElementById('couponDescription').value.trim() || undefined,
+            discount_type: document.getElementById('discountType').value,
+            discount_value: parseFloat(document.getElementById('discountValue').value) || 0,
+            min_order_amount: parseFloat(document.getElementById('minOrderAmount').value) || 0,
+            max_discount_amount: parseFloat(document.getElementById('maxDiscount').value) || null,
+            usage_limit: parseInt(document.getElementById('usageLimit').value) || null,
+            usage_limit_per_user: parseInt(document.getElementById('perUserLimit').value) || 1,
+            first_order_only: document.getElementById('firstOrderOnly').checked,
+            is_active: document.getElementById('isActive').checked,
+            notes: document.getElementById('couponNotes').value.trim() || undefined
+        };
 
-            // Handle dates
-            const validFrom = document.getElementById('validFrom').value;
-            const validUntil = document.getElementById('validUntil').value;
+        // Handle dates
+        const validFrom = document.getElementById('validFrom').value;
+        const validUntil = document.getElementById('validUntil').value;
 
-            if (validFrom) {
-                couponData.valid_from = new Date(validFrom).toISOString();
-            }
-
-            if (validUntil) {
-                couponData.valid_until = new Date(validUntil).toISOString();
-            }
-
-            // For free shipping, set discount_value to 0
-            if (couponData.discount_type === 'free_shipping') {
-                couponData.discount_value = 0;
-            }
-
-            console.log('[Admin Dashboard] Creating coupon:', couponData);
-
-            const response = await apiClient.post('/coupons', couponData);
-
-            if (response.success) {
-                alert('✅ Coupon created successfully!');
-                document.getElementById('couponModal').style.display = 'none';
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to create coupon');
-            }
-
-        } catch (error) {
-            console.error('[Admin Dashboard] Error creating coupon:', error);
-            alert('❌ Error creating coupon: ' + error.message);
+        if (validFrom) {
+            couponData.valid_from = new Date(validFrom).toISOString();
         }
+
+        if (validUntil) {
+            couponData.valid_until = new Date(validUntil).toISOString();
+        }
+
+        // For free shipping, set discount_value to 0
+        if (couponData.discount_type === 'free_shipping') {
+            couponData.discount_value = 0;
+        }
+
+        console.log('[Admin Dashboard] Creating coupon:', couponData);
+
+        const response = await apiClient.post('/coupons', couponData);
+
+        if (response.success) {
+            alert('✅ Coupon created successfully!');
+            document.getElementById('couponModal').style.display = 'none';
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to create coupon');
+        }
+
+    } catch (error) {
+        console.error('[Admin Dashboard] Error creating coupon:', error);
+        alert('❌ Error creating coupon: ' + error.message);
     }
+}
 
 function editCategoryCommission(categoryId, categoryName, currentRate) {
-        const rate = prompt(
-            `${categoryName} kategorisi için komisyon oranı girin (%)\n\n` +
-            `Mevcut: ${currentRate !== null ? currentRate + '%' : 'Global (15%)'}\n\n` +
-            `Not: Boş bırakırsanız global oran (15%) kullanılır.`,
-            currentRate || ''
-        );
+    const rate = prompt(
+        `${categoryName} kategorisi için komisyon oranı girin (%)\n\n` +
+        `Mevcut: ${currentRate !== null ? currentRate + '%' : 'Global (15%)'}\n\n` +
+        `Not: Boş bırakırsanız global oran (15%) kullanılır.`,
+        currentRate || ''
+    );
 
-        // User cancelled
-        if (rate === null) return;
+    // User cancelled
+    if (rate === null) return;
 
-        // Validate
-        const rateNumber = rate.trim() === '' ? null : parseFloat(rate);
-        
-        if (rateNumber !== null && (isNaN(rateNumber) || rateNumber < 0 || rateNumber > 100)) {
-            alert('Lütfen 0-100 arasında geçerli bir oran girin.');
-            return;
-        }
+    // Validate
+    const rateNumber = rate.trim() === '' ? null : parseFloat(rate);
 
-        updateCategoryCommission(categoryId, categoryName, rateNumber);
+    if (rateNumber !== null && (isNaN(rateNumber) || rateNumber < 0 || rateNumber > 100)) {
+        alert('Lütfen 0-100 arasında geçerli bir oran girin.');
+        return;
     }
+
+    updateCategoryCommission(categoryId, categoryName, rateNumber);
+}
 
 async function updateCategoryCommission(categoryId, categoryName, rate) {
-        try {
-            console.log(`[Admin] Updating commission for ${categoryName}:`, rate);
+    try {
+        console.log(`[Admin] Updating commission for ${categoryName}:`, rate);
 
-            const response = await fetch(`${apiClient.baseURL}/categories/${categoryId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiClient.getToken()}`,
-                },
-                body: JSON.stringify({ commission_rate: rate })
-            });
+        const response = await fetch(`${apiClient.baseURL}/categories/${categoryId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiClient.getToken()}`,
+            },
+            body: JSON.stringify({ commission_rate: rate })
+        });
 
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log('[Admin] Commission updated:', result);
-
-            const rateDisplay = rate !== null ? `${rate}%` : 'Global (15%)';
-            alert(`✅ ${categoryName} komisyonu güncellendi: ${rateDisplay}`);
-
-            // Refresh categories table
-            // Note: This needs to be called from AdminDashboard instance
-            // For now, just reload the page section
-            window.location.reload();
-
-        } catch (error) {
-            console.error('[Admin] Error updating commission:', error);
-            alert('❌ Komisyon güncellenirken hata oluştu: ' + error.message);
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
         }
+
+        const result = await response.json();
+        console.log('[Admin] Commission updated:', result);
+
+        const rateDisplay = rate !== null ? `${rate}%` : 'Global (15%)';
+        alert(`✅ ${categoryName} komisyonu güncellendi: ${rateDisplay}`);
+
+        // Refresh categories table
+        // Note: This needs to be called from AdminDashboard instance
+        // For now, just reload the page section
+        window.location.reload();
+
+    } catch (error) {
+        console.error('[Admin] Error updating commission:', error);
+        alert('❌ Komisyon güncellenirken hata oluştu: ' + error.message);
     }
+}
 
 // Initialize Admin Dashboard
 document.addEventListener('DOMContentLoaded', () => {
@@ -2178,18 +2695,18 @@ document.addEventListener('DOMContentLoaded', () => {
  * Approve coupon (activate)
  */
 async function approveCoupon(couponId) {
-        try {
-            const response = await apiClient.patch(`/coupons/${couponId}/approve`, {});
-            if (response.success) {
-                alert('✅ Kupon başarıyla onaylandı!');
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to approve coupon');
-            }
-        } catch (error) {
-            console.error('[Admin Dashboard] Error approving coupon:', error);
-            alert('⚠️ Hata: ' + error.message);
+    try {
+        const response = await apiClient.patch(`/coupons/${couponId}/approve`, {});
+        if (response.success) {
+            alert('✅ Kupon başarıyla onaylandı!');
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to approve coupon');
         }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error approving coupon:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
 }
 
 /**
@@ -2266,21 +2783,21 @@ function renderReturnsTable(returnsList) {
     `;
 
     returnsList.forEach(r => {
-        const statusColors = { pending:'#f59e0b', approved:'#10b981', items_received:'#3b82f6', refund_processed:'#8b5cf6', completed:'#10b981', rejected:'#dc2626', cancelled:'#6b7280' };
+        const statusColors = { pending: '#f59e0b', approved: '#10b981', items_received: '#3b82f6', refund_processed: '#8b5cf6', completed: '#10b981', rejected: '#dc2626', cancelled: '#6b7280' };
         const color = statusColors[r.status] || '#64748b';
         html += `
           <tr style="border-bottom:1px solid var(--admin-border);">
-            <td style="padding:0.75rem; font-weight:600;">${r.return_number || r.id.slice(0,8)}</td>
+            <td style="padding:0.75rem; font-weight:600;">${r.return_number || r.id.slice(0, 8)}</td>
             <td style="padding:0.75rem;">${r.order?.order_number || r.order_id}</td>
             <td style="padding:0.75rem;">${r.customer ? (r.customer.first_name || '') + ' ' + (r.customer.last_name || '') : '-'}</td>
-            <td style="padding:0.75rem; text-align:center;"><span style="padding:0.25rem 0.6rem; border-radius:12px; color:${color}; background:${color}20; font-size:0.8rem; font-weight:600; text-transform:capitalize;">${r.status.replace('_',' ')}</span></td>
+            <td style="padding:0.75rem; text-align:center;"><span style="padding:0.25rem 0.6rem; border-radius:12px; color:${color}; background:${color}20; font-size:0.8rem; font-weight:600; text-transform:capitalize;">${r.status.replace('_', ' ')}</span></td>
             <td style="padding:0.75rem; text-align:right; font-weight:700; color:#8b5cf6;">$${Number(r.refund_amount || 0).toFixed(2)}</td>
             <td style="padding:0.75rem; text-align:center;">
-              ${r.status==='pending' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','approved')" style="background:#10b981;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;margin-right:6px;">Approve</button>
+              ${r.status === 'pending' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','approved')" style="background:#10b981;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;margin-right:6px;">Approve</button>
               <button onclick="window.adminDashboard.rejectReturn('${r.id}')" style="background:#f59e0b;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Reject</button>` : ''}
-              ${r.status==='approved' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','items_received')" style="background:#3b82f6;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Items Received</button>` : ''}
-              ${r.status==='items_received' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','refund_processed')" style="background:#8b5cf6;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Refund Processed</button>` : ''}
-              ${r.status==='refund_processed' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','completed')" style="background:#10b981;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Complete</button>` : ''}
+              ${r.status === 'approved' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','items_received')" style="background:#3b82f6;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Items Received</button>` : ''}
+              ${r.status === 'items_received' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','refund_processed')" style="background:#8b5cf6;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Refund Processed</button>` : ''}
+              ${r.status === 'refund_processed' ? `<button onclick="window.adminDashboard.updateReturnStatus('${r.id}','completed')" style="background:#10b981;color:#fff;border:none;padding:0.4rem 0.7rem;border-radius:6px;cursor:pointer;">Complete</button>` : ''}
             </td>
           </tr>
         `;
@@ -2340,42 +2857,676 @@ document.addEventListener('DOMContentLoaded', () => {
  * Reject coupon (deactivate with reason)
  */
 async function rejectCoupon(couponId) {
-        const reason = prompt('Enter rejection reason (optional):');
-        try {
-            const response = await apiClient.patch(`/coupons/${couponId}/reject`, { reason: reason || undefined });
-            if (response.success) {
-                alert('✅ Kupon reddedildi ve devre dışı bırakıldı.');
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to reject coupon');
-            }
-        } catch (error) {
-            console.error('[Admin Dashboard] Error rejecting coupon:', error);
-            alert('⚠️ Hata: ' + error.message);
+    const reason = prompt('Enter rejection reason (optional):');
+    try {
+        const response = await apiClient.patch(`/coupons/${couponId}/reject`, { reason: reason || undefined });
+        if (response.success) {
+            alert('✅ Kupon reddedildi ve devre dışı bırakıldı.');
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to reject coupon');
         }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error rejecting coupon:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
 }
 
 /**
  * Override: toggle using approve/disable endpoints
  */
 async function toggleCouponStatus(couponId, newStatus) {
-        try {
-            let response;
-            if (newStatus) {
-                response = await apiClient.patch(`/coupons/${couponId}/approve`, {});
-            } else {
-                response = await apiClient.patch(`/coupons/${couponId}/disable`, {});
-            }
-
-            if (response.success) {
-                alert(`✅ Kupon ${newStatus ? 'aktifleştirildi' : 'devre dışı bırakıldı'}!`);
-                loadCouponsData();
-            } else {
-                throw new Error(response.message || 'Failed to update coupon');
-            }
-        } catch (error) {
-            console.error('[Admin Dashboard] Error toggling coupon status:', error);
-            alert('⚠️ Hata: ' + error.message);
+    try {
+        let response;
+        if (newStatus) {
+            response = await apiClient.patch(`/coupons/${couponId}/approve`, {});
+        } else {
+            response = await apiClient.patch(`/coupons/${couponId}/disable`, {});
         }
+
+        if (response.success) {
+            alert(`✅ Kupon ${newStatus ? 'aktifleştirildi' : 'devre dışı bırakıldı'}!`);
+            loadCouponsData();
+        } else {
+            throw new Error(response.message || 'Failed to update coupon');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error toggling coupon status:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
 }
 
+// ===========================================
+// CATEGORY MANAGEMENT
+// ===========================================
+
+let categoriesData = [];
+
+async function loadCategoriesData() {
+    const container = document.getElementById('categories-table');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="spinner"></div><p>Kategoriler yükleniyor...</p></div>';
+
+    try {
+        const response = await apiClient.get('/categories');
+        if (response.success && response.data) {
+            categoriesData = response.data;
+            renderCategoriesTable(response.data);
+        } else {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Kategori bulunamadı.</p>';
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error loading categories:', error);
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #dc2626;">Kategoriler yüklenirken hata oluştu.</p>';
+    }
+}
+
+function renderCategoriesTable(categories) {
+    const container = document.getElementById('categories-table');
+    if (!container) return;
+
+    if (!categories || categories.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; opacity: 0.6;">Kategori bulunamadı. Yeni kategori ekleyin.</p>';
+        return;
+    }
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid var(--admin-border);">
+                    <th style="padding: 1rem; text-align: left;">İkon</th>
+                    <th style="padding: 1rem; text-align: left;">Kategori Adı</th>
+                    <th style="padding: 1rem; text-align: left;">Açıklama</th>
+                    <th style="padding: 1rem; text-align: center;">Öne Çıkan</th>
+                    <th style="padding: 1rem; text-align: center;">Sıra</th>
+                    <th style="padding: 1rem; text-align: center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    categories.forEach(cat => {
+        html += `
+            <tr style="border-bottom: 1px solid var(--admin-border);">
+                <td style="padding: 1rem; font-size: 1.5rem;">${cat.icon || '📁'}</td>
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 600;">${cat.name}</div>
+                    <div style="opacity: 0.6; font-size: 0.85rem;">${cat.slug}</div>
+                </td>
+                <td style="padding: 1rem; opacity: 0.8;">${cat.description || '-'}</td>
+                <td style="padding: 1rem; text-align: center;">
+                    ${cat.is_featured ? '<span style="color: #10b981;">✓</span>' : '<span style="opacity: 0.4;">-</span>'}
+                </td>
+                <td style="padding: 1rem; text-align: center;">${cat.sort_order || 0}</td>
+                <td style="padding: 1rem; text-align: center;">
+                    <button onclick="openVariantModal('${cat.id}', '${cat.name}')" 
+                            style="background: #8b5cf6; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-right: 0.5rem; font-size: 0.85rem;">
+                        🎨 Varyantlar
+                    </button>
+                    <button onclick="openCategoryModal('${cat.id}')" 
+                            style="background: #3b82f6; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; margin-right: 0.5rem; font-size: 0.85rem;">
+                        ✏️ Düzenle
+                    </button>
+                    <button onclick="deleteCategory('${cat.id}')" 
+                            style="background: #dc2626; color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
+                        🗑️ Sil
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function openCategoryModal(categoryId = null) {
+    const modal = document.getElementById('categoryModal');
+    const title = document.getElementById('categoryModalTitle');
+    const form = document.getElementById('categoryForm');
+
+    // Reset form
+    form.reset();
+    document.getElementById('categoryId').value = '';
+
+    if (categoryId) {
+        // Edit mode
+        title.textContent = '✏️ Kategori Düzenle';
+        const cat = categoriesData.find(c => c.id === categoryId);
+        if (cat) {
+            document.getElementById('categoryId').value = cat.id;
+            document.getElementById('categoryName').value = cat.name || '';
+            document.getElementById('categoryDescription').value = cat.description || '';
+            document.getElementById('categoryIcon').value = cat.icon || '';
+            document.getElementById('categorySortOrder').value = cat.sort_order || 0;
+            document.getElementById('categoryFeatured').checked = cat.is_featured || false;
+        }
+    } else {
+        // Create mode
+        title.textContent = '📂 Yeni Kategori';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeCategoryModal() {
+    const modal = document.getElementById('categoryModal');
+    modal.style.display = 'none';
+}
+
+async function saveCategory(event) {
+    event.preventDefault();
+
+    const categoryId = document.getElementById('categoryId').value;
+    const data = {
+        name: document.getElementById('categoryName').value,
+        description: document.getElementById('categoryDescription').value,
+        icon: document.getElementById('categoryIcon').value,
+        sort_order: parseInt(document.getElementById('categorySortOrder').value) || 0,
+        is_featured: document.getElementById('categoryFeatured').checked,
+        is_active: true
+    };
+
+    try {
+        let response;
+        if (categoryId) {
+            // Update
+            response = await apiClient.put(`/categories/${categoryId}`, data);
+        } else {
+            // Create
+            response = await apiClient.post('/categories', data);
+        }
+
+        if (response.success) {
+            alert(`✅ Kategori ${categoryId ? 'güncellendi' : 'oluşturuldu'}!`);
+            closeCategoryModal();
+            loadCategoriesData();
+        } else {
+            throw new Error(response.message || 'İşlem başarısız');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error saving category:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
+}
+
+async function deleteCategory(categoryId) {
+    if (!confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) {
+        return;
+    }
+
+    try {
+        const response = await apiClient.delete(`/categories/${categoryId}`);
+        if (response.success || response.status === 204) {
+            alert('✅ Kategori silindi!');
+            loadCategoriesData();
+        } else {
+            throw new Error(response.message || 'Silme işlemi başarısız');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error deleting category:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
+}
+
+// ===========================================
+// VARIANT MANAGEMENT
+// ===========================================
+
+let currentVariantCategoryId = null;
+
+function openVariantModal(categoryId, categoryName) {
+    currentVariantCategoryId = categoryId;
+    const modal = document.getElementById('variantModal');
+    const nameEl = document.getElementById('variantCategoryName');
+
+    document.getElementById('variantCategoryId').value = categoryId;
+    nameEl.textContent = `Kategori: ${categoryName}`;
+
+    // Clear form
+    document.getElementById('newVariantName').value = '';
+    document.getElementById('newVariantOptions').value = '';
+    document.getElementById('newVariantType').value = 'text';
+    document.getElementById('newVariantRequired').checked = false;
+
+    // Load existing variants
+    loadExistingVariants(categoryId);
+
+    modal.style.display = 'flex';
+}
+
+function closeVariantModal() {
+    const modal = document.getElementById('variantModal');
+    modal.style.display = 'none';
+    currentVariantCategoryId = null;
+}
+
+async function loadExistingVariants(categoryId) {
+    const container = document.getElementById('existingVariants');
+    container.innerHTML = '<p style="opacity: 0.6;">Varyantlar yükleniyor...</p>';
+
+    try {
+        const response = await apiClient.get(`/categories/${categoryId}/variants`);
+        if (response.success && response.data && response.data.length > 0) {
+            let html = '<h4 style="margin: 0 0 1rem 0; color: var(--admin-primary);">Mevcut Varyantlar</h4>';
+            response.data.forEach(variant => {
+                const optionsText = variant.options ? variant.options.map(o => o.label || o.value).join(', ') : '-';
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: white; border: 1px solid var(--admin-border); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div>
+                            <strong>${variant.name}</strong>
+                            <span style="opacity: 0.6; margin-left: 0.5rem; font-size: 0.85rem;">(${variant.type})</span>
+                            ${variant.is_required ? '<span style="background: #f59e0b; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 0.5rem;">Zorunlu</span>' : ''}
+                            <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.25rem;">${optionsText}</div>
+                        </div>
+                        <button onclick="deleteVariant('${variant.id}')" 
+                                style="background: #dc2626; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p style="opacity: 0.6; padding: 1rem; text-align: center;">Bu kategoride henüz varyant yok.</p>';
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error loading variants:', error);
+        container.innerHTML = '<p style="color: #dc2626;">Varyantlar yüklenirken hata oluştu.</p>';
+    }
+}
+
+async function addVariant() {
+    const categoryId = document.getElementById('variantCategoryId').value;
+    const name = document.getElementById('newVariantName').value.trim();
+    const type = document.getElementById('newVariantType').value;
+    const optionsInput = document.getElementById('newVariantOptions').value.trim();
+    const isRequired = document.getElementById('newVariantRequired').checked;
+
+    if (!name) {
+        alert('Varyant adı gereklidir!');
+        return;
+    }
+
+    // Parse options
+    const options = optionsInput.split(',')
+        .map(o => o.trim())
+        .filter(o => o.length > 0)
+        .map(o => ({ label: o, value: o.toLowerCase().replace(/\s+/g, '_') }));
+
+    const data = {
+        name: name,
+        type: type,
+        options: options,
+        is_required: isRequired,
+        sort_order: 1
+    };
+
+    try {
+        const response = await apiClient.post(`/categories/${categoryId}/variants`, data);
+        if (response.success) {
+            alert('✅ Varyant eklendi!');
+            // Clear form
+            document.getElementById('newVariantName').value = '';
+            document.getElementById('newVariantOptions').value = '';
+            document.getElementById('newVariantRequired').checked = false;
+            // Reload variants
+            loadExistingVariants(categoryId);
+        } else {
+            throw new Error(response.message || 'Varyant eklenemedi');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error adding variant:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
+}
+
+async function deleteVariant(variantId) {
+    if (!confirm('Bu varyantı silmek istediğinizden emin misiniz?')) {
+        return;
+    }
+
+    try {
+        const categoryId = document.getElementById('variantCategoryId').value;
+        const response = await apiClient.delete(`/categories/${categoryId}/variants/${variantId}`);
+        if (response.success || response.status === 204) {
+            alert('✅ Varyant silindi!');
+            loadExistingVariants(categoryId);
+        } else {
+            throw new Error(response.message || 'Silme işlemi başarısız');
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error deleting variant:', error);
+        alert('⚠️ Hata: ' + error.message);
+    }
+}
+
+// Setup category modal events
+document.addEventListener('DOMContentLoaded', () => {
+    // Add Category Button
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', () => openCategoryModal());
+    }
+
+    // Category Modal Close
+    const closeCategoryModalBtn = document.getElementById('closeCategoryModal');
+    if (closeCategoryModalBtn) {
+        closeCategoryModalBtn.addEventListener('click', closeCategoryModal);
+    }
+    const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
+    if (cancelCategoryBtn) {
+        cancelCategoryBtn.addEventListener('click', closeCategoryModal);
+    }
+
+    // Category Form Submit
+    const categoryForm = document.getElementById('categoryForm');
+    if (categoryForm) {
+        categoryForm.addEventListener('submit', saveCategory);
+    }
+
+    // Variant Modal Close
+    const closeVariantModalBtn = document.getElementById('closeVariantModal');
+    if (closeVariantModalBtn) {
+        closeVariantModalBtn.addEventListener('click', closeVariantModal);
+    }
+
+    // Add Variant Button
+    const addVariantBtn = document.getElementById('addVariantBtn');
+    if (addVariantBtn) {
+        addVariantBtn.addEventListener('click', addVariant);
+    }
+
+    // Close modals on background click
+    const categoryModal = document.getElementById('categoryModal');
+    if (categoryModal) {
+        categoryModal.addEventListener('click', (e) => {
+            if (e.target === categoryModal) closeCategoryModal();
+        });
+    }
+    const variantModal = document.getElementById('variantModal');
+    if (variantModal) {
+        variantModal.addEventListener('click', (e) => {
+            if (e.target === variantModal) closeVariantModal();
+        });
+    }
+
+    // =============================================
+    // Campaign Modal Setup
+    // =============================================
+    const campaignModal = document.getElementById('campaignModal');
+    const addCampaignBtn = document.getElementById('addCampaignBtn');
+    const closeCampaignModalBtn = document.getElementById('closeCampaignModal');
+    const cancelCampaignBtn = document.getElementById('cancelCampaignBtn');
+    const campaignForm = document.getElementById('campaignForm');
+
+    function openCampaignModal() {
+        if (campaignModal) {
+            campaignModal.style.display = 'flex';
+            // Set default dates
+            const now = new Date();
+            const startDate = document.getElementById('campaignStartDate');
+            const endDate = document.getElementById('campaignEndDate');
+            if (startDate) {
+                startDate.value = now.toISOString().slice(0, 16);
+            }
+            if (endDate) {
+                const endDefault = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+                endDate.value = endDefault.toISOString().slice(0, 16);
+            }
+        }
+    }
+
+    function closeCampaignModal() {
+        if (campaignModal) {
+            campaignModal.style.display = 'none';
+            if (campaignForm) campaignForm.reset();
+        }
+    }
+
+    async function handleCampaignSubmit(e) {
+        e.preventDefault();
+
+        const submitBtn = campaignForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Oluşturuluyor...';
+        submitBtn.disabled = true;
+
+        try {
+            const formData = {
+                name: document.getElementById('campaignName').value.trim(),
+                description: document.getElementById('campaignDescription').value.trim() || null,
+                campaign_type: document.getElementById('campaignType').value,
+                discount_type: document.getElementById('campaignDiscountType').value,
+                discount_value: parseFloat(document.getElementById('campaignDiscountValue').value) || 0,
+                max_discount_amount: parseFloat(document.getElementById('campaignMaxDiscount').value) || null,
+                start_date: new Date(document.getElementById('campaignStartDate').value).toISOString(),
+                end_date: new Date(document.getElementById('campaignEndDate').value).toISOString(),
+                applicable_to: document.getElementById('campaignApplicableTo').value,
+                min_order_amount: parseFloat(document.getElementById('campaignMinOrder').value) || 0,
+                priority: parseInt(document.getElementById('campaignPriority').value) || 0,
+                is_active: document.getElementById('campaignIsActive').checked,
+                is_featured: document.getElementById('campaignIsFeatured').checked,
+                show_countdown: document.getElementById('campaignShowCountdown').checked,
+            };
+
+            console.log('[Admin Dashboard] Creating campaign:', formData);
+            const result = await apiClient.createCampaign(formData);
+
+            if (result.success) {
+                closeCampaignModal();
+                window.adminDashboard.showSuccess('Kampanya başarıyla oluşturuldu!');
+                // Reload campaigns data
+                if (window.adminDashboard && typeof window.adminDashboard.loadCampaignsData === 'function') {
+                    await window.adminDashboard.loadCampaignsData();
+                }
+            } else {
+                window.adminDashboard.showError(result.message || 'Kampanya oluşturulamadı');
+            }
+        } catch (error) {
+            console.error('[Admin Dashboard] Error creating campaign:', error);
+            window.adminDashboard.showError('Kampanya oluşturulurken bir hata oluştu: ' + error.message);
+        } finally {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    }
+
+    if (addCampaignBtn) {
+        addCampaignBtn.addEventListener('click', openCampaignModal);
+    }
+    if (closeCampaignModalBtn) {
+        closeCampaignModalBtn.addEventListener('click', closeCampaignModal);
+    }
+    if (cancelCampaignBtn) {
+        cancelCampaignBtn.addEventListener('click', closeCampaignModal);
+    }
+    if (campaignForm) {
+        campaignForm.addEventListener('submit', handleCampaignSubmit);
+    }
+    if (campaignModal) {
+        campaignModal.addEventListener('click', (e) => {
+            if (e.target === campaignModal) closeCampaignModal();
+        });
+    }
+});
+
+
+// ==========================================
+// ADMIN PAYOUT MANAGEMENT
+// ==========================================
+
+/**
+ * Load admin payouts data
+ */
+AdminDashboard.prototype.loadPayoutsData = async function () {
+    console.log('[Admin Dashboard] Loading payouts data...');
+
+    try {
+        // Fetch stats and pending payouts in parallel
+        const [statsRes, pendingRes] = await Promise.all([
+            fetch(`${this.api.baseURL}/payouts/admin/stats`, {
+                headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+            }),
+            fetch(`${this.api.baseURL}/payouts/admin/pending`, {
+                headers: { 'Authorization': `Bearer ${this.api.getToken()}` }
+            })
+        ]);
+
+        const stats = statsRes.ok ? await statsRes.json() : null;
+        const pending = pendingRes.ok ? await pendingRes.json() : null;
+
+        if (stats?.success) {
+            this.updatePayoutStats(stats.data);
+        }
+
+        if (pending?.success) {
+            this.renderPendingPayouts(pending.data.payouts || []);
+        }
+    } catch (error) {
+        console.error('[Admin Dashboard] Error loading payouts:', error);
+    }
+};
+
+/**
+ * Update payout stats cards
+ */
+AdminDashboard.prototype.updatePayoutStats = function (data) {
+    const { counts, amounts } = data;
+
+    const pendingEl = document.getElementById('payoutStatPending');
+    const processingEl = document.getElementById('payoutStatProcessing');
+    const totalPaidEl = document.getElementById('payoutStatTotalPaid');
+    const pendingAmountEl = document.getElementById('payoutStatPendingAmount');
+
+    if (pendingEl) pendingEl.textContent = counts.pending || 0;
+    if (processingEl) processingEl.textContent = counts.processing || 0;
+    if (totalPaidEl) totalPaidEl.textContent = `₺${amounts.totalPaid.toLocaleString('tr-TR')}`;
+    if (pendingAmountEl) pendingAmountEl.textContent = `₺${amounts.pendingAmount.toLocaleString('tr-TR')}`;
+};
+
+/**
+ * Render pending payouts list
+ */
+AdminDashboard.prototype.renderPendingPayouts = function (payouts) {
+    const container = document.getElementById('adminPayoutsList');
+    if (!container) return;
+
+    if (!payouts || payouts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #64748b; padding: 2rem;">Bekleyen ödeme talebi yok 🎉</p>';
+        return;
+    }
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid var(--admin-border);">
+                    <th style="padding: 1rem; text-align: left;">Mağaza</th>
+                    <th style="padding: 1rem; text-align: right;">Tutar</th>
+                    <th style="padding: 1rem; text-align: left;">IBAN</th>
+                    <th style="padding: 1rem; text-align: center;">Tarih</th>
+                    <th style="padding: 1rem; text-align: center;">İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    payouts.forEach(p => {
+        const date = new Date(p.requested_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+        const storeName = p.store?.name || 'Bilinmiyor';
+        const iban = p.iban ? p.iban.replace(/(.{4})/g, '$1 ').trim() : 'N/A';
+
+        html += `
+            <tr style="border-bottom: 1px solid var(--admin-border);">
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 600;">${storeName}</div>
+                    <div style="font-size: 0.8rem; color: #64748b;">${p.account_holder || ''}</div>
+                </td>
+                <td style="padding: 1rem; text-align: right; font-weight: 700; color: #10b981;">
+                    ₺${parseFloat(p.requested_amount).toLocaleString('tr-TR')}
+                </td>
+                <td style="padding: 1rem; font-family: monospace; font-size: 0.85rem;">${iban}</td>
+                <td style="padding: 1rem; text-align: center;">${date}</td>
+                <td style="padding: 1rem; text-align: center;">
+                    <button onclick="adminDashboard.approvePayout('${p.id}')"
+                        style="padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 0.5rem;">
+                        ✅ Onayla
+                    </button>
+                    <button onclick="adminDashboard.rejectPayout('${p.id}')"
+                        style="padding: 0.5rem 1rem; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+                        ❌ Reddet
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+};
+
+/**
+ * Approve a payout request
+ */
+AdminDashboard.prototype.approvePayout = async function (payoutId) {
+    if (!confirm('Bu ödeme talebini onaylamak istediğinize emin misiniz?')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${this.api.baseURL}/payouts/admin/${payoutId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.api.getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            alert('✅ Ödeme talebi onaylandı!');
+            this.loadPayoutsData();
+        } else {
+            throw new Error(data.message || 'Onaylama başarısız');
+        }
+    } catch (error) {
+        alert('❌ Hata: ' + error.message);
+    }
+};
+
+/**
+ * Reject a payout request
+ */
+AdminDashboard.prototype.rejectPayout = async function (payoutId) {
+    const reason = prompt('Ret sebebini giriniz:');
+
+    if (!reason || reason.trim().length === 0) {
+        alert('Ret sebebi gereklidir');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${this.api.baseURL}/payouts/admin/${payoutId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.api.getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            alert('❌ Ödeme talebi reddedildi');
+            this.loadPayoutsData();
+        } else {
+            throw new Error(data.message || 'Reddetme başarısız');
+        }
+    } catch (error) {
+        alert('❌ Hata: ' + error.message);
+    }
+};

@@ -342,10 +342,10 @@ class ProductModal {
             reviews: `${apiProduct.total_sales || 0} sold`,
             badges: badges,
             category: category,
-            material: this.extractMaterial(apiProduct),
+            material: apiProduct.material || null,
             dimensions: this.extractDimensions(apiProduct),
             weight: this.extractWeight(apiProduct),
-            technique: 'Traditional handcraft',
+            technique: apiProduct.technique || null,
             artisanBio: apiProduct.store?.description || 'Master artisan with years of experience.',
             artisanLocation: apiProduct.store?.location || 'Nordic Region',
             stock: apiProduct.stock || 0,
@@ -356,21 +356,7 @@ class ProductModal {
     }
 
     /**
-     * Extract material from product data
-     */
-    extractMaterial(product) {
-        // Try to find material in description or use default
-        if (product.description && product.description.toLowerCase().includes('seramik')) {
-            return 'Doğal Seramik';
-        }
-        if (product.description && product.description.toLowerCase().includes('wood')) {
-            return 'Natural Wood';
-        }
-        return 'Premium Materials';
-    }
-
-    /**
-     * Extract dimensions from product
+     * Extract dimensions from product - returns null if not set
      */
     extractDimensions(product) {
         if (product.dimensions && typeof product.dimensions === 'object') {
@@ -379,17 +365,17 @@ class ProductModal {
                 return `${length}cm × ${width}cm × ${height}cm`;
             }
         }
-        return '15cm × 10cm × 8cm';
+        return null;
     }
 
     /**
-     * Extract weight from product
+     * Extract weight from product - returns null if not set
      */
     extractWeight(product) {
         if (product.weight) {
             return `${product.weight}kg`;
         }
-        return '1.0kg';
+        return null;
     }
 
     openModalFromState(productData) {
@@ -558,7 +544,7 @@ class ProductModal {
                         <div class="modal-tabs">
                             <div class="modal-tab-headers">
                                 <button class="modal-tab-header active" data-tab="details">Ürün Detayları</button>
-                                <button class="modal-tab-header" data-tab="dostik">Dostik Önerileri</button>
+                                <button class="modal-tab-header" data-tab="dostik">🌟 Siftah Önerileri</button>
                                 <button class="modal-tab-header" data-tab="similar">Benzer Ürünler</button>
                             </div>
                             <div class="modal-tab-content" id="modalTabContent">
@@ -671,87 +657,176 @@ class ProductModal {
 
     /**
      * Render product variants from API data
+     * Updated for new cascade variant format: color_hex, color_name, variant_type, variant_value, price, stock
      */
     renderProductVariants() {
         const container = document.getElementById('modalProductOptions');
-        if (!container || !this.currentProduct.variants) return;
+        if (!container) return;
 
-        const variants = Array.isArray(this.currentProduct.variants) ? this.currentProduct.variants : [];
-
-        if (variants.length === 0) {
-            // No variants from API, keep default HTML
+        const variants = this.currentProduct?.productVariants || this.currentProduct?.variants || [];
+        if (!Array.isArray(variants) || variants.length === 0) {
+            container.innerHTML = '';
             return;
         }
 
-        // Clear existing options
+        // Store variants for price updates
+        this.productVariants = variants;
+        this.selectedVariantId = variants[0]?.id || null;
+
         container.innerHTML = '';
 
-        // Group variants by variant_name
-        const variantGroups = {};
-        variants.forEach(variant => {
-            const name = variant.variant_name || 'Variant';
-            if (!variantGroups[name]) {
-                variantGroups[name] = new Map();
+        // Group colors
+        const colorVariants = variants.filter(v => v.color_name || v.color_hex);
+        const uniqueColors = new Map();
+        colorVariants.forEach(v => {
+            const key = v.color_hex || v.color_name;
+            if (key && !uniqueColors.has(key)) {
+                uniqueColors.set(key, { hex: v.color_hex, name: v.color_name, id: v.id });
             }
+        });
 
-            const options = Array.isArray(variant.selected_options) ? variant.selected_options : [];
-            options.forEach(opt => {
-                const key = String(opt.value);
-                if (!variantGroups[name].has(key)) {
-                    variantGroups[name].set(key, opt);
+        // Group by variant_type
+        const typeGroups = new Map();
+        variants.forEach(v => {
+            if (v.variant_type && v.variant_value) {
+                if (!typeGroups.has(v.variant_type)) {
+                    typeGroups.set(v.variant_type, new Map());
                 }
-            });
-        });
-
-        // Render each variant group
-        Object.entries(variantGroups).forEach(([variantName, optionsMap]) => {
-            const optionGroup = document.createElement('div');
-            optionGroup.className = 'option-group';
-
-            // Determine if this is a color variant (render as color swatches)
-            const isColorVariant = variantName.toLowerCase().includes('color') ||
-                variantName.toLowerCase().includes('renk');
-
-            if (isColorVariant) {
-                // Render as color swatches
-                optionGroup.innerHTML = `
-                    <label class="option-label">${variantName}:</label>
-                    <div class="color-options" data-variant-name="${variantName}">
-                        ${Array.from(optionsMap.values()).map((opt, idx) => `
-                            <div class="color-option ${idx === 0 ? 'active' : ''}"
-                                 data-variant-name="${variantName}"
-                                 data-variant-value="${opt.value}"
-                                 style="background: ${this.getColorCode(opt.value)};"
-                                 title="${opt.label || opt.value}">
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-
-                // Add click handlers for color options
-                optionGroup.querySelectorAll('.color-option').forEach(option => {
-                    option.addEventListener('click', () => {
-                        optionGroup.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('active'));
-                        option.classList.add('active');
-                    });
-                });
-            } else {
-                // Render as select dropdown
-                optionGroup.innerHTML = `
-                    <label class="option-label">${variantName}:</label>
-                    <select class="option-select" data-variant-name="${variantName}">
-                        <option value="">${variantName} Seçin</option>
-                        ${Array.from(optionsMap.values()).map((opt, idx) => `
-                            <option value="${opt.value}" ${idx === 0 ? 'selected' : ''}>
-                                ${opt.label || opt.value}
-                            </option>
-                        `).join('')}
-                    </select>
-                `;
+                const typeMap = typeGroups.get(v.variant_type);
+                if (!typeMap.has(v.variant_value)) {
+                    typeMap.set(v.variant_value, v);
+                }
             }
-
-            container.appendChild(optionGroup);
         });
+
+        // Render color options
+        if (uniqueColors.size > 0) {
+            const colorGroup = document.createElement('div');
+            colorGroup.className = 'option-group';
+            colorGroup.innerHTML = `
+                <label class="option-label">Renk:</label>
+                <div class="color-options" id="variantColors">
+                    ${Array.from(uniqueColors.entries()).map(([key, color], idx) => `
+                        <div class="color-option ${idx === 0 ? 'active' : ''}"
+                             data-color-hex="${color.hex || ''}"
+                             data-color-name="${color.name || ''}"
+                             style="background: ${color.hex || '#ccc'};"
+                             title="${color.name || 'Renk'}">
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            colorGroup.querySelectorAll('.color-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    colorGroup.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    this.updateSelectedVariant();
+                });
+            });
+
+            container.appendChild(colorGroup);
+        }
+
+        // Render type/value options
+        typeGroups.forEach((valuesMap, typeName) => {
+            const typeLabel = this.getVariantTypeLabel(typeName);
+            const typeGroup = document.createElement('div');
+            typeGroup.className = 'option-group';
+            typeGroup.innerHTML = `
+                <label class="option-label">${typeLabel}:</label>
+                <div class="size-options" data-variant-type="${typeName}">
+                    ${Array.from(valuesMap.entries()).map(([value, variant], idx) => `
+                        <div class="size-option ${idx === 0 ? 'active' : ''}"
+                             data-variant-id="${variant.id}"
+                             data-variant-value="${value}"
+                             data-variant-price="${variant.price}"
+                             data-variant-stock="${variant.stock}">
+                            ${value}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            typeGroup.querySelectorAll('.size-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    typeGroup.querySelectorAll('.size-option').forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    this.updateSelectedVariant();
+                });
+            });
+
+            container.appendChild(typeGroup);
+        });
+
+        // Set initial selected variant
+        this.updateSelectedVariant();
+    }
+
+    /**
+     * Get friendly label for variant type
+     */
+    getVariantTypeLabel(type) {
+        const labels = {
+            'beden': 'Beden',
+            'numara': 'Numara',
+            'boyut': 'Boyut',
+            'agirlik': 'Ağırlık',
+            'hacim': 'Hacim',
+            'malzeme': 'Malzeme',
+            'diger': 'Seçenek'
+        };
+        return labels[type] || type;
+    }
+
+    /**
+     * Update selected variant and price display
+     */
+    updateSelectedVariant() {
+        if (!this.productVariants || this.productVariants.length === 0) return;
+
+        // Get selected color
+        const activeColor = document.querySelector('#variantColors .color-option.active');
+        const selectedColorHex = activeColor?.dataset.colorHex || null;
+
+        // Get selected type/value
+        const activeSize = document.querySelector('.size-options .size-option.active');
+        const selectedVariantId = activeSize?.dataset.variantId || null;
+
+        // Find matching variant
+        let selectedVariant = null;
+        if (selectedVariantId) {
+            selectedVariant = this.productVariants.find(v => v.id === selectedVariantId);
+        } else if (selectedColorHex) {
+            selectedVariant = this.productVariants.find(v => v.color_hex === selectedColorHex);
+        }
+
+        if (!selectedVariant) {
+            selectedVariant = this.productVariants[0];
+        }
+
+        this.selectedVariantId = selectedVariant?.id || null;
+
+        // Update price display
+        if (selectedVariant?.price) {
+            const priceEl = document.querySelector('.product-modal .product-price');
+            if (priceEl) {
+                priceEl.textContent = `₺${Number(selectedVariant.price).toLocaleString('tr-TR')}`;
+            }
+        }
+
+        // Update stock info
+        const stock = selectedVariant?.stock || 0;
+        const stockEl = document.querySelector('.product-modal .stock-status');
+        if (stockEl) {
+            if (stock > 0) {
+                stockEl.textContent = `Stok: ${stock} adet`;
+                stockEl.style.color = '#059669';
+            } else {
+                stockEl.textContent = 'Stokta yok';
+                stockEl.style.color = '#dc2626';
+            }
+        }
     }
 
     /**
@@ -891,24 +966,54 @@ class ProductModal {
         const product = this.currentProduct;
         const quickInfoGrid = document.querySelector('.quick-info-grid');
 
-        quickInfoGrid.innerHTML = `
-            <div class="quick-info-item">
-                <span class="info-label">Boyut:</span>
-                <span class="info-value">${product.dimensions}</span>
-            </div>
-            <div class="quick-info-item">
-                <span class="info-label">Malzeme:</span>
-                <span class="info-value">${product.material}</span>
-            </div>
-            <div class="quick-info-item">
-                <span class="info-label">Teknik:</span>
-                <span class="info-value">${product.technique}</span>
-            </div>
+        // Build info items conditionally - only show fields that have values
+        let infoItems = '';
+
+        if (product.dimensions) {
+            infoItems += `
+                <div class="quick-info-item">
+                    <span class="info-label">Boyut:</span>
+                    <span class="info-value">${product.dimensions}</span>
+                </div>
+            `;
+        }
+
+        if (product.material) {
+            infoItems += `
+                <div class="quick-info-item">
+                    <span class="info-label">Malzeme:</span>
+                    <span class="info-value">${product.material}</span>
+                </div>
+            `;
+        }
+
+        if (product.technique) {
+            infoItems += `
+                <div class="quick-info-item">
+                    <span class="info-label">Teknik:</span>
+                    <span class="info-value">${product.technique}</span>
+                </div>
+            `;
+        }
+
+        if (product.weight) {
+            infoItems += `
+                <div class="quick-info-item">
+                    <span class="info-label">Ağırlık:</span>
+                    <span class="info-value">${product.weight}</span>
+                </div>
+            `;
+        }
+
+        // Always show shipping info
+        infoItems += `
             <div class="quick-info-item">
                 <span class="info-label">Kargo:</span>
                 <span class="info-value">2-3 iş günü</span>
             </div>
         `;
+
+        quickInfoGrid.innerHTML = infoItems;
     }
 
     populateArtisanInfo() {
@@ -982,30 +1087,96 @@ class ProductModal {
     }
 
     getDostikTabContent() {
+        // Trigger async loading of siftah recommendations
+        setTimeout(() => this.loadSiftahRecommendations(), 100);
+
         return `
             <div class="tab-dostik">
-                <div class="dostik-suggestions">
-                    <div class="suggestion-card">
-                        <div class="suggestion-icon">📊</div>
-                        <h3>Ürün Karşılaştırması</h3>
-                        <p>Benzer ürünlerle boyut, fiyat ve özellik karşılaştırması</p>
-                        <button class="suggestion-btn">Karşılaştır</button>
-                    </div>
-                    <div class="suggestion-card">
-                        <div class="suggestion-icon">🎁</div>
-                        <h3>Hediye Paketi</h3>
-                        <p>Özel kraft kutu, kart ve sürdürülebilir ambalaj</p>
-                        <button class="suggestion-btn">+50₺ Ekle</button>
-                    </div>
-                    <div class="suggestion-card">
-                        <div class="suggestion-icon">✨</div>
-                        <h3>Kişiselleştirme</h3>
-                        <p>İsim gravürü veya özel renk seçenekleri</p>
-                        <button class="suggestion-btn">Özelleştir</button>
-                    </div>
+                <div class="siftah-loading" id="siftahTabLoading">
+                    <div class="loader-spinner"></div>
+                    <p>Siftah önerileri yükleniyor...</p>
+                </div>
+                <div class="dostik-suggestions" id="siftahTabContent" style="display: none;">
+                    <!-- Siftah recommendations will be loaded here -->
                 </div>
             </div>
         `;
+    }
+
+    async loadSiftahRecommendations() {
+        const loadingEl = document.getElementById('siftahTabLoading');
+        const contentEl = document.getElementById('siftahTabContent');
+
+        if (!contentEl) return;
+
+        try {
+            const productId = this.currentProduct.id;
+            if (!productId) {
+                this.showNoSiftahMessage(loadingEl, contentEl, 'Ürün bilgisi bulunamadı');
+                return;
+            }
+
+            const API_BASE = window.API_BASE_URL || 'http://localhost:3002/api/v1';
+            const response = await fetch(`${API_BASE}/siftah/recommendations?product_id=${productId}`);
+            const data = await response.json();
+
+            if (data.success && data.data.has_recommendation) {
+                const product = data.data.product;
+                const imageUrl = product.images?.[0] || 'https://via.placeholder.com/200';
+
+                contentEl.innerHTML = `
+                    <div class="suggestion-card siftah-highlight" style="grid-column: 1 / -1;">
+                        <div class="siftah-banner">🌟 Bu mağazanın bugün ilk müşterisi olun!</div>
+                        <div class="siftah-product-content">
+                            <img src="${imageUrl}" alt="${product.title}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px;">
+                            <div class="siftah-product-info">
+                                <h3>${product.title}</h3>
+                                <p class="siftah-store">${product.store?.name || 'Mağaza'}</p>
+                                <div class="siftah-price">₺${parseFloat(product.price).toFixed(0)}</div>
+                                ${product.price_comparison?.difference < 0 ?
+                        `<div class="siftah-savings">${product.price_comparison.label}</div>` : ''}
+                            </div>
+                        </div>
+                        <button class="suggestion-btn siftah-action-btn" onclick="window.location.href='/pages/product.html?slug=${product.slug}'">
+                            🌟 Ürünü İncele
+                        </button>
+                        <p class="siftah-note">Bu satıcı bugün henüz satış yapmadı. İlk müşteri olarak destekleyin! 💛</p>
+                    </div>
+                `;
+
+                if (loadingEl) loadingEl.style.display = 'none';
+                contentEl.style.display = 'grid';
+            } else {
+                const reason = data.data?.reason || 'no_recommendation';
+                let message = 'Şu an için siftah önerisi bulunmuyor.';
+
+                if (reason === 'source_store_no_siftah') {
+                    message = 'Bu mağaza henüz bugün satış yapmadı. İlk müşteri olarak siz destekleyin! 💛';
+                } else if (reason === 'no_eligible_products') {
+                    message = 'Bu kategoride uygun siftah önerisi bulunamadı.';
+                }
+
+                this.showNoSiftahMessage(loadingEl, contentEl, message);
+            }
+
+        } catch (error) {
+            console.error('[ProductModal] Siftah API error:', error);
+            this.showNoSiftahMessage(loadingEl, contentEl, 'Öneriler yüklenirken hata oluştu');
+        }
+    }
+
+    showNoSiftahMessage(loadingEl, contentEl, message) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (contentEl) {
+            contentEl.innerHTML = `
+                <div class="suggestion-card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+                    <div class="suggestion-icon">🌟</div>
+                    <h3>Siftah Önerileri</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+            contentEl.style.display = 'grid';
+        }
     }
 
     getSimilarTabContent() {
@@ -1112,80 +1283,163 @@ class ProductModal {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    /**
+     * Get selected variant details for cart
+     * Updated for new cascade variant format
+     */
+    getSelectedVariantDetails() {
+        const selections = [];
+
+        // Use new variant system if available
+        if (this.selectedVariantId && this.productVariants) {
+            const variant = this.productVariants.find(v => v.id === this.selectedVariantId);
+            if (variant) {
+                const selection = {
+                    variant_id: variant.id,
+                    name: variant.variant_type || 'Varyant',
+                    value: variant.variant_value || '',
+                    label: variant.variant_value || '',
+                    price: parseFloat(variant.price) || 0,
+                    stock: parseInt(variant.stock) || 0,
+                };
+                if (variant.sku) selection.sku = variant.sku;
+                if (variant.color_hex) {
+                    selection.color_hex = variant.color_hex;
+                    selection.color_name = variant.color_name || '';
+                }
+                selections.push(selection);
+                return selections;
+            }
+        }
+
+        // Fallback to DOM-based selection for size-options (new format)
+        document.querySelectorAll('.size-options').forEach((group) => {
+            const active = group.querySelector('.size-option.active');
+            if (!active) return;
+            const selection = {
+                variant_id: active.dataset.variantId || '',
+                name: group.dataset.variantType || 'Beden',
+                value: active.dataset.variantValue || active.textContent.trim(),
+                label: active.textContent.trim(),
+            };
+            const price = parseFloat(active.dataset.variantPrice);
+            if (!Number.isNaN(price)) selection.price = price;
+            const stock = parseInt(active.dataset.variantStock, 10);
+            if (!Number.isNaN(stock)) selection.stock = stock;
+            selections.push(selection);
+        });
+
+        // Legacy color-options support (new format)
+        document.querySelectorAll('#variantColors').forEach((group) => {
+            const active = group.querySelector('.color-option.active');
+            if (!active) return;
+            const selection = {
+                name: 'Renk',
+                value: active.dataset.colorName || active.dataset.colorHex || '',
+                label: active.title || active.dataset.colorName || '',
+                color_hex: active.dataset.colorHex || '',
+                color_name: active.dataset.colorName || '',
+            };
+            selections.push(selection);
+        });
+
+        // Legacy support for old format selects
+        document.querySelectorAll('.option-select').forEach((select) => {
+            const value = select.value;
+            if (!value) return;
+            const optionEl = select.options[select.selectedIndex];
+            const selection = {
+                name: select.dataset.variantName || 'Variant',
+                value,
+                label: optionEl?.textContent?.trim() || value,
+            };
+            const sku = optionEl?.dataset?.variantSku;
+            if (sku) selection.sku = sku;
+            const price = parseFloat(optionEl?.dataset?.variantPrice);
+            if (!Number.isNaN(price)) selection.price = price;
+            const stock = parseInt(optionEl?.dataset?.variantStock || '', 10);
+            if (!Number.isNaN(stock)) selection.stock = stock;
+            selections.push(selection);
+        });
+
+        return selections;
+    }
+
     async addToCart() {
         if (!this.currentProduct) return;
 
-        // Get selected options from modal
-        const selectedSizeElement = document.getElementById('productSize');
-        const selectedSize = selectedSizeElement?.value ||
-                           document.querySelector('.option-select[data-variant-name*="oyut"], .option-select[data-variant-name*="ize"]')?.value ||
-                           'M';
-
-        const selectedColorElement = document.querySelector('.color-option.active');
-        const selectedColor = selectedColorElement?.dataset?.variantValue ||
-                             selectedColorElement?.dataset?.color ||
-                             'natural';
-
+        const selectedVariants = this.getSelectedVariantDetails();
         const quantity = 1;
 
-        // Use product ID from API (preferred) or fallback to generated ID
         const productId = this.currentProduct.id ||
-                         this.currentProduct.slug ||
-                         this.generateProductId(this.currentProduct);
+            this.currentProduct.slug ||
+            this.generateProductId(this.currentProduct);
 
-        // Get current price (may be updated by size)
         const currentPrice = document.getElementById('modalPrice')?.textContent || this.currentProduct.price;
-        const priceValue = parseFloat(currentPrice.replace(/[^\d.]/g, ''));
+        const basePrice = parseFloat((currentPrice || '').toString().replace(/[^\d.]/g, ''));
+        const variantPriceEntry = selectedVariants.find((v) => typeof v.price === 'number');
+        const priceValue = variantPriceEntry ? variantPriceEntry.price : basePrice;
 
-        // Create product data in CartManager format using API data
+        const variantStockEntry = selectedVariants.find((v) => typeof v.stock === 'number');
+        if (variantStockEntry && variantStockEntry.stock <= 0) {
+            this.addDostikMessage('Secilen varyant stokta yok.');
+            return;
+        }
+        if (variantStockEntry && variantStockEntry.stock < quantity) {
+            this.addDostikMessage(`Bu varyant icin mevcut stok: ${variantStockEntry.stock}`);
+            return;
+        }
+        const variantSkuEntry = selectedVariants.find((v) => v.sku);
+
         const productData = {
             id: productId,
             title: this.currentProduct.title,
             price: priceValue,
             images: this.currentProduct.images || [this.currentProduct.image],
-            stock: this.currentProduct.stock || 99,
+            stock: variantStockEntry?.stock ?? this.currentProduct.stock ?? 99,
             store: this.currentProduct._apiProduct?.store || {
                 id: this.currentProduct._apiProduct?.store_id,
                 name: this.currentProduct.artisan
             },
             category: this.currentProduct._apiProduct?.category,
-            // Variant selections
-            selectedVariants: {
-                size: selectedSize,
-                color: selectedColor
-            }
+            selectedVariants: selectedVariants,
         };
+        if (variantSkuEntry?.sku) {
+            productData.sku = variantSkuEntry.sku;
+        }
 
         console.log('[ProductModal] Adding to cart:', productId, productData);
 
-        // Use CartManager to add item (handles both logged in and guest users)
         if (window.cartManager) {
             try {
                 const success = await window.cartManager.addItem(productId, productData, quantity);
 
                 if (success) {
-                    // Update cart counter
                     this.updateCartCounter();
-
-                    // Show success animation
                     this.showAddToCartSuccess();
 
-                    // Add Dostik message with selection details
+                    // Trigger siftah toast recommendation
+                    if (window.SiftahModule && typeof window.SiftahModule.loadForAddToCart === 'function') {
+                        window.SiftahModule.loadForAddToCart(productId);
+                    }
+
                     setTimeout(() => {
-                        const sizeText = selectedSize ? ` (Boyut: ${ selectedSize.toUpperCase() })` : '';
-                        this.addDostikMessage(`Harika! ${ this.currentProduct.title }${ sizeText } sepetine eklendi! 🛒✨`);
+                        const variantText = selectedVariants.length
+                            ? ` (${selectedVariants.map(v => `${v.name}: ${v.label || v.value}`).join(', ')})`
+                            : '';
+                        this.addDostikMessage(`Harika! ${this.currentProduct.title}${variantText} sepete eklendi!`);
                     }, 500);
                 } else {
                     console.error('[ProductModal] Failed to add to cart');
-                    this.addDostikMessage('Sepete eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+                    this.addDostikMessage('Sepete eklenirken bir hata olustu. Lutfen tekrar deneyin.');
                 }
             } catch (error) {
                 console.error('[ProductModal] Error adding to cart:', error);
-                this.addDostikMessage('Sepete eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+                this.addDostikMessage('Sepete eklenirken bir hata olustu. Lutfen tekrar deneyin.');
             }
         } else {
             console.error('[ProductModal] CartManager not found');
-            this.addDostikMessage('Sepet sistemi yüklenemedi. Lütfen sayfayı yenileyin.');
+            this.addDostikMessage('Sepet sistemi yuklenemedi. Lutfen sayfayi yenileyin.');
         }
     }
 
@@ -1197,8 +1451,8 @@ class ProductModal {
 
         // Use product ID from API (preferred) or fallback to generated ID
         const productId = this.currentProduct.id ||
-                         this.currentProduct.slug ||
-                         this.generateProductId(this.currentProduct);
+            this.currentProduct.slug ||
+            this.generateProductId(this.currentProduct);
 
         // Build metadata using API data
         const metadata = {
@@ -1234,10 +1488,10 @@ class ProductModal {
 
             if (added) {
                 setTimeout(() => {
-                    this.addDostikMessage(`${ this.currentProduct.title } favorilerine eklendi! 💖`);
+                    this.addDostikMessage(`${this.currentProduct.title} favorilerine eklendi! 💖`);
                 }, 300);
             } else {
-                this.addDostikMessage(`${ this.currentProduct.title } favorilerden çıkarıldı.`);
+                this.addDostikMessage(`${this.currentProduct.title} favorilerden çıkarıldı.`);
             }
         } catch (error) {
             console.error('[ProductModal] Failed to toggle wishlist:', error);
@@ -1331,8 +1585,8 @@ class ProductModal {
     createFlyingCartIcon() {
         const button = document.getElementById('modalAddToCart');
         const cartIcon = document.querySelector('.cart-icon') ||
-                         document.querySelector('.cart-count') ||
-                         document.querySelector('[href*="cart"]');
+            document.querySelector('.cart-count') ||
+            document.querySelector('[href*="cart"]');
 
         if (!button || !cartIcon) {
             // Cart icon not found - skipping animation
@@ -1346,8 +1600,8 @@ class ProductModal {
 
         // Position it at button location
         const buttonRect = button.getBoundingClientRect();
-        flyingCart.style.left = `${ buttonRect.left + buttonRect.width / 2 } px`;
-        flyingCart.style.top = `${ buttonRect.top + buttonRect.height / 2 } px`;
+        flyingCart.style.left = `${buttonRect.left + buttonRect.width / 2} px`;
+        flyingCart.style.top = `${buttonRect.top + buttonRect.height / 2} px`;
 
         document.body.appendChild(flyingCart);
 
@@ -1363,7 +1617,7 @@ class ProductModal {
         // Start animation
         setTimeout(() => {
             flyingCart.classList.add('flying');
-            flyingCart.style.transform = `translate(${ deltaX }px, ${ deltaY }px) scale(0.5)`;
+            flyingCart.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.5)`;
             flyingCart.style.opacity = '0';
         }, 50);
 
@@ -1375,7 +1629,7 @@ class ProductModal {
 
     bounceCartIcon() {
         const cartIcon = document.querySelector('.cart-icon') ||
-                         document.querySelector('.cart-count');
+            document.querySelector('.cart-count');
 
         if (cartIcon) {
             cartIcon.classList.add('cart-bounce');
@@ -1405,8 +1659,8 @@ class ProductModal {
 
         // Use product ID from API (preferred) or fallback to slug/generated ID
         const productId = this.currentProduct.id ||
-                         this.currentProduct.slug ||
-                         this.generateProductId(this.currentProduct);
+            this.currentProduct.slug ||
+            this.generateProductId(this.currentProduct);
 
         // Navigate to detailed product page with product ID parameter
         // Product detail page will fetch fresh data from API using this ID

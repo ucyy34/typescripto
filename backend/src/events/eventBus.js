@@ -1,22 +1,13 @@
 /**
- * Event Bus abstraction powered by BullMQ with in-memory fallback.
- * Provides publish/subscribe helpers so services remain decoupled.
+ * Event Bus
+ * In-memory event publish/subscribe system
+ * 
+ * NOTE: This is a simplified in-memory implementation.
+ * For production scaling with multiple server instances, 
+ * consider adding Redis-based pub/sub or a message queue.
  */
 
 const { EventEmitter } = require('events');
-let Queue;
-let Worker;
-let QueueScheduler;
-
-try {
-  ({ Queue, Worker, QueueScheduler } = require('bullmq'));
-} catch (error) {
-  console.warn('[EventBus] bullmq not installed, using in-memory transport only');
-  Queue = null;
-  Worker = null;
-  QueueScheduler = null;
-}
-const { redisClient } = require('../config/redis');
 const eventLogger = require('../utils/eventLogger');
 
 const EVENTS_QUEUE_NAME = 'events';
@@ -30,49 +21,13 @@ const TERMINAL_EVENTS = new Set([
 ]);
 
 const emitter = new EventEmitter();
-const isTestEnv = process.env.NODE_ENV === 'test';
-const forceMemory = true; // process.env.EVENT_BUS_MODE === 'memory';
+emitter.setMaxListeners(50); // Allow more listeners for multiple event types
 
-let queue;
-let scheduler;
-
-const shouldUseMemory = () => forceMemory || isTestEnv;
-
-const ensureQueue = () => {
-  if (shouldUseMemory() || !Queue) {
-    return null;
-  }
-
-  if (!queue) {
-    try {
-      const connection = redisClient.duplicate();
-      queue = new Queue(EVENTS_QUEUE_NAME, {
-        connection,
-        defaultJobOptions: {
-          removeOnComplete: true,
-          removeOnFail: 100,
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 500,
-          },
-        },
-      });
-
-      scheduler = new QueueScheduler(EVENTS_QUEUE_NAME, {
-        connection: redisClient.duplicate(),
-      });
-    } catch (error) {
-      console.warn('[EventBus] Falling back to in-memory emitter:', error.message);
-      queue = null;
-      scheduler = null;
-      process.env.EVENT_BUS_MODE = 'memory';
-    }
-  }
-
-  return queue;
-};
-
+/**
+ * Publish an event
+ * @param {string} type - Event type (e.g., 'order.created')
+ * @param {Object} payload - Event data
+ */
 const publish = async (type, payload = {}) => {
   const enrichedPayload = {
     ...payload,
@@ -81,6 +36,7 @@ const publish = async (type, payload = {}) => {
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 
+  // Track order event sequences for debugging
   if (enrichedPayload.orderId) {
     const sequence = orderEventSequences.get(enrichedPayload.orderId) || [];
     sequence.push(type);
@@ -90,6 +46,7 @@ const publish = async (type, payload = {}) => {
       lastEvent: type,
     });
 
+    // Clean up completed order sequences
     if (TERMINAL_EVENTS.has(type)) {
       orderEventSequences.delete(enrichedPayload.orderId);
     }
@@ -97,65 +54,66 @@ const publish = async (type, payload = {}) => {
     eventLogger.info(type, enrichedPayload);
   }
 
-  const activeQueue = ensureQueue();
-
-  if (activeQueue) {
-    await activeQueue.add(type, enrichedPayload);
-    return;
-  }
-
-  // In-memory fallback for tests and local environments without Redis
+  // Emit asynchronously to avoid blocking
   process.nextTick(() => {
     emitter.emit(type, enrichedPayload);
   });
 };
 
-const subscribe = (type, handler, { concurrency = 5 } = {}) => {
+/**
+ * Subscribe to an event
+ * @param {string} type - Event type to listen for
+ * @param {Function} handler - Event handler function
+ * @returns {Object} Subscription with close() method
+ */
+const subscribe = (type, handler) => {
   if (typeof handler !== 'function') {
     throw new TypeError('Event handler must be a function');
   }
 
-  if (shouldUseMemory() || !ensureQueue()) {
-    const listener = (payload) => {
-      Promise.resolve()
-        .then(() => handler(payload))
-        .catch((error) => {
-          console.error(`[EventBus] In-memory handler for ${type} failed`, error);
-        });
-    };
+  const listener = (payload) => {
+    Promise.resolve()
+      .then(() => handler(payload))
+      .catch((error) => {
+        console.error(`[EventBus] Handler for ${type} failed:`, error.message);
+      });
+  };
 
-    emitter.on(type, listener);
-    return {
-      close: () => emitter.off(type, listener),
-    };
+  emitter.on(type, listener);
+
+  return {
+    close: () => emitter.off(type, listener),
+  };
+};
+
+/**
+ * Subscribe to an event once
+ * @param {string} type - Event type to listen for
+ * @param {Function} handler - Event handler function
+ */
+const once = (type, handler) => {
+  if (typeof handler !== 'function') {
+    throw new TypeError('Event handler must be a function');
   }
 
-  const worker = new Worker(
-    EVENTS_QUEUE_NAME,
-    async (job) => {
-      if (job.name !== type) {
-        return null;
-      }
+  emitter.once(type, handler);
+};
 
-      return handler(job.data);
-    },
-    {
-      connection: redisClient.duplicate(),
-      concurrency,
-    }
-  );
-
-  worker.on('failed', (job, err) => {
-    console.error(`[EventBus] Job ${job?.id} (${type}) failed`, err);
-  });
-
-  return worker;
+/**
+ * Remove all listeners for an event type
+ * @param {string} type - Event type
+ */
+const removeAllListeners = (type) => {
+  emitter.removeAllListeners(type);
 };
 
 module.exports = {
   publish,
   subscribe,
+  once,
+  removeAllListeners,
   EVENTS_QUEUE_NAME,
-  ensureQueue,
-  getScheduler: () => scheduler,
+  // Legacy exports for compatibility
+  ensureQueue: () => null,
+  getScheduler: () => null,
 };

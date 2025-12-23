@@ -17,7 +17,7 @@ const {
   sequelize
 } = require('../models');
 const bcrypt = require('bcrypt');
-const { cache } = require('../config/redis');
+require('dotenv').config(); // Load env vars
 
 // Seller data
 const sellers = [
@@ -366,20 +366,13 @@ async function seedData() {
 async function main() {
   try {
     console.log('🚀 Starting database cleanup and seed...\n');
+    console.log('Connected to DB:', sequelize.config.database);
 
     await cleanDatabase();
     await seedData();
 
-    // Clear Redis cache to ensure fresh category UUIDs
-    console.log('\n🧹 Clearing Redis cache...');
-    try {
-      await cache.delPattern('categories:*');
-      await cache.delPattern('products:*');
-      console.log('✅ Cache cleared! Fresh data will be loaded from database.\n');
-    } catch (cacheError) {
-      console.error('⚠️  Cache clear failed:', cacheError.message);
-      console.log('⚠️  You may need to manually clear cache or restart Redis.\n');
-    }
+    // Cache is in-memory, will reset on server restart
+    console.log('\n📦 Note: Cache is in-memory and will be cleared on server restart.');
 
     console.log('\n✅ Database cleanup and seed completed successfully!\n');
     console.log('📝 Test Credentials:');

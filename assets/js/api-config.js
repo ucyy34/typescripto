@@ -13,7 +13,7 @@ function resolveApiBaseUrl() {
         return runtimeOverride.replace(/\/$/, '');
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 2) Optional localStorage override (manual testing):
   try {
@@ -23,7 +23,7 @@ function resolveApiBaseUrl() {
         return ls.replace(/\/$/, '');
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 3) If served over http(s) and NOT localhost, prefer same-origin (production)
   try {
@@ -33,10 +33,10 @@ function resolveApiBaseUrl() {
         return `${location.origin.replace(/\/$/, '')}/api/v1`;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
-  // 4) Fallback to backend default dev port (aligned to 8080 per project config)
-  return 'http://localhost:8080/api/v1';
+  // 4) Fallback to backend default dev port (aligned to .env => 3002)
+  return 'http://localhost:3002/api/v1';
 }
 
 const API_CONFIG = {
@@ -70,6 +70,7 @@ const API_CONFIG = {
       STATS: (id) => `/stores/${id}/stats`,
       PRODUCTS: (id) => `/stores/${id}/products`,
       ORDERS: (id) => `/stores/${id}/orders`,
+      REVIEWS: (id) => `/stores/${id}/reviews`,
     },
 
     // Product endpoints
@@ -80,6 +81,7 @@ const API_CONFIG = {
       STATUS: (id) => `/products/${id}/status`,
       BY_STORE: (storeId) => `/stores/${storeId}/products`,
       UPLOAD_IMAGE: '/products/upload-image',
+      REVIEWS: (id) => `/products/${id}/reviews`,
     },
 
     // Category endpoints
@@ -124,6 +126,12 @@ const API_CONFIG = {
       BASE: '/wishlist',
       SYNC: '/wishlist/sync',
       ITEM: (productId) => `/wishlist/${productId}`,
+    },
+
+    // Review endpoints
+    REVIEWS: {
+      BY_ID: (id) => `/reviews/${id}`,
+      HELPFUL: (id) => `/reviews/${id}/helpful`,
     },
 
     // Recommendation endpoints

@@ -47,12 +47,21 @@ class CartManager {
     /**
      * Add item to cart via API
      */
-    async addItem(productId, _productData = {}, quantity = 1) {
+    async addItem(productId, productData = {}, quantity = 1) {
         try {
-            const response = await this.apiClient.post(API_CONFIG.ENDPOINTS.CART.ITEMS, {
+            const payload = {
                 product_id: productId,
                 quantity,
-            });
+            };
+
+            if (productData) {
+                if (productData.sku) payload.variant_sku = productData.sku;
+                if (typeof productData.price === 'number') payload.variant_price = productData.price;
+                if (typeof productData.stock === 'number') payload.variant_stock = productData.stock;
+                if (productData.selectedVariants) payload.variant_selection = productData.selectedVariants;
+            }
+
+            const response = await this.apiClient.post(API_CONFIG.ENDPOINTS.CART.ITEMS, payload);
 
             if (response.success && response.data) {
                 // Invalidate cart cache
@@ -205,11 +214,23 @@ class CartManager {
             return null;
         }
 
+        // If item already has product with store info, extract store_id and store_name
         if (item.product) {
-            return item;
+            const storeObj = item.store || item.product?.store || null;
+            return {
+                ...item,
+                store_id: storeObj?.id || null,
+                store_name: storeObj?.name || null,
+            };
         }
 
         const price = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+
+        // Extract store info
+        const storeObj = item.store || null;
+        const storeId = storeObj?.id || null;
+        const storeName = storeObj?.name || null;
+
         const product = {
             id: item.product_id,
             title: item.title,
@@ -219,7 +240,7 @@ class CartManager {
             images: item.image ? [item.image] : [],
             stock: item.stock,
             is_available: item.is_available,
-            store: item.store || null,
+            store: storeObj,
             category: item.category || null,
         };
 
@@ -229,7 +250,9 @@ class CartManager {
             price,
             item_total: item.item_total || price * item.quantity,
             product,
-            store: item.store || null,
+            store: storeObj,
+            store_id: storeId,
+            store_name: storeName,
             category: item.category || null,
             title: item.title,
             slug: item.slug,

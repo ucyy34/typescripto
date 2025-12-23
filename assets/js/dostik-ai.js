@@ -1840,6 +1840,11 @@ function initializeDostik() {
     // Initialize Dostik immediately
     window.dostikAI = new DostikAI();
 
+    // Add initializeProductBubbles as an alias for products-api.js compatibility
+    window.dostikAI.initializeProductBubbles = function () {
+        setupProductCardObserver();
+    };
+
     // Use requestAnimationFrame for smooth initialization
     requestAnimationFrame(() => {
         // Setup product card hovers with intersection observer for better performance

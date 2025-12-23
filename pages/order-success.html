@@ -158,7 +158,7 @@
             </div>
             <div style="display:flex;justify-content:space-between;margin:0.5rem 0;">
                 <span>Kargo:</span>
-                <span>₺0.00</span>
+                <span id="shippingAmount">₺0.00</span>
             </div>
             <hr style="margin:0.75rem 0;border:none;border-top:1px solid #ddd;">
             <div style="display:flex;justify-content:space-between;font-size:1.1rem;">
@@ -268,9 +268,19 @@
                             return sum + (price * quantity);
                         }, 0);
 
-                        const totalAmount = typeof totals === 'number' ? totals : (totals?.grandTotal || totals?.total || subtotal);
+                        const shippingAmount = typeof totals === 'number'
+                            ? 0
+                            : (totals?.shipping ?? totals?.shippingTotal ?? totals?.shipping_amount ?? totals?.shippingCost ?? 0);
+                        const totalAmount = typeof totals === 'number'
+                            ? totals
+                            : (
+                                totals?.total
+                                ?? totals?.grandTotal
+                                ?? (subtotal + shippingAmount + (totals?.tax ?? 0))
+                            );
 
                         document.getElementById('subtotalAmount').textContent = `₺${subtotal.toFixed(2)}`;
+                        document.getElementById('shippingAmount').textContent = `₺${shippingAmount.toFixed(2)}`;
                         document.getElementById('totalAmount').textContent = `₺${totalAmount.toFixed(2)}`;
                     } else {
                         itemsContainer.innerHTML = '<p style="text-align:center;color:#666;">Ürün bulunamadı</p>';

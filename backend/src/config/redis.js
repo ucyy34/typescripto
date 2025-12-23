@@ -1,58 +1,87 @@
 /**
- * Redis Configuration
- * Used for caching, sessions, and Bull queue
+ * Cache Configuration
+ * In-memory cache implementation (Redis removed for simplicity)
+ * 
+ * NOTE: This project doesn't use Redis. All caching is done in-memory.
+ * For production scaling, consider adding Redis back.
  */
 
 require('dotenv').config();
-const Redis = require('ioredis');
 
-const baseOptions = {
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  lazyConnect: false,
-};
-
-const createInMemoryRedisClient = () => {
+/**
+ * Creates an in-memory cache client with Redis-like API
+ * This allows existing code to work without modification
+ */
+const createInMemoryClient = () => {
   const kvStore = new Map();
   const hashStore = new Map();
+  const expirations = new Map();
+
+  // Cleanup expired keys periodically
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, expireAt] of expirations.entries()) {
+      if (now > expireAt) {
+        kvStore.delete(key);
+        hashStore.delete(key);
+        expirations.delete(key);
+      }
+    }
+  }, 60000); // Check every minute
 
   const client = {
+    // Event handlers (no-op for in-memory)
     on() {
       return this;
     },
+
+    // For BullMQ compatibility
     duplicate() {
       return this;
     },
+
+    // Basic key-value operations
     async get(key) {
+      const expireAt = expirations.get(key);
+      if (expireAt && Date.now() > expireAt) {
+        kvStore.delete(key);
+        expirations.delete(key);
+        return null;
+      }
       return kvStore.has(key) ? kvStore.get(key) : null;
     },
-    async setex(key, _ttl, value) {
+
+    async set(key, value, ttlSeconds = null) {
       kvStore.set(key, value);
+      if (ttlSeconds) {
+        expirations.set(key, Date.now() + ttlSeconds * 1000);
+      }
       return 'OK';
     },
+
+    async setex(key, ttl, value) {
+      kvStore.set(key, value);
+      expirations.set(key, Date.now() + ttl * 1000);
+      return 'OK';
+    },
+
     async del(...keys) {
       let removed = 0;
       keys.forEach((key) => {
-        if (kvStore.delete(key)) {
-          removed += 1;
-        }
-        if (hashStore.delete(key)) {
-          removed += 1;
-        }
+        if (kvStore.delete(key)) removed += 1;
+        if (hashStore.delete(key)) removed += 1;
+        expirations.delete(key);
       });
       return removed;
     },
+
+    // Hash operations
     async hgetall(key) {
       const hash = hashStore.get(key);
-      if (!hash) {
-        return {};
-      }
+      if (!hash) return {};
       return Object.fromEntries(hash.entries());
     },
+
     async hset(key, values) {
       const hash = hashStore.get(key) || new Map();
       Object.entries(values || {}).forEach(([field, value]) => {
@@ -61,24 +90,65 @@ const createInMemoryRedisClient = () => {
       hashStore.set(key, hash);
       return 'OK';
     },
-    async expire() {
-      return true;
+
+    async hget(key, field) {
+      const hash = hashStore.get(key);
+      return hash ? hash.get(field) : null;
     },
+
+    // Utility operations
+    async expire(key, ttl) {
+      if (kvStore.has(key) || hashStore.has(key)) {
+        expirations.set(key, Date.now() + ttl * 1000);
+        return true;
+      }
+      return false;
+    },
+
     async exists(key) {
       return kvStore.has(key) || hashStore.has(key) ? 1 : 0;
     },
+
     async incr(key) {
       const value = parseInt(kvStore.get(key) || '0', 10) + 1;
       kvStore.set(key, String(value));
       return value;
     },
-    scanStream() {
+
+    async ping() {
+      return 'PONG';
+    },
+
+    async quit() {
+      return 'OK';
+    },
+
+    async keys(pattern) {
+      const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+      return [...kvStore.keys(), ...hashStore.keys()].filter(k => regex.test(k));
+    },
+
+    // Watch/Unwatch (no-op for in-memory single-threaded)
+    async watch() {
+      return 'OK';
+    },
+
+    async unwatch() {
+      return 'OK';
+    },
+
+    // Scan stream for pattern matching (simplified)
+    scanStream(options = {}) {
+      const pattern = options.match || '*';
+      const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+      const allKeys = [...kvStore.keys(), ...hashStore.keys()].filter(k => regex.test(k));
+
       const listeners = {};
       const stream = {
         on(event, handler) {
           listeners[event] = handler;
           if (event === 'data') {
-            handler([]);
+            setImmediate(() => handler(allKeys));
           }
           if (event === 'end') {
             setImmediate(() => handler());
@@ -88,6 +158,8 @@ const createInMemoryRedisClient = () => {
       };
       return stream;
     },
+
+    // Multi/Transaction support
     multi() {
       const operations = [];
       const multiInterface = {
@@ -103,14 +175,18 @@ const createInMemoryRedisClient = () => {
           operations.push(() => client.del(key));
           return multiInterface;
         },
+        set(key, value) {
+          operations.push(() => client.set(key, value));
+          return multiInterface;
+        },
         async exec() {
+          const results = [];
           for (const operation of operations) {
-            await operation();
+            results.push(await operation());
           }
-          return [];
+          return results;
         },
       };
-
       return multiInterface;
     },
   };
@@ -118,48 +194,10 @@ const createInMemoryRedisClient = () => {
   return client;
 };
 
-const createRedisClient = () => {
-  console.log('⚠️  Redis: Using in-memory client (forced fallback)');
-  return createInMemoryRedisClient();
+// Create the in-memory client
+const redisClient = createInMemoryClient();
 
-  /* Original logic disabled for stability
-  if (process.env.NODE_ENV === 'test' && process.env.USE_REAL_REDIS !== 'true') {
-    return createInMemoryRedisClient();
-  }
-
-  if (process.env.REDIS_URL) {
-    return new Redis(process.env.REDIS_URL, baseOptions);
-  }
-
-  return new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-    db: parseInt(process.env.REDIS_DB, 10) || 0,
-    ...baseOptions,
-  });
-  */
-};
-
-// Redis client for general caching
-const redisClient = createRedisClient();
-
-// Event listeners
-redisClient.on('connect', () => {
-  console.log('✅ Redis: Connected successfully');
-});
-
-redisClient.on('error', (err) => {
-  console.error('❌ Redis Error:', err.message);
-});
-
-redisClient.on('ready', () => {
-  console.log('✅ Redis: Ready to accept commands');
-});
-
-redisClient.on('close', () => {
-  console.log('⚠️  Redis: Connection closed');
-});
+console.log('📦 Cache: Using in-memory storage (no Redis)');
 
 // Helper functions for common caching operations
 const cache = {
@@ -217,32 +255,9 @@ const cache = {
    */
   async delPattern(pattern) {
     try {
-      const keys = [];
-      const stream = redisClient.scanStream({ match: pattern, count: 100 });
-
-      await new Promise((resolve, reject) => {
-        stream.on('data', (batch) => {
-          if (Array.isArray(batch) && batch.length > 0) {
-            keys.push(...batch);
-          }
-        });
-        stream.on('end', resolve);
-        stream.on('error', reject);
-      });
-
-      if (keys.length === 0) {
-        return 0;
-      }
-
-      let deleted = 0;
-      const batchSize = 500;
-      for (let i = 0; i < keys.length; i += batchSize) {
-        const chunk = keys.slice(i, i + batchSize);
-        const removed = await redisClient.del(...chunk);
-        deleted += removed;
-      }
-
-      return deleted;
+      const keys = await redisClient.keys(pattern);
+      if (keys.length === 0) return 0;
+      return await redisClient.del(...keys);
     } catch (error) {
       console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
       return 0;
@@ -290,6 +305,21 @@ const cache = {
       return true;
     } catch (error) {
       console.error(`Cache EXPIRE error for key ${key}:`, error.message);
+      return false;
+    }
+  },
+
+  /**
+   * Clear all cache
+   * @returns {Promise<boolean>}
+   */
+  async clear() {
+    try {
+      // For in-memory, we delete all patterns
+      await this.delPattern('*');
+      return true;
+    } catch (error) {
+      console.error('Cache CLEAR error:', error.message);
       return false;
     }
   },

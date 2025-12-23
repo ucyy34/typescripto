@@ -190,6 +190,31 @@ class DostanWebApp {
         this.setupCategoryNavigation();
     }
 
+    setupLazyLoading() {
+        // Ensure global lazy loader exists or create one
+        if (window.lazyLoader && typeof window.lazyLoader.observeElements === 'function') {
+            window.lazyLoader.observeElements();
+            return;
+        }
+
+        if (window.LazyLoader) {
+            window.lazyLoader = new window.LazyLoader();
+            return;
+        }
+
+        // Fallback: eagerly load lazy assets if helper script failed to load
+        document.querySelectorAll('img[data-src]').forEach((img) => {
+            img.src = img.dataset.src;
+            img.classList.add('loaded');
+            img.removeAttribute('data-src');
+        });
+        document.querySelectorAll('[data-bg]').forEach((el) => {
+            el.style.backgroundImage = `url(${el.dataset.bg})`;
+            el.classList.add('loaded');
+            el.removeAttribute('data-bg');
+        });
+    }
+
     limitInitialProducts() {
         const productsContainer = document.querySelector('.products-container');
         const products = productsContainer.querySelectorAll('.product-card');
@@ -347,6 +372,59 @@ class DostanWebApp {
             searchTimeout = setTimeout(() => {
                 this.performSearch(e.target.value);
             }, 300);
+        });
+    }
+
+    setupSmoothScrolling() {
+        // Gracefully handle smooth scrolling for in-page anchor links
+        const anchorLinks = document.querySelectorAll('a[href^="#"]');
+        if (!anchorLinks.length) return;
+
+        const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const supportsNativeSmoothScroll = 'scrollBehavior' in document.documentElement.style;
+
+        const scrollToTarget = (target) => {
+            if (!target) return;
+            const top = target.getBoundingClientRect().top + window.pageYOffset;
+
+            if (prefersReducedMotion) {
+                window.scrollTo(0, top);
+                return;
+            }
+
+            if (supportsNativeSmoothScroll) {
+                window.scrollTo({ top, behavior: 'smooth' });
+            } else {
+                // Basic JS fallback for older browsers
+                const startY = window.pageYOffset;
+                const distance = top - startY;
+                const duration = 400;
+                let start = null;
+
+                const step = (timestamp) => {
+                    if (!start) start = timestamp;
+                    const progress = timestamp - start;
+                    const percent = Math.min(progress / duration, 1);
+                    window.scrollTo(0, startY + distance * percent);
+                    if (progress < duration) {
+                        window.requestAnimationFrame(step);
+                    }
+                };
+                window.requestAnimationFrame(step);
+            }
+        };
+
+        anchorLinks.forEach(link => {
+            link.addEventListener('click', (event) => {
+                const hash = link.getAttribute('href');
+                if (!hash || hash === '#') return;
+
+                const target = document.querySelector(hash);
+                if (!target) return;
+
+                event.preventDefault();
+                scrollToTarget(target);
+            });
         });
     }
 

@@ -10,70 +10,72 @@
 
 /* Loading State */
 .modal-loading {
-    display: flex !important;
-    justify-content: center;
-    align-items: center;
-    min-height: 400px;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
 }
 
 .modal-loader {
-    text-align: center;
+  text-align: center;
 }
 
 .loader-spinner {
-    width: 50px;
-    height: 50px;
-    margin: 0 auto 1rem;
-    border: 4px solid rgba(45, 104, 83, 0.1);
-    border-top-color: #2d6853;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 1rem;
+  border: 4px solid rgba(45, 104, 83, 0.1);
+  border-top-color: #2d6853;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .modal-loader p {
-    color: #2d6853;
-    font-size: 1rem;
-    font-weight: 500;
+  color: #2d6853;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 /* Error State */
 .modal-error {
-    display: flex !important;
-    justify-content: center;
-    align-items: center;
-    min-height: 300px;
-    padding: 3rem;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  padding: 3rem;
 }
 
 .modal-error-content {
-    text-align: center;
-    max-width: 400px;
+  text-align: center;
+  max-width: 400px;
 }
 
 .error-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
+  font-size: 4rem;
+  margin-bottom: 1rem;
 }
 
 .modal-error-content h3 {
-    color: #d32f2f;
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
+  color: #d32f2f;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .modal-error-content p {
-    color: #666;
-    font-size: 1rem;
-    margin-bottom: 2rem;
-    line-height: 1.6;
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
 .modal-error-content .modal-btn {
-    width: 100%;
+  width: 100%;
 }
 
 /* Modal Overlay */
@@ -100,8 +102,8 @@
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
-  max-width: 1000px;
-  max-height: min(1000px, calc(100vh - 4rem));
+  max-width: 1100px;
+  max-height: calc(100vh - 2rem);
   scrollbar-gutter: stable;
   overflow-y: auto;
   position: relative;
@@ -116,6 +118,7 @@
     opacity: 0;
     transform: scale(0.9) translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -171,18 +174,20 @@
 /* Modal Body - Fixed height, upper section */
 .modal-body {
   display: flex;
-  gap: 2rem;
-  padding: 2rem;
+  gap: 1.5rem;
+  padding: 1.5rem;
   cursor: auto;
   flex-shrink: 0;
   min-height: 0;
+  max-height: 55vh;
+  overflow-y: auto;
 }
 
 /* Scrollable section for details, reviews, etc */
 .modal-scrollable-section {
   overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 200px;
 }
 
 /* Smooth scrolling */
@@ -249,7 +254,8 @@
 .modal-thumbnails {
   display: flex;
   gap: 0.75rem;
-  width: 100%; /* Ensure full width alignment */
+  width: 100%;
+  /* Ensure full width alignment */
 }
 
 .modal-thumbnail {
@@ -565,10 +571,12 @@
     transform: scale(0.95);
     background: var(--forest-deep);
   }
+
   50% {
     transform: scale(1.1);
     background: var(--forest-medium);
   }
+
   100% {
     transform: scale(1.05);
     background: var(--aurora-green);
@@ -597,12 +605,18 @@
 }
 
 @keyframes cartBounce {
-  0%, 20%, 60%, 100% {
+
+  0%,
+  20%,
+  60%,
+  100% {
     transform: translateY(0);
   }
+
   40% {
     transform: translateY(-10px) scale(1.1);
   }
+
   80% {
     transform: translateY(-5px) scale(1.05);
   }
@@ -1113,6 +1127,7 @@
     from {
       transform: translateY(100%);
     }
+
     to {
       transform: translateY(0);
     }
@@ -1244,4 +1259,297 @@
     grid-template-columns: 1fr;
     gap: 1rem;
   }
+}
+
+/* ===============================================
+   SIFTAH TAB STYLES
+   =============================================== */
+
+.siftah-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.siftah-loading p {
+  color: #f59e0b;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+.siftah-highlight {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+  border: 2px solid #f59e0b !important;
+  position: relative;
+}
+
+.siftah-banner {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.siftah-product-content {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.siftah-product-info {
+  flex: 1;
+}
+
+.siftah-product-info h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.siftah-store {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.siftah-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #d97706;
+}
+
+.siftah-savings {
+  background: #10b981;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+.siftah-action-btn {
+  background: linear-gradient(90deg, #f59e0b, #d97706) !important;
+  color: white !important;
+  font-weight: 600;
+  width: 100%;
+}
+
+.siftah-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.siftah-note {
+  text-align: center;
+  color: #92400e;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #fbbf24;
+}
+
+/* ===============================================
+   COMPACT MODAL OPTIMIZATION - Fit to Screen
+   =============================================== */
+
+/* Modal body kompakt yapı */
+.modal-body {
+  gap: 1rem;
+  padding: 1rem;
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* Sağ taraf - modal-info daha kompakt */
+.modal-info {
+  gap: 0.75rem;
+}
+
+/* Başlık daha küçük */
+.modal-title-row h1 {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+/* Fiyat daha küçük */
+.modal-price {
+  font-size: 1.75rem;
+  margin: 0.25rem 0;
+}
+
+/* Product Options - Kompakt & Yan Yana Layout */
+.modal-product-options {
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Her option-group yarı genişlik */
+.modal-product-options .option-group {
+  flex: 1 1 45%;
+  min-width: 120px;
+  margin-bottom: 0;
+}
+
+/* Option label daha küçük */
+.modal-product-options .option-label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Select dropdown daha küçük */
+.modal-product-options .option-select {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* Renk seçenekleri daha küçük */
+.modal-product-options .color-options {
+  gap: 0.35rem;
+}
+
+.modal-product-options .color-option {
+  width: 26px;
+  height: 26px;
+  border-width: 2px;
+}
+
+.modal-product-options .color-option::after {
+  width: 10px;
+  height: 10px;
+}
+
+/* Action Buttons - Kompakt & Yan Yana */
+.modal-action-buttons {
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.modal-action-buttons .modal-btn {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+/* Sepete Ekle butonu */
+.modal-action-buttons .modal-btn-primary {
+  flex: 1.2;
+}
+
+/* Dostik'e Sor butonu */
+.modal-action-buttons .modal-btn-secondary {
+  flex: 0.8;
+}
+
+/* Artisan Info daha kompakt */
+.modal-artisan-info {
+  padding: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.artisan-card {
+  gap: 0.5rem;
+}
+
+.artisan-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.95rem;
+}
+
+.artisan-name {
+  font-size: 0.8rem;
+}
+
+.artisan-location,
+.artisan-verified {
+  font-size: 0.7rem;
+}
+
+/* View Full Product Button daha küçük */
+#modalViewFull {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+/* Ana görsel daha küçük */
+.modal-main-image img {
+  height: 16rem;
+}
+
+/* Thumbnails daha küçük */
+.modal-thumbnail {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Quick Info daha kompakt */
+.modal-quick-info {
+  padding: 0.5rem;
+}
+
+.modal-quick-info h3 {
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.quick-info-item {
+  font-size: 0.75rem;
+}
+
+/* Modal header küçült */
+.modal-header {
+  gap: 0.25rem;
+}
+
+.modal-artisan {
+  font-size: 0.85rem;
+}
+
+/* Breadcrumb küçük */
+.modal-breadcrumb {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+}
+
+/* Tabs daha kompakt */
+.modal-tab-headers {
+  overflow-x: auto;
+}
+
+.modal-tab-header {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.modal-tab-content {
+  padding: 1rem;
+  min-height: 200px;
+}
+
+/* Scrollable section daha küçük */
+.modal-scrollable-section {
+  min-height: 150px;
+}
+
+/* Heart ve Cart butonları küçük */
+.modal-heart-btn,
+.modal-cart-btn {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.95rem;
 }

@@ -37,6 +37,11 @@ const reviewRoutes = require('./routes/review.routes');
 const campaignRoutes = require('./routes/campaign.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
 const addressRoutes = require('./routes/address.routes');
+const siftahRoutes = require('./routes/siftah.routes');
+const variantRoutes = require('./routes/variant.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
+const payoutRoutes = require('./routes/payout.routes');
+const shippingSupportRoutes = require('./routes/shipping-support.routes');
 require('./workers'); // Initialize workers on startup
 
 // Create Express app
@@ -50,10 +55,10 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrcAttr: ["'none'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
         imgSrc: ["'self'", 'data:', 'https:', 'images.unsplash.com', 'picsum.photos'],
-        fontSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'self'"],
@@ -67,7 +72,7 @@ app.use(
 // CORS configuration (allow frontend to access API)
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://127.0.0.1:5500'];
+  : ['http://localhost:3000', 'http://127.0.0.1:5500', 'http://localhost:5500'];
 
 app.use(
   cors({
@@ -88,7 +93,8 @@ app.use(
     },
     credentials: true, // Allow cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Id'],
+    exposedHeaders: ['X-Guest-Id'],
   })
 );
 
@@ -170,6 +176,11 @@ app.use(`/api/${API_VERSION}/shipping`, shippingRoutes);
 app.use(`/api/${API_VERSION}/campaigns`, campaignRoutes);
 app.use(`/api/${API_VERSION}/wishlist`, wishlistRoutes);
 app.use(`/api/${API_VERSION}/addresses`, addressRoutes);
+app.use(`/api/${API_VERSION}/siftah`, siftahRoutes);
+app.use(`/api/${API_VERSION}/variants`, variantRoutes);
+app.use(`/api/${API_VERSION}/analytics`, analyticsRoutes);
+app.use(`/api/${API_VERSION}/payouts`, payoutRoutes);
+app.use(`/api/${API_VERSION}/shipping-support`, shippingSupportRoutes);
 app.use(`/api/${API_VERSION}`, reviewRoutes);
 
 // Welcome route

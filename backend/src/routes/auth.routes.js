@@ -9,12 +9,14 @@ const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
-const { authLimiter, registerLimiter } = require('../middlewares/rateLimiter');
+const { authLimiter, registerLimiter, passwordResetLimiter } = require('../middlewares/rateLimiter');
 const {
   registerSchema,
   loginSchema,
   refreshTokenSchema,
   changePasswordSchema,
+  emailSchema,
+  resetPasswordSchema,
 } = require('../validators/auth.validator');
 
 /**
@@ -72,5 +74,19 @@ router.put('/password', authenticate, validate(changePasswordSchema), authContro
  * @access  Public
  */
 router.get('/verify-email/:token', authController.verifyEmail);
+
+/**
+ * @route   POST /api/v1/auth/forgot-password
+ * @desc    Send password reset email (test mode: logs to console)
+ * @access  Public
+ */
+router.post('/forgot-password', validate(emailSchema), authController.forgotPassword);
+
+/**
+ * @route   POST /api/v1/auth/reset-password
+ * @desc    Reset password with token
+ * @access  Public
+ */
+router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 module.exports = router;

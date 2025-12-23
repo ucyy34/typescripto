@@ -61,21 +61,28 @@ class CartService {
   /**
    * Add item to cart for user or guest
    */
-  async addItem(userId, guestId, productId, quantity) {
+  async addItem(userId, guestId, productId, quantity, variant = {}) {
     const key = this._requireCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
 
-    await this.validateProductAndStock(productId, quantity);
+    await this.validateProductAndStock(productId, quantity, variant);
 
     const { items } = await this._loadCartState(key);
-    const existing = items.find((item) => item.product_id === productId);
+    const existing = items.find(
+      (item) => item.product_id === productId && this._isSameVariant(item.variant, variant)
+    );
 
     if (existing) {
       const newQuantity = existing.quantity + quantity;
-      await this.validateProductAndStock(productId, newQuantity);
+      await this.validateProductAndStock(productId, newQuantity, variant);
       existing.quantity = newQuantity;
+      existing.variant = variant && Object.keys(variant).length ? { ...variant } : existing.variant;
     } else {
-      items.push({ product_id: productId, quantity });
+      items.push({
+        product_id: productId,
+        quantity,
+        variant: variant && Object.keys(variant).length ? { ...variant } : null,
+      });
     }
 
     await this._persistCartState(key, items, ttl);
@@ -102,7 +109,7 @@ class CartService {
       return this.getCart(userId, guestId);
     }
 
-    await this.validateProductAndStock(productId, quantity);
+    await this.validateProductAndStock(productId, quantity, existing.variant);
     existing.quantity = quantity;
     await this._persistCartState(key, items, ttl);
     return this.getCart(userId, guestId);
@@ -240,7 +247,7 @@ class CartService {
   /**
    * Validate product exists, is available, and has sufficient stock
    */
-  async validateProductAndStock(productId, quantity) {
+  async validateProductAndStock(productId, quantity, variant = {}) {
     const product = await Product.findByPk(productId, {
       include: [{ model: Store, as: 'store', attributes: ['status'] }],
     });
@@ -249,9 +256,17 @@ class CartService {
       throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
     }
 
-    if (product.stock < quantity) {
+    const variantStock = variant && typeof variant.stock === 'number' ? variant.stock : null;
+    const stockToCheck =
+      variantStock !== null
+        ? variantStock
+        : typeof product.stock === 'number'
+        ? product.stock
+        : null;
+
+    if (stockToCheck !== null && stockToCheck < quantity) {
       console.warn(
-        `[CartService] Low stock warning: Product ${productId} has ${product.stock} items, requested ${quantity}`
+        `[CartService] Low stock warning: Product ${productId} has ${stockToCheck} items, requested ${quantity}`
       );
     }
 
@@ -285,7 +300,9 @@ class CartService {
           return null;
         }
 
-        const itemTotal = parseFloat(product.price) * item.quantity;
+        const variantPrice = item.variant && item.variant.price ? parseFloat(item.variant.price) : null;
+        const priceToUse = variantPrice !== null ? variantPrice : parseFloat(product.price);
+        const itemTotal = priceToUse * item.quantity;
         subtotal += itemTotal;
         item_count += item.quantity;
 
@@ -293,14 +310,15 @@ class CartService {
           product_id: product.id,
           title: product.title,
           slug: product.slug,
-          price: parseFloat(product.price),
+          price: priceToUse,
           compare_price: product.compare_price ? parseFloat(product.compare_price) : null,
           image: product.images && product.images[0] ? product.images[0] : null,
           quantity: item.quantity,
-          stock: product.stock,
+          stock: item.variant?.stock ?? product.stock,
           is_available: product.is_active && product.status === 'approved',
           store: product.store,
           category: product.category,
+          variant: item.variant || null,
           item_total: itemTotal,
         };
       })
@@ -492,6 +510,17 @@ class CartService {
     if (this.debugEnabled) {
       console.log('[CartService]', ...args);
     }
+  }
+
+  _isSameVariant(existingVariant, incomingVariant) {
+    if (!existingVariant && !incomingVariant) return true;
+    if (!existingVariant || !incomingVariant) return false;
+    return (
+      (existingVariant.sku || null) === (incomingVariant.sku || null) &&
+      (existingVariant.price || null) === (incomingVariant.price || null) &&
+      (existingVariant.stock || null) === (incomingVariant.stock || null) &&
+      JSON.stringify(existingVariant.selection || null) === JSON.stringify(incomingVariant.selection || null)
+    );
   }
 }
 

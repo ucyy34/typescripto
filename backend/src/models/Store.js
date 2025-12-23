@@ -140,6 +140,22 @@ const Store = sequelize.define(
         key: 'id',
       },
     },
+    // Shipping Support fields
+    shipping_cost: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      comment: 'Custom shipping cost for this store (null = use platform default)',
+    },
+    free_shipping_threshold: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      comment: 'Order amount above which shipping support is free',
+    },
+    is_free_shipping: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Always offer free shipping support',
+    },
   },
   {
     tableName: 'stores',

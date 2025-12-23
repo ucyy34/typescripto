@@ -1,0 +1,279 @@
+/**
+ * Siftah Recommendation System - Styles
+ * Styling for Quick View modal card and toast notification
+ */
+
+/* ===========================================
+   SIFTAH RECOMMENDATION CARD (Quick View Modal)
+   =========================================== */
+.siftah-card {
+    margin-top: 20px;
+    padding: 16px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.15);
+}
+
+.siftah-card .siftah-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #92400e;
+    font-size: 0.9rem;
+}
+
+.siftah-card .siftah-icon {
+    font-size: 1.25rem;
+}
+
+.siftah-card .siftah-body {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.siftah-card .siftah-body img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #fbbf24;
+}
+
+.siftah-card .siftah-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.siftah-card .siftah-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.siftah-card .siftah-info .store {
+    margin: 0 0 4px 0;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.siftah-card .siftah-info .price {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+.siftah-card .siftah-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #78350f;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.siftah-card .savings {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 8px;
+    background: #d1fae5;
+    color: #047857;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.siftah-card .siftah-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.siftah-card .siftah-btn:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+
+/* ===========================================
+   SIFTAH TOAST NOTIFICATION
+   =========================================== */
+.siftah-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 320px;
+    max-width: calc(100vw - 48px);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(251, 191, 36, 0.2);
+    z-index: 10001;
+    animation: siftahSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+@keyframes siftahSlideIn {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.siftah-toast.fade-out {
+    animation: siftahSlideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes siftahSlideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+}
+
+.siftah-toast .close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 50%;
+    font-size: 16px;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.siftah-toast .close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #374151;
+}
+
+.siftah-toast .toast-header {
+    padding: 12px 16px 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #92400e;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-bottom: 1px solid #fcd34d;
+}
+
+.siftah-toast .toast-body {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+}
+
+.siftah-toast .toast-body img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.siftah-toast .toast-body .title {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1f2937;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.siftah-toast .toast-body .store {
+    margin: 0 0 4px 0;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.siftah-toast .toast-body .price {
+    margin: 0 0 6px 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+.siftah-toast .toast-body .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #fcd34d;
+    color: #78350f;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.siftah-toast .view-btn {
+    display: block;
+    margin: 0 16px 16px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.siftah-toast .view-btn:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* ===========================================
+   RESPONSIVE ADJUSTMENTS
+   =========================================== */
+@media (max-width: 480px) {
+    .siftah-toast {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        max-width: none;
+    }
+
+    .siftah-card .siftah-body {
+        flex-direction: column;
+    }
+
+    .siftah-card .siftah-body img {
+        width: 100%;
+        height: 120px;
+    }
+}

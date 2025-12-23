@@ -6,7 +6,6 @@
 require('dotenv').config();
 const app = require('./app');
 const { testConnection, syncDatabase } = require('./config/sequelize');
-const { redisClient } = require('./config/redis');
 const logger = require('./utils/logger');
 require('./workers');
 
@@ -42,19 +41,8 @@ const startServer = async () => {
       }
     }
 
-    // Test Redis connection
-    // Test Redis connection
-    logger.info('Testing Redis connection');
-    try {
-      if (typeof redisClient.ping === 'function') {
-        await redisClient.ping();
-        logger.info('✅ Connected to Redis');
-      } else {
-        logger.info('⚠️  Using in-memory Redis mock (no ping method)');
-      }
-    } catch (redisError) {
-      logger.warn('⚠️  Redis connection failed, proceeding without Redis: %s', redisError.message);
-    }
+    // Cache status (in-memory)
+    logger.info('📦 Cache: Using in-memory storage');
 
     // Start Express server
     server = app.listen(PORT, () => {
@@ -84,10 +72,6 @@ const gracefulShutdown = async (signal) => {
         // Close database connection
         const { closeConnection } = require('./config/sequelize');
         await closeConnection();
-
-        // Close Redis connection
-        await redisClient.quit();
-        logger.info('Redis connection closed');
 
         logger.info('Graceful shutdown completed');
         process.exit(0);

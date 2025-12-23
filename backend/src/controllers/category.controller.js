@@ -107,6 +107,37 @@ class CategoryController {
 
     return success(res, variants, 'Category variants retrieved successfully');
   });
+
+  /**
+   * Create variant for a category (admin only)
+   * POST /api/v1/categories/:id/variants
+   */
+  createVariant = asyncHandler(async (req, res) => {
+    const variant = await categoryService.createCategoryVariant(req.params.id, req.body);
+
+    return created(res, variant, 'Variant created successfully');
+  });
+
+  /**
+   * Update variant (admin only)
+   * PUT /api/v1/categories/:id/variants/:variantId
+   */
+  updateVariant = asyncHandler(async (req, res) => {
+    const variant = await categoryService.updateCategoryVariant(req.params.variantId, req.body);
+
+    return success(res, variant, 'Variant updated successfully');
+  });
+
+  /**
+   * Delete variant (admin only)
+   * DELETE /api/v1/categories/:id/variants/:variantId
+   */
+  deleteVariant = asyncHandler(async (req, res) => {
+    await categoryService.deleteCategoryVariant(req.params.variantId);
+
+    return noContent(res);
+  });
 }
 
 module.exports = new CategoryController();
+

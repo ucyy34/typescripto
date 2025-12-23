@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>All Treasures - DostanWebCSS Nordic Marketplace</title>
-    <meta name="description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+    <meta name="description"
+        content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://dostanwebcss.com/pages/products.html">
@@ -13,19 +15,26 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://dostanwebcss.com/pages/products.html">
     <meta property="og:title" content="All Treasures - DostanWebCSS Nordic Marketplace">
-    <meta property="og:description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+    <meta property="og:description"
+        content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
     <meta property="og:site_name" content="DostanWebCSS">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="All Treasures - DostanWebCSS Nordic Marketplace">
-    <meta name="twitter:description" content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+    <meta name="twitter:description"
+        content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap"></noscript>
+    <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap"
+        as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;600&display=swap">
+    </noscript>
 
     <!-- Preload critical assets -->
     <link rel="preload" href="../assets/css/main.css" as="style">
@@ -35,6 +44,7 @@
     <link rel="stylesheet" href="../assets/css/main.css">
     <link rel="stylesheet" href="../assets/css/product-cards.css">
     <link rel="stylesheet" href="../assets/css/product-modal.css">
+    <link rel="stylesheet" href="../assets/css/siftah.css">
 
     <style>
         /* Products page specific styles */
@@ -226,8 +236,15 @@
         }
 
         @keyframes shimmer {
-            0%, 100% { transform: scale(1) rotate(0deg); }
-            50% { transform: scale(1.1) rotate(180deg); }
+
+            0%,
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            50% {
+                transform: scale(1.1) rotate(180deg);
+            }
         }
 
         .sr-only {
@@ -243,6 +260,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Navigation Header -->
     <header class="header glass-card" role="banner">
@@ -254,7 +272,8 @@
             <div class="nav-search">
                 <div class="search-container">
                     <label for="globalSearch" class="sr-only">Search for treasures</label>
-                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch" aria-label="Search for treasures">
+                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch"
+                        aria-label="Search for treasures">
                     <input type="hidden" id="searchInput">
                     <span class="search-icon" aria-hidden="true">🔍</span>
                 </div>
@@ -289,19 +308,27 @@
 
             <!-- Dostik's AI Recommendations -->
             <section class="dostik-recommendations" aria-labelledby="dostik-recommendations-title">
-                <h2 id="dostik-recommendations-title" style="margin-bottom: var(--space-md);">🐉 Dostik's Mystical Recommendations</h2>
+                <h2 id="dostik-recommendations-title" style="margin-bottom: var(--space-md);">🐉 Dostik's Mystical
+                    Recommendations</h2>
                 <p style="margin-bottom: var(--space-lg); opacity: 0.9;">
                     Based on the Nordic winds and ancient wisdom, I sense these treasures calling to you today...
                 </p>
                 <div style="display: flex; gap: var(--space-md); justify-content: center; flex-wrap: wrap;">
-                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">🔥 Trending</span>
-                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">✨ New Arrivals</span>
-                    <span class="badge" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">👑 Limited Edition</span>
+                    <span class="badge"
+                        style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">🔥
+                        Trending</span>
+                    <span class="badge"
+                        style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">✨
+                        New Arrivals</span>
+                    <span class="badge"
+                        style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">👑
+                        Limited Edition</span>
                 </div>
             </section>
 
             <!-- Mobile Filter Toggle -->
-            <button class="mobile-filter-toggle" id="mobileFilterToggle" type="button" aria-expanded="false" aria-controls="filtersSidebar">
+            <button class="mobile-filter-toggle" id="mobileFilterToggle" type="button" aria-expanded="false"
+                aria-controls="filtersSidebar">
                 <span aria-hidden="true">🔍</span> Filters & Sort
             </button>
 
@@ -312,9 +339,11 @@
             <div class="products-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: var(--space-xl);">
                 <!-- Filters Sidebar -->
                 <aside class="filters-sidebar" id="filtersSidebar">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
                         <h3 style="margin: 0;">Mystical Filters</h3>
-                        <button id="closeMobileFilters" style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                        <button id="closeMobileFilters"
+                            style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
                     </div>
 
                     <!-- Category Filter -->
@@ -330,7 +359,8 @@
                     <div class="filter-group">
                         <h4>💰 Price Range</h4>
                         <input type="range" class="price-range-slider" id="priceRange" min="0" max="1000" value="500">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
                             <span>$0</span>
                             <span id="priceValue">$500</span>
                             <span>$1000+</span>
@@ -419,7 +449,8 @@
                         </div>
 
                         <div style="display: flex; gap: var(--space-md); align-items: center;">
-                            <select id="sortSelect" style="padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--glass-bg);">
+                            <select id="sortSelect"
+                                style="padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--glass-bg);">
                                 <option value="featured">🌟 Featured</option>
                                 <option value="price-low">💰 Price: Low to High</option>
                                 <option value="price-high">💰 Price: High to Low</option>
@@ -467,6 +498,7 @@
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/product-modal.js"></script>
     <script src="../assets/js/products-api.js"></script>
+    <script src="../assets/js/siftah.js"></script>
 
     <!-- Old inline code - now replaced by products-api.js
     <script>
@@ -825,10 +857,12 @@
     <!-- Footer -->
     <footer class="section" style="background: var(--forest-deep); color: var(--cream-soft);">
         <div class="container">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
                 <div>
                     <h4 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h4>
-                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where
+                        ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
                     <div style="display: flex; gap: var(--space-md);">
                         <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
                         <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
@@ -840,20 +874,36 @@
                 <div>
                     <h5 style="margin-bottom: var(--space-md);">Quick Links</h5>
                     <ul style="list-style: none; padding: 0;">
-                        <li><a href="../index.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a></li>
-                        <li><a href="products.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All Treasures</a></li>
-                        <li><a href="artisan.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet Artisans</a></li>
-                        <li><a href="cart.html" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping Cart</a></li>
+                        <li><a href="../index.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Home</a>
+                        </li>
+                        <li><a href="products.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All
+                                Treasures</a></li>
+                        <li><a href="artisan.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet
+                                Artisans</a></li>
+                        <li><a href="cart.html"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping
+                                Cart</a></li>
                     </ul>
                 </div>
 
                 <div>
                     <h5 style="margin-bottom: var(--space-md);">Support</h5>
                     <ul style="list-style: none; padding: 0;">
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help Center</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping Info</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a></li>
-                        <li><a href="#" style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy Policy</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help
+                                Center</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping
+                                Info</a></li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a>
+                        </li>
+                        <li><a href="#"
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy
+                                Policy</a></li>
                     </ul>
                 </div>
 
@@ -868,11 +918,13 @@
                 </div>
             </div>
 
-            <div style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
+            <div
+                style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
                 <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
             </div>
         </div>
     </footer>
 
 </body>
+
 </html>

@@ -8,6 +8,7 @@ const { ApiError } = require('../middlewares/errorHandler');
 const { StatusCodes } = require('http-status-codes');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
+const shippingSupportService = require('./shipping-support.service');
 const {
   serializeOrderForEvent,
   publishOrderCreated,
@@ -69,8 +70,23 @@ class OrderService {
       // Validate products and calculate totals
       const { validatedItems, subtotal } = await this.validateOrderItems(items, store_id);
 
-      // Calculate totals
-      const shipping_fee = parseFloat(store.settings?.shipping_fee || 0);
+      // Check if this is a new customer (for shipping rules)
+      let isNewCustomer = false;
+      if (userId) {
+        const orderCount = await Order.count({ where: { user_id: userId } });
+        isNewCustomer = orderCount === 0;
+      }
+
+      // Calculate shipping using Shipping Support Service
+      const shippingBreakdown = await shippingSupportService.calculateShippingSupport({
+        storeId: store_id,
+        orderTotal: subtotal,
+        cartTotal: subtotal,
+        storeCount: 1,
+        isNewCustomer,
+      });
+
+      const shipping_fee = shippingBreakdown.customerPays;
       const tax = parseFloat((subtotal * 0.18).toFixed(2)); // 18% VAT
       const discount = 0;
       const total = subtotal + shipping_fee + tax - discount;
@@ -78,7 +94,7 @@ class OrderService {
       // Generate order number
       const order_number = await this.generateOrderNumber();
 
-      // Create order
+      // Create order with shipping breakdown
       const order = await Order.create(
         {
           order_number,
@@ -95,6 +111,12 @@ class OrderService {
           shipping_address,
           billing_address: billing_address || shipping_address,
           customer_note,
+          // Shipping Support Breakdown
+          shipping_actual_cost: shippingBreakdown.actualCost,
+          shipping_customer_paid: shippingBreakdown.customerPays,
+          shipping_store_covered: shippingBreakdown.storeCovered,
+          shipping_platform_covered: shippingBreakdown.platformCovered,
+          shipping_rule_id: shippingBreakdown.appliedRuleId,
         },
         { transaction }
       );
@@ -108,12 +130,13 @@ class OrderService {
             product_snapshot: {
               title: item.product.title,
               slug: item.product.slug,
-              price: parseFloat(item.product.price),
+              price: item.price,
               image: item.product.images?.[0] || null,
               sku: item.product.sku,
+              variant: item.variant || null,
             },
             quantity: item.quantity,
-            price: parseFloat(item.product.price),
+            price: item.price,
             subtotal: item.total,
             discount: 0,
             tax: 0,
@@ -172,6 +195,9 @@ class OrderService {
         items: items.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
+          variant_price: item.variant?.price,
+          variant_stock: item.variant?.stock,
+          variant: item.variant || null,
         })),
         shipping_address: checkoutInput.shipping_address,
         billing_address: checkoutInput.billing_address || checkoutInput.shipping_address,
@@ -481,6 +507,15 @@ class OrderService {
     await order.save();
     await order.reload({ include: ORDER_RELATIONS });
 
+    // Record siftah sale for the store
+    try {
+      const siftahService = require('./siftah.service');
+      await siftahService.recordSiftahSale(order.store_id);
+    } catch (siftahError) {
+      // Log but don't fail the order - siftah is non-critical
+      console.warn('[Order] Siftah recording failed:', siftahError.message);
+    }
+
     await publishOrderPaid(
       serializeOrderForEvent(order, {
         transactionId: paymentPayload.transactionId || null,
@@ -599,19 +634,30 @@ class OrderService {
     for (const item of items) {
       const product = productMap.get(item.product_id);
 
-      if (product.stock < item.quantity) {
+      const variantStock = item.variant_stock ?? item.variant?.stock ?? null;
+      const stockToCheck =
+        variantStock !== null && variantStock !== undefined ? variantStock : product.stock;
+
+      if (stockToCheck < item.quantity) {
         throw new ApiError(
-          `Insufficient stock for ${product.title}. Available: ${product.stock}`,
+          `Insufficient stock for ${product.title}. Available: ${stockToCheck}`,
           StatusCodes.BAD_REQUEST
         );
       }
 
-      const itemTotal = parseFloat(product.price) * item.quantity;
+      const priceToUse =
+        item.variant_price !== undefined && item.variant_price !== null
+          ? parseFloat(item.variant_price)
+          : parseFloat(product.price);
+
+      const itemTotal = priceToUse * item.quantity;
       subtotal += itemTotal;
 
       validatedItems.push({
         product,
         quantity: item.quantity,
+        price: priceToUse,
+        variant: item.variant || null,
         total: itemTotal,
       });
     }

@@ -88,6 +88,27 @@ class AuthController {
 
     return success(res, null, 'Email verified successfully');
   });
+
+  /**
+   * Forgot password
+   * POST /api/v1/auth/forgot-password
+   */
+  forgotPassword = asyncHandler(async (req, res) => {
+    await authService.forgotPassword(req.body.email);
+
+    // Always return success to prevent email enumeration
+    return success(res, null, 'Şifre sıfırlama linki e-posta adresinize gönderildi (test modunda konsola yazıldı)');
+  });
+
+  /**
+   * Reset password
+   * POST /api/v1/auth/reset-password
+   */
+  resetPassword = asyncHandler(async (req, res) => {
+    await authService.resetPassword(req.body.token, req.body.password);
+
+    return success(res, null, 'Şifreniz başarıyla değiştirildi');
+  });
 }
 
 module.exports = new AuthController();

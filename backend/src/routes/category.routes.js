@@ -52,6 +52,27 @@ router.get('/slug/:slug', categoryController.getCategoryBySlug);
 router.get('/:id/variants', categoryController.getCategoryVariants);
 
 /**
+ * @route   POST /api/v1/categories/:id/variants
+ * @desc    Create variant for a category
+ * @access  Private (Admin only)
+ */
+router.post('/:id/variants', authenticate, requireAdmin, categoryController.createVariant);
+
+/**
+ * @route   PUT /api/v1/categories/:id/variants/:variantId
+ * @desc    Update variant
+ * @access  Private (Admin only)
+ */
+router.put('/:id/variants/:variantId', authenticate, requireAdmin, categoryController.updateVariant);
+
+/**
+ * @route   DELETE /api/v1/categories/:id/variants/:variantId
+ * @desc    Delete variant
+ * @access  Private (Admin only)
+ */
+router.delete('/:id/variants/:variantId', authenticate, requireAdmin, categoryController.deleteVariant);
+
+/**
  * @route   GET /api/v1/categories/:id
  * @desc    Get category by ID
  * @access  Public
@@ -80,3 +101,4 @@ router.put('/:id', authenticate, requireAdmin, categoryController.updateCategory
 router.delete('/:id', authenticate, requireAdmin, categoryController.deleteCategory);
 
 module.exports = router;
+

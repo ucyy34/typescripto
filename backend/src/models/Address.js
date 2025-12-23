@@ -74,6 +74,11 @@ const Address = sequelize.define(
       type: DataTypes.STRING(100),
       allowNull: false,
     },
+    district: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      comment: 'District/County (e.g., "Kadıköy", "Çankaya")',
+    },
     state: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -128,6 +133,7 @@ Address.prototype.toOrderFormat = function () {
     address_line1: this.address_line1,
     address_line2: this.address_line2,
     city: this.city,
+    district: this.district,
     state: this.state,
     postal_code: this.postal_code,
     country: this.country,
@@ -146,7 +152,7 @@ Address.prototype.getFormattedAddress = function () {
     parts.push(this.address_line2);
   }
 
-  parts.push(`${this.city}${this.state ? ', ' + this.state : ''} ${this.postal_code}`);
+  parts.push(`${this.city}${this.district ? ', ' + this.district : ''}${this.state ? ', ' + this.state : ''} ${this.postal_code}`);
   parts.push(this.country);
 
   return parts.join('\n');

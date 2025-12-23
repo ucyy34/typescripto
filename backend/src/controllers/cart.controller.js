@@ -47,9 +47,20 @@ class CartController {
    * @route POST /api/v1/cart/items
    */
   addItem = asyncHandler(async (req, res) => {
-    const { product_id, quantity } = req.body;
+    const { product_id, quantity, variant_sku, variant_price, variant_stock, variant_selection } = req.body;
     const userId = req.user?.id || null;
-    const cart = await cartService.addItem(userId, req.guestId, product_id, quantity);
+    const cart = await cartService.addItem(
+      userId,
+      req.guestId,
+      product_id,
+      quantity,
+      {
+        sku: variant_sku,
+        price: variant_price,
+        stock: variant_stock,
+        selection: variant_selection,
+      }
+    );
 
     return success(res, cart, 'Item added to cart successfully', 201);
   });

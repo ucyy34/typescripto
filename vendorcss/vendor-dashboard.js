@@ -159,7 +159,7 @@ class VendorDashboard {
             if (win) win.value = typeof settings.return_window_days === 'number' ? settings.return_window_days : 14;
             if (ship) ship.value = settings.return_shipping_policy || 'none';
             if (tax) tax.value = settings.tax_refund_policy || 'pro_rata';
-        } catch (_) {}
+        } catch (_) { }
     }
 
     setupReturnPolicyUI() {
@@ -218,8 +218,20 @@ class VendorDashboard {
             const variantName = group.dataset.variantName;
             const selected = [];
             group.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
-                const labelText = input.nextSibling && input.nextSibling.textContent ? input.nextSibling.textContent.trim() : input.value;
-                selected.push({ label: labelText, value: input.value });
+                const row = input.closest('.variant-option-row');
+                const labelText = row?.querySelector('span')?.textContent?.trim() || input.value;
+                const sku = row?.querySelector('.variant-sku-input')?.value?.trim();
+                const priceStr = row?.querySelector('.variant-price-input')?.value;
+                const stockStr = row?.querySelector('.variant-stock-input')?.value;
+
+                const option = { label: labelText, value: input.value };
+                if (sku) option.sku = sku;
+                const price = priceStr ? parseFloat(priceStr) : null;
+                if (!Number.isNaN(price) && price !== null) option.price = price;
+                const stock = stockStr ? parseInt(stockStr, 10) : null;
+                if (!Number.isNaN(stock) && stock !== null) option.stock = stock;
+
+                selected.push(option);
             });
             if (selected.length > 0) {
                 result.push({
@@ -489,7 +501,7 @@ class VendorDashboard {
     loadSectionData(sectionName) {
         vdLog(`Loading section data: ${sectionName}`);
 
-        switch(sectionName) {
+        switch (sectionName) {
             case 'dashboard':
                 this.loadDashboardData();
                 break;
@@ -506,25 +518,11 @@ class VendorDashboard {
                 this.loadAnalyticsData();
                 break;
             case 'returns':
-                this.loadReturnsData();
-                break;
-            case 'earnings':
-                this.loadEarningsData();
-                break;
-            case 'store':
-                this.loadStoreData();
-                break;
-            case 'shipping':
-                this.loadShippingData();
-                break;
-            case 'campaigns':
-                this.loadCampaignsData();
-                break;
-            case 'seo':
-                this.loadSeoData();
-                break;
             case 'messages':
                 this.loadMessagesData();
+                break;
+            case 'shipping':
+                this.loadShippingSettings();
                 break;
             case 'profile':
                 this.loadProfileData();
@@ -562,7 +560,7 @@ class VendorDashboard {
                 store_id: this.storeId,  // Backend expects snake_case
                 limit: 50,
                 includeAllStatuses: 'true'  // Query param must be string
-            });
+            }, { useCache: false });
 
             vdLog('Products response:', response);
 
@@ -669,9 +667,9 @@ class VendorDashboard {
                             border: 1px solid #e2e8f0;
                         ">
                             ${product.images && product.images.length > 0 ?
-                                `<img src="${product.images[0]}" alt="${product.title}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\"font-size: 2rem; opacity: 0.3;\\">🏺</div>';">` :
-                                '<div style="font-size: 2rem; opacity: 0.3;">🏺</div>'
-                            }
+                        `<img src="${product.images[0]}" alt="${product.title}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\"font-size: 2rem; opacity: 0.3;\\">🏺</div>';">` :
+                        '<div style="font-size: 2rem; opacity: 0.3;">🏺</div>'
+                    }
                         </div>
 
                         <!-- Product Info (Editable) -->
@@ -1003,16 +1001,218 @@ class VendorDashboard {
 
     async loadAnalyticsData() {
         vdLog('Loading analytics...');
-        const container = document.querySelector('#analytics-section');
-        if (container) {
-            container.innerHTML = `
-                <div style="text-align:center;padding:4rem;color:#64748b;">
-                    <div style="font-size:4rem;margin-bottom:1rem;">📊</div>
-                    <h3 style="margin:0 0 0.5rem 0;">Analitik Raporları</h3>
-                    <p style="opacity:0.7;">Detaylı satış analitiği ve raporlar yakında eklenecek</p>
-                </div>
-            `;
+
+        try {
+            // Fetch all analytics data in parallel
+            const [dashboardRes, salesRes, topProductsRes, recentOrdersRes] = await Promise.all([
+                this.apiClient.get('/analytics/vendor/dashboard'),
+                this.apiClient.get('/analytics/vendor/sales?days=7'),
+                this.apiClient.get('/analytics/vendor/top-products?limit=5'),
+                this.apiClient.get('/analytics/vendor/recent-orders?limit=5'),
+            ]);
+
+            // Update stat cards
+            if (dashboardRes.success) {
+                const stats = dashboardRes.data;
+                this.updateAnalyticsStats(stats);
+            }
+
+            // Update sales chart
+            if (salesRes.success) {
+                this.renderSalesChart(salesRes.data);
+            }
+
+            // Update top products
+            if (topProductsRes.success) {
+                this.renderTopProducts(topProductsRes.data);
+            }
+
+            // Update recent orders
+            if (recentOrdersRes.success) {
+                this.renderRecentOrders(recentOrdersRes.data);
+            }
+
+            // Setup chart controls
+            this.setupChartControls();
+
+        } catch (error) {
+            vdLog('Analytics load error:', error);
+            const container = document.querySelector('#analytics-section');
+            if (container) {
+                container.innerHTML = `
+                    <h2>📊 Analitik Paneli</h2>
+                    <div style="text-align:center;padding:2rem;color:#ef4444;">
+                        <p>Analitik verileri yüklenirken hata oluştu.</p>
+                        <button onclick="window.vendorDashboard.loadAnalyticsData()" 
+                                style="margin-top:1rem;padding:0.5rem 1rem;background:#10b981;color:white;border:none;border-radius:0.5rem;cursor:pointer;">
+                            Tekrar Dene
+                        </button>
+                    </div>
+                `;
+            }
         }
+    }
+
+    updateAnalyticsStats(stats) {
+        const { overview, products, returns } = stats;
+
+        // Revenue
+        const totalRevenueEl = document.getElementById('statTotalRevenue');
+        const revenue30DaysEl = document.getElementById('statRevenue30Days');
+        if (totalRevenueEl) totalRevenueEl.textContent = `₺${overview.totalRevenue.toLocaleString('tr-TR')}`;
+        if (revenue30DaysEl) revenue30DaysEl.textContent = `Son 30 gün: ₺${overview.revenue30Days.toLocaleString('tr-TR')}`;
+
+        // Orders
+        const totalOrdersEl = document.getElementById('statTotalOrders');
+        const pendingOrdersEl = document.getElementById('statPendingOrders');
+        if (totalOrdersEl) totalOrdersEl.textContent = overview.totalOrders;
+        if (pendingOrdersEl) pendingOrdersEl.textContent = `Bekleyen: ${overview.pendingOrders}`;
+
+        // Products
+        const totalProductsEl = document.getElementById('statTotalProducts');
+        const activeProductsEl = document.getElementById('statActiveProducts');
+        if (totalProductsEl) totalProductsEl.textContent = products.total;
+        if (activeProductsEl) activeProductsEl.textContent = `Aktif: ${products.active}`;
+
+        // Returns
+        const returnRateEl = document.getElementById('statReturnRate');
+        const totalReturnsEl = document.getElementById('statTotalReturns');
+        if (returnRateEl) returnRateEl.textContent = `%${returns.returnRate}`;
+        if (totalReturnsEl) totalReturnsEl.textContent = `Toplam: ${returns.total} iade`;
+    }
+
+    renderSalesChart(salesData) {
+        const canvas = document.getElementById('salesChart');
+        if (!canvas) return;
+
+        // Simple bar chart using canvas
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('salesChartWrapper');
+        canvas.width = wrapper.offsetWidth || 600;
+        canvas.height = 250;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!salesData || salesData.length === 0) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Henüz satış verisi yok', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        const maxRevenue = Math.max(...salesData.map(d => d.revenue), 1);
+        const barWidth = (canvas.width - 60) / salesData.length - 4;
+        const chartHeight = canvas.height - 50;
+
+        // Draw bars
+        salesData.forEach((day, i) => {
+            const barHeight = (day.revenue / maxRevenue) * (chartHeight - 20);
+            const x = 40 + i * (barWidth + 4);
+            const y = chartHeight - barHeight;
+
+            // Bar gradient
+            const gradient = ctx.createLinearGradient(x, y, x, chartHeight);
+            gradient.addColorStop(0, '#10b981');
+            gradient.addColorStop(1, '#059669');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, barWidth, barHeight);
+
+            // Date label
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const dateLabel = new Date(day.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+            ctx.fillText(dateLabel, x + barWidth / 2, canvas.height - 5);
+        });
+
+        // Y-axis label
+        ctx.fillStyle = '#64748b';
+        ctx.font = '12px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`₺${maxRevenue.toLocaleString('tr-TR')}`, 35, 15);
+        ctx.fillText('₺0', 35, chartHeight);
+    }
+
+    renderTopProducts(products) {
+        const container = document.getElementById('topProductsList');
+        if (!container) return;
+
+        if (!products || products.length === 0) {
+            container.innerHTML = '<p style="color: #64748b; text-align: center; padding: 1rem;">Henüz satış yapılmadı</p>';
+            return;
+        }
+
+        container.innerHTML = products.map((p, i) => `
+            <div class="top-product-item">
+                <span class="product-rank">#${i + 1}</span>
+                <img src="${p.image || '/assets/images/placeholder.png'}" alt="${p.title}" class="product-thumb">
+                <div class="product-info">
+                    <span class="product-name">${p.title}</span>
+                    <span class="product-sales">${p.totalSales} satış · ₺${p.price.toLocaleString('tr-TR')}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderRecentOrders(orders) {
+        const container = document.getElementById('recentOrdersList');
+        if (!container) return;
+
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<p style="color: #64748b; text-align: center; padding: 1rem;">Henüz sipariş yok</p>';
+            return;
+        }
+
+        const statusColors = {
+            pending: '#f59e0b',
+            processing: '#3b82f6',
+            shipped: '#8b5cf6',
+            delivered: '#10b981',
+            completed: '#10b981',
+            cancelled: '#ef4444',
+        };
+
+        const statusLabels = {
+            pending: 'Bekliyor',
+            processing: 'İşleniyor',
+            shipped: 'Kargoda',
+            delivered: 'Teslim Edildi',
+            completed: 'Tamamlandı',
+            cancelled: 'İptal',
+        };
+
+        container.innerHTML = orders.map(o => `
+            <div class="recent-order-item">
+                <div class="order-info">
+                    <span class="order-number">${o.orderNumber}</span>
+                    <span class="order-date">${new Date(o.date).toLocaleDateString('tr-TR')}</span>
+                </div>
+                <div class="order-meta">
+                    <span class="order-total">₺${o.total.toLocaleString('tr-TR')}</span>
+                    <span class="order-status" style="background: ${statusColors[o.status] || '#64748b'}">
+                        ${statusLabels[o.status] || o.status}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    setupChartControls() {
+        const buttons = document.querySelectorAll('.chart-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const days = parseInt(btn.dataset.days) || 7;
+                const res = await this.apiClient.get(`/analytics/vendor/sales?days=${days}`);
+                if (res.success) {
+                    this.renderSalesChart(res.data);
+                }
+            });
+        });
     }
 
     async loadReturnsData() {
@@ -1276,6 +1476,286 @@ class VendorDashboard {
         }
     }
 
+    async loadShippingSettings() {
+        if (!this.storeId) return;
+
+        try {
+            // Load platform default
+            const defaultRes = await this.apiClient.get('/shipping-support/default');
+            if (defaultRes.success) {
+                const defaultCostEl = document.getElementById('platformDefaultShippingCost');
+                if (defaultCostEl) {
+                    defaultCostEl.textContent = '₺' + defaultRes.data.defaultCost.toFixed(2);
+                }
+            }
+
+            // Load store settings
+            const storeRes = await this.apiClient.get(`/shipping-support/store/${this.storeId}`);
+            if (storeRes.success) {
+                const settings = storeRes.data;
+                // NOTE: Backend returns camelCase field names (shippingCost, freeShippingThreshold, isFreeShipping)
+                const shippingCostInput = document.getElementById('storeShippingCost');
+                const freeThresholdInput = document.getElementById('storeFreeShippingThreshold');
+                const isFreeCheckbox = document.getElementById('storeIsFreeShipping');
+
+                if (shippingCostInput) {
+                    shippingCostInput.value = settings.shippingCost ?? settings.shipping_cost ?? '';
+                }
+                if (freeThresholdInput) {
+                    freeThresholdInput.value = settings.freeShippingThreshold ?? settings.free_shipping_threshold ?? '';
+                }
+                if (isFreeCheckbox) {
+                    isFreeCheckbox.checked = !!(settings.isFreeShipping ?? settings.is_free_shipping);
+                }
+
+                // Show current effective cost
+                this.updateShippingSettingsPreview(settings);
+
+                vdLog('Shipping settings loaded:', settings);
+            }
+
+            // Setup form listener
+            const form = document.getElementById('shippingSettingsForm');
+            if (form) {
+                // Remove old listener to avoid duplicates
+                const newForm = form.cloneNode(true);
+                form.parentNode.replaceChild(newForm, form);
+
+                newForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await this.saveShippingSettings();
+                });
+            }
+
+            // Setup shipping campaign form and load active campaigns
+            this.setupShippingCampaignForm();
+            await this.loadActiveShippingCampaigns();
+
+        } catch (error) {
+            console.error('Failed to load shipping settings:', error);
+            this.showNotification('Kargo ayarları yüklenemedi', 'error');
+        }
+    }
+
+    updateShippingSettingsPreview(settings) {
+        // Create or update preview element
+        let previewEl = document.getElementById('shippingSettingsPreview');
+        if (!previewEl) {
+            const form = document.getElementById('shippingSettingsForm');
+            if (!form) return;
+
+            previewEl = document.createElement('div');
+            previewEl.id = 'shippingSettingsPreview';
+            previewEl.style.cssText = 'margin-top: 1rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border-left: 4px solid #10b981;';
+            form.parentNode.insertBefore(previewEl, form.nextSibling);
+        }
+
+        const effectiveCost = settings.effectiveCost || settings.shippingCost || settings.shipping_cost || 35;
+        const threshold = settings.freeShippingThreshold || settings.free_shipping_threshold;
+        const isFree = settings.isFreeShipping || settings.is_free_shipping;
+
+        let statusText = '';
+        if (isFree) {
+            statusText = '🎉 <strong>Mevcut Durum:</strong> Tüm siparişlerde ücretsiz kargo!';
+        } else if (threshold) {
+            statusText = `📦 <strong>Mevcut Durum:</strong> ₺${parseFloat(threshold).toFixed(2)} üzeri siparişlerde ücretsiz, altında ₺${parseFloat(effectiveCost).toFixed(2)} kargo ücreti`;
+        } else {
+            statusText = `📦 <strong>Mevcut Durum:</strong> Tüm siparişlerde ₺${parseFloat(effectiveCost).toFixed(2)} kargo ücreti`;
+        }
+
+        previewEl.innerHTML = statusText;
+    }
+
+    async saveShippingSettings() {
+        const costInput = document.getElementById('storeShippingCost');
+        const thresholdInput = document.getElementById('storeFreeShippingThreshold');
+        const isFreeCheckbox = document.getElementById('storeIsFreeShipping');
+
+        const cost = costInput?.value;
+        const threshold = thresholdInput?.value;
+        const isFree = isFreeCheckbox?.checked || false;
+
+        const data = {
+            shipping_cost: cost ? parseFloat(cost) : null,
+            free_shipping_threshold: threshold ? parseFloat(threshold) : null,
+            is_free_shipping: isFree
+        };
+
+        try {
+            const result = await this.apiClient.put(`/shipping-support/store/${this.storeId}`, data);
+            if (result.success) {
+                this.showNotification('Kargo ayarları başarıyla kaydedildi! ✅', 'success');
+                // Update local info
+                if (this.storeInfo) {
+                    this.storeInfo = { ...this.storeInfo, ...data };
+                }
+
+                // Update the preview with new settings
+                this.updateShippingSettingsPreview({
+                    shippingCost: data.shipping_cost,
+                    freeShippingThreshold: data.free_shipping_threshold,
+                    isFreeShipping: data.is_free_shipping,
+                    effectiveCost: data.shipping_cost || 35
+                });
+
+                vdLog('Shipping settings saved:', data);
+            } else {
+                this.showNotification('Ayarlar kaydedilemedi: ' + (result.message || 'Bilinmeyen hata'), 'error');
+            }
+        } catch (error) {
+            console.error('Failed to save shipping settings:', error);
+            this.showNotification('Ayarlar kaydedilemedi: ' + (error.message || 'Sunucu hatası') + ' ❌', 'error');
+        }
+    }
+
+    setupShippingCampaignForm() {
+        const form = document.getElementById('shippingCampaignForm');
+        if (!form) return;
+
+        // Set default dates
+        const now = new Date();
+        const startDateInput = document.getElementById('shippingCampaignStartDate');
+        const endDateInput = document.getElementById('shippingCampaignEndDate');
+
+        if (startDateInput) {
+            startDateInput.value = now.toISOString().slice(0, 16);
+        }
+        if (endDateInput) {
+            // Default to 7 days from now
+            const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            endDateInput.value = endDate.toISOString().slice(0, 16);
+        }
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.createShippingCampaign();
+        });
+    }
+
+    async loadActiveShippingCampaigns() {
+        const container = document.getElementById('activeShippingCampaigns');
+        if (!container || !this.storeId) return;
+
+        try {
+            const response = await this.apiClient.get('/campaigns', {
+                store_id: this.storeId,
+                campaign_type: 'FREE_SHIPPING'
+            });
+
+            const campaigns = response.data?.campaigns || response.data || [];
+            const activeCampaigns = campaigns.filter(c => {
+                const now = new Date();
+                const start = new Date(c.start_date);
+                const end = new Date(c.end_date);
+                return c.is_active && now >= start && now <= end;
+            });
+
+            if (activeCampaigns.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; background: rgba(100, 116, 139, 0.1); border-radius: 8px; text-align: center;">
+                        <p style="margin: 0; opacity: 0.7;">Aktif kargo kampanyası yok. Yeni bir kampanya oluşturun!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <h4 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--vendor-primary);">📦 Aktif Kargo Kampanyaları</h4>
+                <div style="display: grid; gap: 1rem;">
+                    ${activeCampaigns.map(c => {
+                const endDate = new Date(c.end_date);
+                const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+                return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border-left: 4px solid #10b981;">
+                                <div>
+                                    <div style="font-weight: 600;">${c.name}</div>
+                                    <div style="font-size: 0.85rem; opacity: 0.7;">
+                                        ${c.min_order_amount > 0 ? `₺${c.min_order_amount} üzeri` : 'Tüm siparişlerde'} ücretsiz kargo
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 600; color: ${daysLeft <= 3 ? '#f59e0b' : '#10b981'};">
+                                        ${daysLeft} gün kaldı
+                                    </div>
+                                    <div style="font-size: 0.8rem; opacity: 0.7;">
+                                        ${c.approval_status === 'approved' ? '✓ Onaylı' : c.approval_status === 'pending' ? '⏳ Onay bekliyor' : '✗ Reddedildi'}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+            }).join('')}
+                </div>
+            `;
+        } catch (error) {
+            console.error('Failed to load shipping campaigns:', error);
+            container.innerHTML = '';
+        }
+    }
+
+    async createShippingCampaign() {
+        const name = document.getElementById('shippingCampaignName')?.value?.trim();
+        const startDate = document.getElementById('shippingCampaignStartDate')?.value;
+        const endDate = document.getElementById('shippingCampaignEndDate')?.value;
+        const minAmount = document.getElementById('shippingCampaignMinAmount')?.value;
+        const showBadge = document.getElementById('shippingCampaignShowBadge')?.checked;
+
+        if (!name) {
+            this.showNotification('Lütfen kampanya adı girin', 'error');
+            return;
+        }
+
+        if (!startDate || !endDate) {
+            this.showNotification('Lütfen başlangıç ve bitiş tarihlerini seçin', 'error');
+            return;
+        }
+
+        if (new Date(startDate) >= new Date(endDate)) {
+            this.showNotification('Bitiş tarihi başlangıç tarihinden sonra olmalı', 'error');
+            return;
+        }
+
+        const campaignData = {
+            name: name,
+            description: minAmount ? `₺${minAmount} ve üzeri siparişlerde ücretsiz kargo` : 'Tüm siparişlerde ücretsiz kargo',
+            campaign_type: 'FREE_SHIPPING',
+            discount_type: 'free_shipping',
+            discount_value: 0,
+            start_date: startDate,
+            end_date: endDate,
+            min_order_amount: minAmount ? parseFloat(minAmount) : 0,
+            applicable_to: 'all_store',
+            badge_text: 'ÜCRETSİZ KARGO',
+            badge_color: '#10b981',
+            show_countdown: showBadge
+        };
+
+        try {
+            vdLog('Creating shipping campaign:', campaignData);
+
+            const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
+
+            if (response.success) {
+                this.showNotification('Kargo kampanyası oluşturuldu! Admin onayından sonra aktif olacak. ✅', 'success');
+
+                // Reset form
+                const form = document.getElementById('shippingCampaignForm');
+                if (form) form.reset();
+
+                // Set default dates again
+                this.setupShippingCampaignForm();
+
+                // Reload active campaigns
+                await this.loadActiveShippingCampaigns();
+            } else {
+                this.showNotification('Kampanya oluşturulamadı: ' + (response.message || 'Bilinmeyen hata'), 'error');
+            }
+        } catch (error) {
+            console.error('Failed to create shipping campaign:', error);
+            this.showNotification('Kampanya oluşturulamadı: ' + (error.message || 'Sunucu hatası') + ' ❌', 'error');
+        }
+    }
+
     async markItemsReceived(returnId) {
         const trackingNumber = prompt('Kargo takip numarasını giriniz (opsiyonel):');
         if (trackingNumber === null) return; // Cancelled
@@ -1333,9 +1813,9 @@ class VendorDashboard {
             // Get pending shipments (orders that are processing or paid)
             const ordersResponse = await this.apiClient.get(`/orders?storeId=${this.storeId}`);
             const orders = ordersResponse.success ? ordersResponse.data.orders || [] : [];
-            
+
             // Filter orders that need shipping
-            const needsShipping = orders.filter(o => 
+            const needsShipping = orders.filter(o =>
                 o.status === 'paid' || o.status === 'processing'
             );
 
@@ -1470,7 +1950,7 @@ class VendorDashboard {
             }
 
             const rates = ratesResponse.data.rates || [];
-            
+
             // Show rate selection modal
             const selectedRate = await this.showRateSelectionModal(rates, order);
             if (!selectedRate) return; // User cancelled
@@ -1503,7 +1983,7 @@ class VendorDashboard {
             }
 
             const shipment = shipmentResponse.data;
-            
+
             // Success!
             this.showSuccess(`✅ Kargo başarıyla oluşturuldu!<br>
                              📋 Takip No: <strong>${shipment.tracking_number}</strong><br>
@@ -2086,21 +2566,7 @@ class VendorDashboard {
         // SEO character counters
         this.setupSEOCounters();
 
-        const categorySelect = document.getElementById('productCategory');
-        if (categorySelect) {
-            categorySelect.addEventListener('change', async () => {
-                const categoryId = categorySelect.value;
-                if (categoryId) {
-                    vdVariantLog(`Fetching variants for category: ${categoryId}`);
-                    const variants = await this.loadCategoryVariantsForForm(categoryId);
-                    vdVariantLog(`Loaded ${variants?.length || 0} variants for category: ${categoryId}`);
-                    this.renderVariantSelectors(variants || []);
-                } else {
-                    vdVariantLog('No category selected');
-                    this.renderVariantSelectors([]);
-                }
-            });
-        }
+        // Old category-based variant system removed - now using cascading dropdown variant system
 
         vdLog('Product modal configured');
     }
@@ -2109,6 +2575,112 @@ class VendorDashboard {
         const modal = document.getElementById('productModal');
         if (modal) {
             modal.style.display = 'block';
+        }
+    }
+
+    /**
+     * Setup image upload handler with variant image dropdown update
+     */
+    setupImageUpload() {
+        const fileInput = document.getElementById('productImageFile');
+        const imagePreview = document.getElementById('productImagePreview');
+
+        if (!fileInput) {
+            vdLog('Image file input not found');
+            return;
+        }
+
+        // Track uploaded images for variant selection
+        this.uploadedProductImages = [];
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show loading state
+            if (imagePreview) {
+                imagePreview.innerHTML = '<div style="color: #64748b; font-size: 0.9rem;">Yükleniyor...</div>';
+            }
+
+            try {
+                // Create a local preview first
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    if (imagePreview) {
+                        imagePreview.innerHTML = `<img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover;" alt="Ürün görseli">`;
+                    }
+                };
+                reader.readAsDataURL(file);
+
+                // Upload to server
+                const formData = new FormData();
+                formData.append('image', file);
+
+                const response = await fetch(`${window.API_BASE_URL || 'http://localhost:3001/api'}/uploads/image`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AuthManager.getToken()}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data?.url) {
+                    const imageUrl = result.data.url;
+
+                    // Store in preview element for later use
+                    if (imagePreview) {
+                        imagePreview.dataset.imageUrl = imageUrl;
+                        imagePreview.innerHTML = `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" alt="Ürün görseli">`;
+                    }
+
+                    // Add to uploaded images list
+                    this.uploadedProductImages.push({
+                        url: imageUrl,
+                        name: file.name
+                    });
+
+                    // Update variant image selector
+                    this.updateVariantImageSelector();
+
+                    this.showSuccess('Görsel başarıyla yüklendi!');
+                    vdLog('Image uploaded:', imageUrl);
+                } else {
+                    throw new Error(result.message || 'Görsel yüklenemedi');
+                }
+            } catch (error) {
+                console.error('Image upload error:', error);
+                this.showError('Görsel yüklenirken hata oluştu: ' + error.message);
+                if (imagePreview) {
+                    imagePreview.innerHTML = '<span style="color: #dc2626;">Yükleme hatası</span>';
+                }
+            }
+        });
+
+        vdLog('Image upload handler configured');
+    }
+
+    /**
+     * Update variant image selector dropdown with uploaded images
+     */
+    updateVariantImageSelector() {
+        const variantImageSelect = document.getElementById('variantImageSelect');
+        if (!variantImageSelect) return;
+
+        // Keep the default option
+        variantImageSelect.innerHTML = '<option value="">Görsel seçin (ürün görsellerinden)</option>';
+
+        // Add uploaded images
+        if (this.uploadedProductImages && this.uploadedProductImages.length > 0) {
+            this.uploadedProductImages.forEach((img, index) => {
+                const option = document.createElement('option');
+                option.value = img.url;
+                option.textContent = `📷 Görsel ${index + 1}: ${img.name || 'Yüklenen görsel'}`;
+                variantImageSelect.appendChild(option);
+            });
+
+            vdLog('Variant image selector updated with', this.uploadedProductImages.length, 'images');
         }
     }
 
@@ -2197,7 +2769,7 @@ class VendorDashboard {
             form.appendChild(container);
         }
         container.innerHTML = '';
-        
+
         if (!variants || variants.length === 0) {
             vdVariantLog('No variants to render');
             return;
@@ -2207,6 +2779,7 @@ class VendorDashboard {
             group.className = 'variant-group';
             group.dataset.variantId = v.id;
             group.dataset.variantName = v.name;
+            group.dataset.isRequired = v.is_required ? 'true' : 'false';
 
             const labelEl = document.createElement('div');
             labelEl.style.margin = '0.5rem 0';
@@ -2214,20 +2787,33 @@ class VendorDashboard {
             group.appendChild(labelEl);
 
             const optionsWrap = document.createElement('div');
+            optionsWrap.style.display = 'grid';
+            optionsWrap.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
+            optionsWrap.style.gap = '0.5rem';
+
             (v.options || []).forEach(opt => {
-                const lbl = document.createElement('label');
-                lbl.style.marginRight = '0.75rem';
-                const input = document.createElement('input');
-                input.type = 'checkbox';
-                input.name = `variant_${v.id}`;
-                input.value = opt.value;
-                lbl.appendChild(input);
+                const row = document.createElement('div');
+                row.className = 'variant-option-row';
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '0.5rem';
+                row.style.padding = '0.35rem 0.5rem';
+                row.style.border = '1px solid #e5e7eb';
+                row.style.borderRadius = '6px';
+                row.style.background = '#fff';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = `variant_${v.id}`;
+                checkbox.value = opt.value;
+                row.appendChild(checkbox);
+
                 const span = document.createElement('span');
                 span.textContent = opt.label || opt.value;
                 if (v.type === 'color' && opt.value) {
-                    span.style.display = 'inline-block';
-                    span.style.width = '14px';
-                    span.style.height = '14px';
+                    span.style.display = 'inline-flex';
+                    span.style.width = '16px';
+                    span.style.height = '16px';
                     span.style.borderRadius = '50%';
                     span.style.background = opt.value;
                     span.style.marginLeft = '6px';
@@ -2235,8 +2821,48 @@ class VendorDashboard {
                 } else {
                     span.style.marginLeft = '6px';
                 }
-                lbl.appendChild(span);
-                optionsWrap.appendChild(lbl);
+                row.appendChild(span);
+
+                const skuInput = document.createElement('input');
+                skuInput.type = 'text';
+                skuInput.placeholder = 'SKU';
+                skuInput.className = 'variant-sku-input';
+                skuInput.style.flex = '1';
+                skuInput.style.minWidth = '80px';
+                skuInput.disabled = true;
+                row.appendChild(skuInput);
+
+                const priceInput = document.createElement('input');
+                priceInput.type = 'number';
+                priceInput.placeholder = 'Fiyat';
+                priceInput.step = '0.01';
+                priceInput.min = '0';
+                priceInput.className = 'variant-price-input';
+                priceInput.style.width = '90px';
+                priceInput.disabled = true;
+                row.appendChild(priceInput);
+
+                const stockInput = document.createElement('input');
+                stockInput.type = 'number';
+                stockInput.placeholder = 'Stok';
+                stockInput.min = '0';
+                stockInput.className = 'variant-stock-input';
+                stockInput.style.width = '70px';
+                stockInput.disabled = true;
+                row.appendChild(stockInput);
+
+                // Enable/disable detail inputs based on checkbox
+                checkbox.addEventListener('change', () => {
+                    const enabled = checkbox.checked;
+                    [skuInput, priceInput, stockInput].forEach(inp => { inp.disabled = !enabled; });
+                });
+
+                // Prefill defaults if provided
+                if (opt.sku) skuInput.value = opt.sku;
+                if (opt.price !== undefined && opt.price !== null) priceInput.value = opt.price;
+                if (opt.stock !== undefined && opt.stock !== null) stockInput.value = opt.stock;
+
+                optionsWrap.appendChild(row);
             });
             group.appendChild(optionsWrap);
             container.appendChild(group);
@@ -2291,14 +2917,33 @@ class VendorDashboard {
             document.getElementById('productStock').value = product.stock || 0;
             document.getElementById('productCategory').value = product.category_id || '';
 
-            // Fill SEO fields
-            document.getElementById('productSeoTitle').value = product.seo_title || '';
-            document.getElementById('productSeoDescription').value = product.seo_description || '';
+            // Fill SEO fields (if they exist)
+            const seoTitleEl = document.getElementById('productSeoTitle');
+            const seoDescEl = document.getElementById('productSeoDescription');
+            if (seoTitleEl) seoTitleEl.value = product.seo_title || '';
+            if (seoDescEl) seoDescEl.value = product.seo_description || '';
 
             // Fill badges
             document.querySelectorAll('input[name="badge"]').forEach(checkbox => {
                 checkbox.checked = product.badges && product.badges.includes(checkbox.value);
             });
+
+            // Fill product details fields (Material, Technique, Weight, Dimensions)
+            const materialEl = document.getElementById('productMaterial');
+            const techniqueEl = document.getElementById('productTechnique');
+            const weightEl = document.getElementById('productWeight');
+            const dimLengthEl = document.getElementById('productDimLength');
+            const dimWidthEl = document.getElementById('productDimWidth');
+            const dimHeightEl = document.getElementById('productDimHeight');
+
+            if (materialEl) materialEl.value = product.material || '';
+            if (techniqueEl) techniqueEl.value = product.technique || '';
+            if (weightEl) weightEl.value = product.weight || '';
+            if (product.dimensions) {
+                if (dimLengthEl) dimLengthEl.value = product.dimensions.length || '';
+                if (dimWidthEl) dimWidthEl.value = product.dimensions.width || '';
+                if (dimHeightEl) dimHeightEl.value = product.dimensions.height || '';
+            }
 
             // Fill image
             const imagePreview = document.getElementById('productImagePreview');
@@ -2412,6 +3057,23 @@ class VendorDashboard {
                 }
             }
 
+            // Ensure required variants are selected
+            const variantContainer = document.getElementById('variantContainer');
+            if (variantContainer) {
+                const missingRequired = [];
+                variantContainer.querySelectorAll('.variant-group').forEach(group => {
+                    const isRequired = group.dataset.isRequired === 'true';
+                    const hasSelection = group.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+                    if (isRequired && !hasSelection) {
+                        missingRequired.push(group.dataset.variantName || 'Zorunlu varyant');
+                    }
+                });
+                if (missingRequired.length > 0) {
+                    this.showError(`LÇ¬tfen zorunlu varyantlarŽñ seÇõin: ${missingRequired.join(', ')}`);
+                    return;
+                }
+            }
+
             // Prepare product data (matching backend schema exactly)
             const productData = {
                 store_id: this.storeId,
@@ -2437,9 +3099,10 @@ class VendorDashboard {
                 productData.images = [imageUrl];
             }
 
-            const selectedVariants = this.collectSelectedVariants();
-            if (selectedVariants.length > 0) {
-                productData.variants = selectedVariants;
+            // Use new cascading dropdown variant system
+            const pendingVariants = this.getPendingVariants();
+            if (pendingVariants.length > 0) {
+                productData.variants = pendingVariants;
             }
 
             // Collect selected badges
@@ -2452,22 +3115,36 @@ class VendorDashboard {
                 productData.badges = selectedBadges;
             }
 
-            // Collect SEO data
-            const seoTitle = document.getElementById('productSeoTitle')?.value.trim();
-            const seoDescription = document.getElementById('productSeoDescription')?.value.trim();
-            const metaKeywords = document.getElementById('productMetaKeywords')?.value.trim();
+            // Collect product details (Material, Technique, Weight, Dimensions)
+            const material = document.getElementById('productMaterial')?.value?.trim();
+            const technique = document.getElementById('productTechnique')?.value?.trim();
+            const weightInput = document.getElementById('productWeight')?.value;
+            const dimLength = document.getElementById('productDimLength')?.value;
+            const dimWidth = document.getElementById('productDimWidth')?.value;
+            const dimHeight = document.getElementById('productDimHeight')?.value;
 
-            if (seoTitle) {
-                productData.seo_title = seoTitle;
+            if (material) productData.material = material;
+            if (technique) productData.technique = technique;
+            if (weightInput && !isNaN(parseFloat(weightInput))) {
+                productData.weight = parseFloat(weightInput);
+            }
+            if (dimLength || dimWidth || dimHeight) {
+                productData.dimensions = {
+                    length: dimLength ? parseFloat(dimLength) : null,
+                    width: dimWidth ? parseFloat(dimWidth) : null,
+                    height: dimHeight ? parseFloat(dimHeight) : null
+                };
             }
 
-            if (seoDescription) {
-                productData.seo_description = seoDescription;
-            }
+            // Auto-generate SEO data from title and description
+            // SEO title: use product title (max 60 chars)
+            productData.seo_title = title.substring(0, 60);
 
-            if (metaKeywords) {
-                // Split by comma and trim each keyword
-                productData.meta_keywords = metaKeywords.split(',').map(k => k.trim()).filter(k => k);
+            // SEO description: use short description or truncated full description (max 160 chars)
+            if (shortDesc) {
+                productData.seo_description = shortDesc.substring(0, 160);
+            } else if (description) {
+                productData.seo_description = description.substring(0, 160);
             }
 
             // Determine if this is create or update
@@ -2707,6 +3384,39 @@ class VendorDashboard {
             if (response.success) {
                 const statusText = newActiveState ? 'aktif' : 'pasif';
                 this.showSuccess(`✅ Ürün ${statusText} duruma getirildi!`);
+
+                // Optimistically update UI
+                const btn = document.querySelector(`.toggle-active-btn[data-product-id="${productId}"]`);
+                if (btn) {
+                    btn.dataset.active = newActiveState.toString();
+                    btn.textContent = newActiveState ? '✓ Aktif' : '○ Pasif';
+                    btn.style.background = newActiveState ? '#dcfce7' : '#fff3cd';
+                    btn.style.color = newActiveState ? '#10b981' : '#f59e0b';
+                    btn.style.borderColor = newActiveState ? '#10b981' : '#f59e0b';
+
+                    // Also update the status badge above the button
+                    const statusBadge = btn.previousElementSibling;
+                    if (statusBadge) {
+                        // Keep the approval status label but maybe update style if needed
+                        // Actually, active/passive doesn't change approval status (Approved/Pending/Rejected)
+                        // So we don't need to change the badge text, just the button state is enough
+                    }
+
+                    // Update row appearance
+                    const row = btn.closest('.product-row');
+                    if (row) {
+                        if (!newActiveState) {
+                            row.style.background = '#fafafa';
+                            row.style.borderColor = '#e5e7eb';
+                            row.style.opacity = '0.75';
+                        } else {
+                            row.style.background = 'white';
+                            row.style.borderColor = 'var(--vendor-border)';
+                            row.style.opacity = '1';
+                        }
+                    }
+                }
+
                 await this.loadProductsData();
             } else {
                 this.showError(response.message || 'Durum değiştirilemedi');
@@ -2850,7 +3560,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Add setupSEOCounters method to VendorDashboard class
-VendorDashboard.prototype.setupSEOCounters = function() {
+VendorDashboard.prototype.setupSEOCounters = function () {
     const seoTitleInput = document.getElementById('productSeoTitle');
     const seoDescInput = document.getElementById('productSeoDescription');
     const seoTitleCounter = document.getElementById('seoTitleCounter');
@@ -2897,7 +3607,7 @@ VendorDashboard.prototype.setupSEOCounters = function() {
 // IMAGE UPLOAD HANDLER
 // ==========================================
 
-VendorDashboard.prototype.setupImageUpload = function() {
+VendorDashboard.prototype.setupImageUpload = function () {
     const fileInput = document.getElementById('productImageFile');
     const dropzone = document.querySelector('.image-upload-dropzone');
     const preview = document.getElementById('productImagePreview');
@@ -2995,7 +3705,7 @@ VendorDashboard.prototype.setupImageUpload = function() {
     vdLog('Image upload handler configured');
 };
 
-VendorDashboard.prototype.removeProductImage = function() {
+VendorDashboard.prototype.removeProductImage = function () {
     const fileInput = document.getElementById('productImageFile');
     const preview = document.getElementById('productImagePreview');
 
@@ -3012,53 +3722,53 @@ VendorDashboard.prototype.removeProductImage = function() {
 // CAMPAIGNS MANAGEMENT
 // ==========================================
 
-VendorDashboard.prototype.loadCampaignsData = async function() {
-        try {
-            if (!this.storeId) {
-                console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
-                return;
-            }
-            vdLog('Loading campaigns...');
+VendorDashboard.prototype.loadCampaignsData = async function () {
+    try {
+        if (!this.storeId) {
+            console.warn('[Vendor Dashboard] Cannot load campaigns without storeId');
+            return;
+        }
+        vdLog('Loading campaigns...');
 
-            const container = document.getElementById('campaigns-list');
-            if (!container) {
-                console.error('[Vendor Dashboard] campaigns-list container not found!');
-                return;
-            }
+        const container = document.getElementById('campaigns-list');
+        if (!container) {
+            console.error('[Vendor Dashboard] campaigns-list container not found!');
+            return;
+        }
 
-            // Show loading
-            container.innerHTML = `
+        // Show loading
+        container.innerHTML = `
                 <div style="text-align: center; padding: 2rem;">
                     <div class="spinner"></div>
                     <p>Loading campaigns...</p>
                 </div>
             `;
 
-            // Fetch campaigns for this store
-            const response = await this.apiClient.getStoreCampaigns(this.storeId);
-            vdLog('Campaigns response:', response);
+        // Fetch campaigns for this store
+        const response = await this.apiClient.getStoreCampaigns(this.storeId);
+        vdLog('Campaigns response:', response);
 
-            const campaigns = response.success ? response.data : [];
+        const campaigns = response.success ? response.data : [];
 
-            if (!campaigns || campaigns.length === 0) {
-                container.innerHTML = `
+        if (!campaigns || campaigns.length === 0) {
+            container.innerHTML = `
                     <div style="text-align: center; padding: 3rem;">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">🎯</div>
                         <h3 style="margin: 0 0 0.5rem 0; color: var(--vendor-text);">No Campaigns Yet</h3>
                         <p style="margin: 0; opacity: 0.7;">Create your first marketing campaign to boost sales!</p>
                     </div>
                 `;
-                return;
-            }
+            return;
+        }
 
-            // Render campaigns
-            this.renderCampaigns(campaigns);
+        // Render campaigns
+        this.renderCampaigns(campaigns);
 
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error loading campaigns:', error);
-            const container = document.getElementById('campaigns-list');
-            if (container) {
-                container.innerHTML = `
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error loading campaigns:', error);
+        const container = document.getElementById('campaigns-list');
+        if (container) {
+            container.innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: #ef4444;">
                         <p>⚠️ Failed to load campaigns</p>
                         <button onclick="vendorDashboard.loadCampaignsData()"
@@ -3067,35 +3777,35 @@ VendorDashboard.prototype.loadCampaignsData = async function() {
                         </button>
                     </div>
                 `;
-            }
         }
+    }
 };
 
-VendorDashboard.prototype.renderCampaigns = function(campaigns) {
-        const container = document.getElementById('campaigns-list');
-        
-        const html = campaigns.map(campaign => {
-            const statusColor = campaign.is_active ? '#10b981' : '#6b7280';
-            const statusText = campaign.is_active ? 'Active' : 'Inactive';
-            const approvalColor = {
-                'pending': '#f59e0b',
-                'approved': '#10b981',
-                'rejected': '#ef4444'
-            }[campaign.approval_status] || '#6b7280';
-            
-            const startDate = new Date(campaign.start_date).toLocaleDateString('tr-TR');
-            const endDate = new Date(campaign.end_date).toLocaleDateString('tr-TR');
-            
-            const campaignTypeLabels = {
-                'FLASH_SALE': '⚡ Flash Sale',
-                'BUY_X_GET_Y': '🎁 Buy X Get Y',
-                'CATEGORY_DISCOUNT': '📂 Category Discount',
-                'FREE_SHIPPING': '🚚 Free Shipping',
-                'BUNDLE_DEAL': '📦 Bundle Deal',
-                'MINIMUM_PURCHASE': '💰 Minimum Purchase'
-            };
+VendorDashboard.prototype.renderCampaigns = function (campaigns) {
+    const container = document.getElementById('campaigns-list');
 
-            return `
+    const html = campaigns.map(campaign => {
+        const statusColor = campaign.is_active ? '#10b981' : '#6b7280';
+        const statusText = campaign.is_active ? 'Active' : 'Inactive';
+        const approvalColor = {
+            'pending': '#f59e0b',
+            'approved': '#10b981',
+            'rejected': '#ef4444'
+        }[campaign.approval_status] || '#6b7280';
+
+        const startDate = new Date(campaign.start_date).toLocaleDateString('tr-TR');
+        const endDate = new Date(campaign.end_date).toLocaleDateString('tr-TR');
+
+        const campaignTypeLabels = {
+            'FLASH_SALE': '⚡ Flash Sale',
+            'BUY_X_GET_Y': '🎁 Buy X Get Y',
+            'CATEGORY_DISCOUNT': '📂 Category Discount',
+            'FREE_SHIPPING': '🚚 Free Shipping',
+            'BUNDLE_DEAL': '📦 Bundle Deal',
+            'MINIMUM_PURCHASE': '💰 Minimum Purchase'
+        };
+
+        return `
                 <div style="border: 1px solid var(--vendor-border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                         <div style="flex: 1;">
@@ -3150,84 +3860,84 @@ VendorDashboard.prototype.renderCampaigns = function(campaigns) {
                     </div>
                 </div>
             `;
-        }).join('');
+    }).join('');
 
-        container.innerHTML = html;
+    container.innerHTML = html;
 };
 
-VendorDashboard.prototype.setupCampaignModal = function() {
-        const createBtn = document.getElementById('createCampaignBtn');
-        const modal = document.getElementById('campaignModal');
-        const closeBtn = document.getElementById('closeCampaignModal');
-        const cancelBtn = document.getElementById('cancelCampaignBtn');
-        const form = document.getElementById('campaignForm');
-        const campaignType = document.getElementById('campaignType');
-        const applicableTo = document.getElementById('campaignApplicableTo');
+VendorDashboard.prototype.setupCampaignModal = function () {
+    const createBtn = document.getElementById('createCampaignBtn');
+    const modal = document.getElementById('campaignModal');
+    const closeBtn = document.getElementById('closeCampaignModal');
+    const cancelBtn = document.getElementById('cancelCampaignBtn');
+    const form = document.getElementById('campaignForm');
+    const campaignType = document.getElementById('campaignType');
+    const applicableTo = document.getElementById('campaignApplicableTo');
 
-        if (!createBtn || !modal) return;
+    if (!createBtn || !modal) return;
 
-        // Open modal
-        createBtn.addEventListener('click', () => {
-            form.reset();
-            document.getElementById('campaignStartDate').value = new Date().toISOString().slice(0, 16);
-            modal.style.display = 'block';
-        });
+    // Open modal
+    createBtn.addEventListener('click', () => {
+        form.reset();
+        document.getElementById('campaignStartDate').value = new Date().toISOString().slice(0, 16);
+        modal.style.display = 'block';
+    });
 
-        // Close modal
-        const closeModal = () => {
-            modal.style.display = 'none';
-        };
+    // Close modal
+    const closeModal = () => {
+        modal.style.display = 'none';
+    };
 
-        closeBtn?.addEventListener('click', closeModal);
-        cancelBtn?.addEventListener('click', closeModal);
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
 
-        // Show/hide conditional fields based on campaign type
-        campaignType?.addEventListener('change', (e) => {
-            const buyXGetYSettings = document.getElementById('buyXGetYSettings');
-            if (e.target.value === 'BUY_X_GET_Y') {
-                buyXGetYSettings.style.display = 'grid';
-            } else {
-                buyXGetYSettings.style.display = 'none';
-            }
-        });
+    // Show/hide conditional fields based on campaign type
+    campaignType?.addEventListener('change', (e) => {
+        const buyXGetYSettings = document.getElementById('buyXGetYSettings');
+        if (e.target.value === 'BUY_X_GET_Y') {
+            buyXGetYSettings.style.display = 'grid';
+        } else {
+            buyXGetYSettings.style.display = 'none';
+        }
+    });
 
-        // Show/hide product selection
-        applicableTo?.addEventListener('change', (e) => {
-            const productSelection = document.getElementById('productSelection');
-            if (e.target.value === 'products') {
-                productSelection.style.display = 'block';
-                this.loadCampaignProducts();
-            } else {
-                productSelection.style.display = 'none';
-            }
-        });
+    // Show/hide product selection
+    applicableTo?.addEventListener('change', (e) => {
+        const productSelection = document.getElementById('productSelection');
+        if (e.target.value === 'products') {
+            productSelection.style.display = 'block';
+            this.loadCampaignProducts();
+        } else {
+            productSelection.style.display = 'none';
+        }
+    });
 
-        // Form submission
-        form?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.createCampaign();
-        });
+    // Form submission
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await this.createCampaign();
+    });
 };
 
-VendorDashboard.prototype.loadCampaignProducts = async function() {
-        try {
-            const response = await this.apiClient.get('/products', {
-                store_id: this.storeId,
-                status: 'approved',
-                is_active: true
-            });
+VendorDashboard.prototype.loadCampaignProducts = async function () {
+    try {
+        const response = await this.apiClient.get('/products', {
+            store_id: this.storeId,
+            status: 'approved',
+            is_active: true
+        });
 
-            const products = response.success ? response.data : [];
-            const container = document.getElementById('campaignProductsList');
+        const products = response.success ? response.data : [];
+        const container = document.getElementById('campaignProductsList');
 
-            if (!container) return;
+        if (!container) return;
 
-            if (products.length === 0) {
-                container.innerHTML = '<p style="text-align: center; opacity: 0.7;">No products available</p>';
-                return;
-            }
+        if (products.length === 0) {
+            container.innerHTML = '<p style="text-align: center; opacity: 0.7;">No products available</p>';
+            return;
+        }
 
-            container.innerHTML = products.map(product => `
+        container.innerHTML = products.map(product => `
                 <div style="padding: 0.5rem; border-bottom: 1px solid var(--vendor-border);">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="checkbox" name="campaign_products" value="${product.id}" style="width: 16px; height: 16px;">
@@ -3236,128 +3946,128 @@ VendorDashboard.prototype.loadCampaignProducts = async function() {
                 </div>
             `).join('');
 
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error loading products for campaign:', error);
-        }
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error loading products for campaign:', error);
+    }
 };
 
-VendorDashboard.prototype.createCampaign = async function() {
-        try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
-                return;
-            }
-            const campaignData = {
-                name: document.getElementById('campaignName').value,
-                description: document.getElementById('campaignDescription').value,
-                campaign_type: document.getElementById('campaignType').value,
-                discount_type: document.getElementById('campaignDiscountType').value,
-                discount_value: parseFloat(document.getElementById('campaignDiscountValue').value),
-                start_date: document.getElementById('campaignStartDate').value,
-                end_date: document.getElementById('campaignEndDate').value,
-                applicable_to: document.getElementById('campaignApplicableTo').value,
-                badge_text: document.getElementById('campaignBadgeText').value,
-                badge_color: document.getElementById('campaignBadgeColor').value,
-                min_order_amount: parseFloat(document.getElementById('campaignMinAmount').value) || 0,
-                usage_limit: parseInt(document.getElementById('campaignUsageLimit').value) || null,
-                show_countdown: document.getElementById('campaignShowCountdown').checked
-            };
-
-            // Add BUY_X_GET_Y specific fields
-            if (campaignData.campaign_type === 'BUY_X_GET_Y') {
-                campaignData.buy_quantity = parseInt(document.getElementById('campaignBuyQuantity').value);
-                campaignData.get_quantity = parseInt(document.getElementById('campaignGetQuantity').value);
-            }
-
-            // Add selected products
-            if (campaignData.applicable_to === 'products') {
-                const checkboxes = document.querySelectorAll('input[name="campaign_products"]:checked');
-                campaignData.product_ids = Array.from(checkboxes).map(cb => cb.value);
-            }
-
-            vdLog('Creating campaign:', campaignData);
-
-            const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
-
-            if (response.success) {
-                this.showSuccess('Campaign created successfully! It will be activated after admin approval.');
-                document.getElementById('campaignModal').style.display = 'none';
-                this.loadCampaignsData();
-            } else {
-                this.showError(response.message || 'Failed to create campaign');
-            }
-
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error creating campaign:', error);
-            this.showError('Failed to create campaign');
-        }
-};
-
-VendorDashboard.prototype.toggleCampaignStatus = async function(campaignId, newStatus) {
-        try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.updateStoreCampaign(this.storeId, campaignId, {
-                is_active: newStatus
-            });
-
-            if (response.success) {
-                this.showSuccess(`Campaign ${newStatus ? 'activated' : 'deactivated'} successfully`);
-                this.loadCampaignsData();
-            } else {
-                this.showError(response.message || 'Failed to update campaign');
-            }
-
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error toggling campaign status:', error);
-            this.showError('Failed to update campaign');
-        }
-};
-
-VendorDashboard.prototype.deleteCampaign = async function(campaignId) {
-        if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+VendorDashboard.prototype.createCampaign = async function () {
+    try {
+        if (!this.storeId) {
+            this.showError('Store bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
             return;
         }
+        const campaignData = {
+            name: document.getElementById('campaignName').value,
+            description: document.getElementById('campaignDescription').value,
+            campaign_type: document.getElementById('campaignType').value,
+            discount_type: document.getElementById('campaignDiscountType').value,
+            discount_value: parseFloat(document.getElementById('campaignDiscountValue').value),
+            start_date: document.getElementById('campaignStartDate').value,
+            end_date: document.getElementById('campaignEndDate').value,
+            applicable_to: document.getElementById('campaignApplicableTo').value,
+            badge_text: document.getElementById('campaignBadgeText').value,
+            badge_color: document.getElementById('campaignBadgeColor').value,
+            min_order_amount: parseFloat(document.getElementById('campaignMinAmount').value) || 0,
+            usage_limit: parseInt(document.getElementById('campaignUsageLimit').value) || null,
+            show_countdown: document.getElementById('campaignShowCountdown').checked
+        };
 
-        try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.deleteStoreCampaign(this.storeId, campaignId);
-
-            if (response.success) {
-                this.showSuccess('Campaign deleted successfully');
-                this.loadCampaignsData();
-            } else {
-                this.showError(response.message || 'Failed to delete campaign');
-            }
-
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error deleting campaign:', error);
-            this.showError('Failed to delete campaign');
+        // Add BUY_X_GET_Y specific fields
+        if (campaignData.campaign_type === 'BUY_X_GET_Y') {
+            campaignData.buy_quantity = parseInt(document.getElementById('campaignBuyQuantity').value);
+            campaignData.get_quantity = parseInt(document.getElementById('campaignGetQuantity').value);
         }
+
+        // Add selected products
+        if (campaignData.applicable_to === 'products') {
+            const checkboxes = document.querySelectorAll('input[name="campaign_products"]:checked');
+            campaignData.product_ids = Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        vdLog('Creating campaign:', campaignData);
+
+        const response = await this.apiClient.createStoreCampaign(this.storeId, campaignData);
+
+        if (response.success) {
+            this.showSuccess('Campaign created successfully! It will be activated after admin approval.');
+            document.getElementById('campaignModal').style.display = 'none';
+            this.loadCampaignsData();
+        } else {
+            this.showError(response.message || 'Failed to create campaign');
+        }
+
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error creating campaign:', error);
+        this.showError('Failed to create campaign');
+    }
 };
 
-VendorDashboard.prototype.viewCampaignStats = async function(campaignId) {
-        try {
-            if (!this.storeId) {
-                this.showError('Store bilgisi bulunamadı.');
-                return;
-            }
-            const response = await this.apiClient.getStoreCampaignStats(this.storeId, campaignId);
-
-            if (response.success) {
-                const stats = response.data;
-                alert(`Campaign Statistics:\n\nViews: ${stats.view_count}\nClicks: ${stats.click_count}\nConversions: ${stats.conversion_count}\nRevenue: ₺${stats.total_revenue}\nConversion Rate: ${stats.conversion_rate}%\nCTR: ${stats.click_through_rate}%`);
-            }
-
-        } catch (error) {
-            console.error('[Vendor Dashboard] Error loading campaign stats:', error);
-            this.showError('Failed to load campaign statistics');
+VendorDashboard.prototype.toggleCampaignStatus = async function (campaignId, newStatus) {
+    try {
+        if (!this.storeId) {
+            this.showError('Store bilgisi bulunamadı.');
+            return;
         }
+        const response = await this.apiClient.updateStoreCampaign(this.storeId, campaignId, {
+            is_active: newStatus
+        });
+
+        if (response.success) {
+            this.showSuccess(`Campaign ${newStatus ? 'activated' : 'deactivated'} successfully`);
+            this.loadCampaignsData();
+        } else {
+            this.showError(response.message || 'Failed to update campaign');
+        }
+
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error toggling campaign status:', error);
+        this.showError('Failed to update campaign');
+    }
+};
+
+VendorDashboard.prototype.deleteCampaign = async function (campaignId) {
+    if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        if (!this.storeId) {
+            this.showError('Store bilgisi bulunamadı.');
+            return;
+        }
+        const response = await this.apiClient.deleteStoreCampaign(this.storeId, campaignId);
+
+        if (response.success) {
+            this.showSuccess('Campaign deleted successfully');
+            this.loadCampaignsData();
+        } else {
+            this.showError(response.message || 'Failed to delete campaign');
+        }
+
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error deleting campaign:', error);
+        this.showError('Failed to delete campaign');
+    }
+};
+
+VendorDashboard.prototype.viewCampaignStats = async function (campaignId) {
+    try {
+        if (!this.storeId) {
+            this.showError('Store bilgisi bulunamadı.');
+            return;
+        }
+        const response = await this.apiClient.getStoreCampaignStats(this.storeId, campaignId);
+
+        if (response.success) {
+            const stats = response.data;
+            alert(`Campaign Statistics:\n\nViews: ${stats.view_count}\nClicks: ${stats.click_count}\nConversions: ${stats.conversion_count}\nRevenue: ₺${stats.total_revenue}\nConversion Rate: ${stats.conversion_rate}%\nCTR: ${stats.click_through_rate}%`);
+        }
+
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error loading campaign stats:', error);
+        this.showError('Failed to load campaign statistics');
+    }
 };
 
 // CSS Animations
@@ -3400,3 +4110,468 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ==========================================
+// CASCADING VARIANT SYSTEM
+// ==========================================
+
+/**
+ * Setup the variant dropdown system
+ */
+VendorDashboard.prototype.setupVariantSystem = async function () {
+    vdLog('Setting up cascading variant system');
+
+    // Initialize variant list storage
+    this.pendingVariants = [];
+
+    // Load variant types into dropdown
+    await this.loadVariantTypes();
+
+    // Setup type dropdown change handler
+    const typeSelect = document.getElementById('variantTypeSelect');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', async (e) => {
+            await this.onVariantTypeChange(e.target.value);
+        });
+    }
+
+    // Setup add variant button
+    const addBtn = document.getElementById('addVariantBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            this.addVariantToList();
+        });
+    }
+
+    // Setup variant image selector preview
+    const variantImageSelect = document.getElementById('variantImageSelect');
+    if (variantImageSelect) {
+        variantImageSelect.addEventListener('change', (e) => {
+            const imageUrl = e.target.value;
+            const previewContainer = document.getElementById('variantImagePreview');
+            if (previewContainer) {
+                if (imageUrl) {
+                    previewContainer.innerHTML = `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" alt="Varyant görseli">`;
+                } else {
+                    previewContainer.innerHTML = '<span style="color: #94a3b8; font-size: 1.2rem;">📷</span>';
+                }
+            }
+        });
+    }
+
+    vdLog('Variant system setup complete');
+};
+
+/**
+ * Load variant types from API
+ */
+VendorDashboard.prototype.loadVariantTypes = async function () {
+    try {
+        const response = await this.apiClient.get('/variants/types');
+        if (response.success && response.data) {
+            const typeSelect = document.getElementById('variantTypeSelect');
+            if (typeSelect) {
+                typeSelect.innerHTML = '<option value="">Tip seçin...</option>';
+                response.data.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.key;
+                    option.textContent = `${type.icon} ${type.label}`;
+                    option.dataset.hasPresetValues = type.hasPresetValues;
+                    typeSelect.appendChild(option);
+                });
+            }
+            vdLog('Loaded', response.data.length, 'variant types');
+        }
+    } catch (error) {
+        console.error('[Variant] Error loading types:', error);
+    }
+};
+
+/**
+ * Handle variant type change - load values for cascading dropdown
+ */
+VendorDashboard.prototype.onVariantTypeChange = async function (typeKey) {
+    const valueSelect = document.getElementById('variantValueSelect');
+    if (!valueSelect) return;
+
+    if (!typeKey) {
+        valueSelect.innerHTML = '<option value="">Önce tip seçin...</option>';
+        valueSelect.disabled = true;
+        return;
+    }
+
+    // Check if it's "diger" (free text)
+    if (typeKey === 'diger') {
+        // Replace select with text input
+        const parent = valueSelect.parentElement;
+        valueSelect.style.display = 'none';
+
+        let textInput = document.getElementById('variantValueText');
+        if (!textInput) {
+            textInput = document.createElement('input');
+            textInput.type = 'text';
+            textInput.id = 'variantValueText';
+            textInput.placeholder = 'Değer girin...';
+            textInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid var(--vendor-border); border-radius: 6px;';
+            parent.appendChild(textInput);
+        }
+        textInput.style.display = 'block';
+        return;
+    }
+
+    // Hide text input if exists
+    const textInput = document.getElementById('variantValueText');
+    if (textInput) textInput.style.display = 'none';
+    valueSelect.style.display = 'block';
+
+    try {
+        const response = await this.apiClient.get(`/variants/types/${typeKey}/values`);
+        if (response.success && response.data) {
+            valueSelect.innerHTML = '<option value="">Değer seçin...</option>';
+            response.data.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                valueSelect.appendChild(option);
+            });
+            valueSelect.disabled = false;
+            vdLog('Loaded', response.data.length, 'values for type:', typeKey);
+        }
+    } catch (error) {
+        console.error('[Variant] Error loading values:', error);
+        valueSelect.innerHTML = '<option value="">Değerler yüklenemedi</option>';
+        valueSelect.disabled = true;
+    }
+};
+
+/**
+ * Add variant to pending list
+ */
+VendorDashboard.prototype.addVariantToList = function () {
+    const colorPicker = document.getElementById('variantColorPicker');
+    const colorName = document.getElementById('variantColorName');
+    const typeSelect = document.getElementById('variantTypeSelect');
+    const valueSelect = document.getElementById('variantValueSelect');
+    const valueText = document.getElementById('variantValueText');
+    const priceInput = document.getElementById('variantPrice');
+    const stockInput = document.getElementById('variantStock');
+    const imageSelect = document.getElementById('variantImageSelect');
+
+    // Get values
+    const colorHex = colorName?.value.trim() ? colorPicker?.value : null;
+    const colorNameVal = colorName?.value.trim() || null;
+    const variantType = typeSelect?.value || null;
+
+    let variantValue = null;
+    if (variantType === 'diger' && valueText) {
+        variantValue = valueText.value.trim();
+    } else if (valueSelect) {
+        variantValue = valueSelect.value;
+    }
+
+    const price = parseFloat(priceInput?.value);
+    const stock = parseInt(stockInput?.value);
+    const imageUrl = imageSelect?.value || null;
+
+    // Validation
+    if (!price || price <= 0) {
+        this.showError('Lütfen geçerli bir fiyat girin');
+        return;
+    }
+
+    if (isNaN(stock) || stock < 0) {
+        this.showError('Lütfen geçerli bir stok değeri girin');
+        return;
+    }
+
+    if (!colorNameVal && !variantValue) {
+        this.showError('Lütfen renk veya varyant değeri girin');
+        return;
+    }
+
+    // Create variant object
+    const variant = {
+        id: Date.now(), // Temp ID for UI
+        color_hex: colorHex,
+        color_name: colorNameVal,
+        variant_type: variantType,
+        variant_value: variantValue,
+        price: price,
+        stock: stock,
+        image_url: imageUrl
+    };
+
+    // Check for duplicates
+    const isDuplicate = this.pendingVariants.some(v =>
+        v.color_hex === variant.color_hex &&
+        v.variant_type === variant.variant_type &&
+        v.variant_value === variant.variant_value
+    );
+
+    if (isDuplicate) {
+        this.showError('Bu varyant zaten eklenmiş');
+        return;
+    }
+
+    this.pendingVariants.push(variant);
+    this.renderVariantsList();
+
+    // Reset inputs (keep type selected)
+    if (colorName) colorName.value = '';
+    if (valueSelect) valueSelect.value = '';
+    if (valueText) valueText.value = '';
+    if (priceInput) priceInput.value = '';
+    if (stockInput) stockInput.value = '';
+    if (imageSelect) imageSelect.value = '';
+
+    // Reset image preview
+    const imagePreview = document.getElementById('variantImagePreview');
+    if (imagePreview) {
+        imagePreview.innerHTML = '<span style="color: #94a3b8; font-size: 1.2rem;">📷</span>';
+    }
+
+
+    this.showSuccess('Varyant eklendi!');
+};
+
+/**
+ * Render variants list
+ */
+VendorDashboard.prototype.renderVariantsList = function () {
+    const listContainer = document.getElementById('variantsList');
+    const listContent = document.getElementById('variantsListContent');
+
+    if (!listContainer || !listContent) return;
+
+    if (this.pendingVariants.length === 0) {
+        listContainer.style.display = 'none';
+        return;
+    }
+
+    listContainer.style.display = 'block';
+
+    listContent.innerHTML = this.pendingVariants.map((v, index) => `
+        <div style="display: flex; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--vendor-border); background: ${index % 2 === 0 ? '#fff' : '#f9fafb'};">
+            ${v.image_url ? `<img src="${v.image_url}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; margin-right: 0.5rem; border: 1px solid #ddd;" alt="Varyant görseli">` : ''}
+            ${v.color_hex ? `<span style="width: 20px; height: 20px; border-radius: 50%; background: ${v.color_hex}; margin-right: 0.5rem; border: 1px solid #ddd;"></span>` : ''}
+            <span style="flex: 1;">
+                ${v.color_name || ''} 
+                ${v.color_name && v.variant_value ? '-' : ''} 
+                ${v.variant_value || ''}
+            </span>
+            <span style="width: 100px; text-align: right; font-weight: 600; color: var(--vendor-primary);">${v.price.toFixed(2)} ₺</span>
+            <span style="width: 80px; text-align: center; color: #666;">${v.stock} adet</span>
+            <button type="button" onclick="vendorDashboard.removeVariant(${v.id})" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 0.25rem; font-size: 1rem;">🗑️</button>
+        </div>
+    `).join('');
+};
+
+/**
+ * Remove variant from pending list
+ */
+VendorDashboard.prototype.removeVariant = function (variantId) {
+    this.pendingVariants = this.pendingVariants.filter(v => v.id !== variantId);
+    this.renderVariantsList();
+};
+
+/**
+ * Get pending variants for form submission
+ */
+VendorDashboard.prototype.getPendingVariants = function () {
+    return this.pendingVariants.map(v => ({
+        color_hex: v.color_hex,
+        color_name: v.color_name,
+        variant_type: v.variant_type,
+        variant_value: v.variant_value,
+        price: v.price,
+        stock: v.stock,
+        image_url: v.image_url
+    }));
+};
+
+/**
+ * Reset variant form
+ */
+VendorDashboard.prototype.resetVariantForm = function () {
+    this.pendingVariants = [];
+    this.renderVariantsList();
+
+    const colorName = document.getElementById('variantColorName');
+    const typeSelect = document.getElementById('variantTypeSelect');
+    const valueSelect = document.getElementById('variantValueSelect');
+    const valueText = document.getElementById('variantValueText');
+    const priceInput = document.getElementById('variantPrice');
+    const stockInput = document.getElementById('variantStock');
+
+    if (colorName) colorName.value = '';
+    if (typeSelect) typeSelect.value = '';
+    if (valueSelect) {
+        valueSelect.innerHTML = '<option value="">Önce tip seçin...</option>';
+        valueSelect.disabled = true;
+    }
+    if (valueText) valueText.value = '';
+    if (priceInput) priceInput.value = '';
+    if (stockInput) stockInput.value = '';
+};
+
+// Initialize variant system when dashboard loads
+const originalInit = VendorDashboard.prototype.init;
+VendorDashboard.prototype.init = async function () {
+    await originalInit.call(this);
+    await this.setupVariantSystem();
+    this.setupPayoutRequestButton();
+};
+
+// ==========================================
+// PAYOUT MANAGEMENT
+// ==========================================
+
+/**
+ * Load payout data (balance + history)
+ */
+VendorDashboard.prototype.loadPayoutsData = async function () {
+    vdLog('Loading payouts data...');
+
+    try {
+        // Fetch balance
+        const balanceRes = await this.apiClient.get('/payouts/balance');
+        if (balanceRes.success && balanceRes.data) {
+            this.renderPayoutBalance(balanceRes.data);
+        }
+
+        // Fetch history
+        const historyRes = await this.apiClient.get('/payouts/history');
+        if (historyRes.success && historyRes.data) {
+            this.renderPayoutHistory(historyRes.data.payouts || []);
+        }
+    } catch (error) {
+        console.error('[Vendor Dashboard] Error loading payouts:', error);
+    }
+};
+
+/**
+ * Render payout balance cards
+ */
+VendorDashboard.prototype.renderPayoutBalance = function (balance) {
+    const totalEarnings = document.getElementById('payoutTotalEarnings');
+    const totalPaid = document.getElementById('payoutTotalPaid');
+    const pending = document.getElementById('payoutPending');
+    const available = document.getElementById('payoutAvailable');
+
+    if (totalEarnings) totalEarnings.textContent = `₺${balance.totalEarnings.toLocaleString('tr-TR')}`;
+    if (totalPaid) totalPaid.textContent = `₺${balance.totalPaidOut.toLocaleString('tr-TR')}`;
+    if (pending) pending.textContent = `₺${balance.pendingPayouts.toLocaleString('tr-TR')}`;
+    if (available) available.textContent = `₺${balance.availableBalance.toLocaleString('tr-TR')}`;
+
+    // Update form input max
+    const input = document.getElementById('payoutAmountInput');
+    if (input) {
+        input.max = balance.availableBalance;
+        input.placeholder = `Min. ₺${balance.minimumPayoutAmount} - Max. ₺${balance.availableBalance}`;
+    }
+
+    // Update message
+    const msg = document.getElementById('payoutMessage');
+    if (msg) {
+        if (balance.canRequestPayout) {
+            msg.textContent = `✅ Çekilebilir bakiyeniz: ₺${balance.availableBalance.toLocaleString('tr-TR')}`;
+            msg.style.color = '#10b981';
+        } else {
+            msg.textContent = `⚠️ Minimum çekim tutarı ₺${balance.minimumPayoutAmount}. Mevcut bakiye: ₺${balance.availableBalance}`;
+            msg.style.color = '#f59e0b';
+        }
+    }
+};
+
+/**
+ * Render payout history list
+ */
+VendorDashboard.prototype.renderPayoutHistory = function (payouts) {
+    const container = document.getElementById('payoutHistoryList');
+    if (!container) return;
+
+    if (!payouts || payouts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #64748b;">Henüz ödeme talebi yok</p>';
+        return;
+    }
+
+    const statusColors = {
+        pending: '#f59e0b',
+        approved: '#3b82f6',
+        processing: '#8b5cf6',
+        completed: '#10b981',
+        rejected: '#dc2626'
+    };
+
+    const statusLabels = {
+        pending: 'Bekliyor',
+        approved: 'Onaylandı',
+        processing: 'İşleniyor',
+        completed: 'Tamamlandı',
+        rejected: 'Reddedildi'
+    };
+
+    container.innerHTML = payouts.map(p => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 8px; margin-bottom: 0.5rem; border-left: 3px solid ${statusColors[p.status] || '#64748b'};">
+            <div>
+                <div style="font-weight: 600; margin-bottom: 0.25rem;">₺${parseFloat(p.requested_amount).toLocaleString('tr-TR')}</div>
+                <div style="font-size: 0.8rem; color: #64748b;">
+                    ${new Date(p.requested_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+                ${p.rejection_reason ? `<div style="font-size: 0.75rem; color: #dc2626; margin-top: 0.25rem;">📝 ${p.rejection_reason}</div>` : ''}
+            </div>
+            <span style="background: ${statusColors[p.status]}; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.8rem;">
+                ${statusLabels[p.status] || p.status}
+            </span>
+        </div>
+    `).join('');
+};
+
+/**
+ * Setup payout request button
+ */
+VendorDashboard.prototype.setupPayoutRequestButton = function () {
+    const btn = document.getElementById('requestPayoutBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+        const input = document.getElementById('payoutAmountInput');
+        const msg = document.getElementById('payoutMessage');
+        const amount = parseFloat(input?.value);
+
+        if (!amount || amount < 100) {
+            if (msg) {
+                msg.textContent = '❌ Minimum çekim tutarı ₺100';
+                msg.style.color = '#dc2626';
+            }
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Gönderiliyor...';
+
+        try {
+            const res = await this.apiClient.post('/payouts/request', { amount });
+
+            if (res.success) {
+                if (msg) {
+                    msg.textContent = '✅ Ödeme talebiniz başarıyla oluşturuldu! Admin onayı bekleniyor.';
+                    msg.style.color = '#10b981';
+                }
+                input.value = '';
+                // Reload payouts data
+                this.loadPayoutsData();
+            } else {
+                throw new Error(res.message || 'Talep oluşturulamadı');
+            }
+        } catch (error) {
+            if (msg) {
+                msg.textContent = '❌ ' + error.message;
+                msg.style.color = '#dc2626';
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Talep Oluştur';
+        }
+    });
+};

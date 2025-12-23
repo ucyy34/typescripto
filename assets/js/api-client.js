@@ -8,6 +8,9 @@ class ApiClient {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
     this.debug = false;
+    this.guestIdHeader = 'X-Guest-Id';
+    this.guestIdStorageKey = 'guest_session_id';
+    this.cachedGuestId = null;
 
     try {
       if (typeof window !== 'undefined') {
@@ -38,6 +41,11 @@ class ApiClient {
     const token = this.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const guestId = this.getGuestId();
+    if (guestId) {
+      headers[this.guestIdHeader] = guestId;
     }
 
     return headers;
@@ -143,6 +151,11 @@ class ApiClient {
       const response = await fetch(url, config);
       clearTimeout(timeoutId);
 
+      const serverGuestId = response.headers.get(this.guestIdHeader);
+      if (serverGuestId) {
+        this.rememberGuestId(serverGuestId);
+      }
+
       const responseText = await response.text();
       let data;
 
@@ -185,6 +198,74 @@ class ApiClient {
       clearTimeout(timeoutId);
       return this.handleError(error);
     }
+  }
+
+  /**
+   * Get or create a stable guest id for cross-origin carts
+   */
+  getGuestId() {
+    if (this.cachedGuestId) {
+      return this.cachedGuestId;
+    }
+
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return null;
+      }
+
+      const stored = window.localStorage.getItem(this.guestIdStorageKey);
+      if (stored) {
+        this.cachedGuestId = stored;
+        return stored;
+      }
+
+      const generated = this.generateGuestId();
+      if (generated) {
+        window.localStorage.setItem(this.guestIdStorageKey, generated);
+        this.cachedGuestId = generated;
+        return generated;
+      }
+    } catch (error) {
+      if (this.debug) {
+        console.warn('[ApiClient] Failed to access guest storage', error);
+      }
+    }
+
+    return null;
+  }
+
+  rememberGuestId(guestId) {
+    if (!guestId || typeof guestId !== 'string') {
+      return;
+    }
+
+    const trimmed = guestId.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    this.cachedGuestId = trimmed;
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(this.guestIdStorageKey, trimmed);
+      }
+    } catch (_) {
+      // Ignore storage errors - header will still carry the id
+    }
+  }
+
+  generateGuestId() {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch (_) {
+      // Ignore crypto errors and fall through to manual generation
+    }
+
+    const randomSegment = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+    return `${Date.now().toString(16)}-${randomSegment()}-${randomSegment()}-${randomSegment()}-${randomSegment()}${randomSegment()}${randomSegment()}`;
   }
 
   /**
@@ -463,6 +544,13 @@ class ApiClient {
   }
 
   /**
+   * Create campaign (admin)
+   */
+  async createCampaign(data = {}) {
+    return this.post(API_CONFIG.ENDPOINTS.CAMPAIGNS.BASE, data);
+  }
+
+  /**
    * Update campaign (admin)
    */
   async updateCampaign(campaignId, data = {}) {
@@ -648,6 +736,56 @@ class ApiClient {
   async getPendingProductsCount() {
     const result = await this.getProducts({ status: 'pending', limit: 1 });
     return result.pagination?.total || 0;
+  }
+  // ==========================================
+  // REVIEW METHODS
+  // ==========================================
+
+  /**
+   * Get reviews for a store
+   */
+  async getStoreReviews(storeId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.STORES.REVIEWS(storeId), filters);
+  }
+
+  /**
+   * Get reviews for a product
+   */
+  async getProductReviews(productId, filters = {}) {
+    return this.get(API_CONFIG.ENDPOINTS.PRODUCTS.REVIEWS(productId), filters);
+  }
+
+  /**
+   * Get featured/approved reviews across all stores (for testimonials)
+   */
+  async getFeaturedReviews(limit = 10) {
+    try {
+      const storesResponse = await this.getStores({
+        status: 'approved',
+        limit: 5,
+        sort: '-rating'
+      });
+
+      if (!storesResponse.success || !storesResponse.data?.length) {
+        return { success: true, data: [] };
+      }
+
+      const reviewPromises = storesResponse.data.map(store =>
+        this.getStoreReviews(store.id, { limit: 3, status: 'approved' })
+          .then(res => res.success ? res.data.map(r => ({ ...r, store })) : [])
+          .catch(() => [])
+      );
+
+      const reviewArrays = await Promise.all(reviewPromises);
+      const allReviews = reviewArrays.flat()
+        .filter(r => r.rating >= 4)
+        .slice(0, limit);
+
+      return { success: true, data: allReviews };
+    } catch (error) {
+      console.error('[ApiClient] Error fetching featured reviews:', error);
+      return { success: false, data: [], error: error.message };
+    }
   }
 }
 

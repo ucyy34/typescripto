@@ -27,6 +27,10 @@ const ShipmentItem = require('./ShipmentItem');
 const ShipmentEvent = require('./ShipmentEvent');
 const Campaign = require('./Campaign');
 const Address = require('./Address');
+const StoreDailySales = require('./StoreDailySales');
+const VendorPayout = require('./VendorPayout');
+const ShippingSupportRule = require('./ShippingSupportRule');
+const PlatformSettings = require('./PlatformSettings');
 
 // Define Associations
 
@@ -476,6 +480,38 @@ Store.hasMany(Campaign, {
   onDelete: 'CASCADE',
 });
 
+// StoreDailySales associations (for siftah system)
+Store.hasMany(StoreDailySales, {
+  foreignKey: 'store_id',
+  as: 'dailySales',
+  onDelete: 'CASCADE',
+});
+
+StoreDailySales.belongsTo(Store, {
+  foreignKey: 'store_id',
+  as: 'store',
+  onDelete: 'CASCADE',
+});
+
+// VendorPayout associations
+Store.hasMany(VendorPayout, {
+  foreignKey: 'store_id',
+  as: 'payouts',
+  onDelete: 'RESTRICT',
+});
+
+VendorPayout.belongsTo(Store, {
+  foreignKey: 'store_id',
+  as: 'store',
+  onDelete: 'RESTRICT',
+});
+
+VendorPayout.belongsTo(User, {
+  foreignKey: 'reviewed_by',
+  as: 'reviewer',
+  onDelete: 'SET NULL',
+});
+
 // Export all models and sequelize instance
 module.exports = {
   sequelize,
@@ -500,4 +536,8 @@ module.exports = {
   Campaign,
   WishlistItem,
   Address,
+  StoreDailySales,
+  VendorPayout,
+  ShippingSupportRule,
+  PlatformSettings,
 };

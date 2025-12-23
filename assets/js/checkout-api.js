@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Checkout Page API Integration
  * Connects checkout.html to backend API
  */
@@ -15,10 +15,26 @@ class CheckoutPageAPI {
         this.paymentMethod = 'card';
         this.useSameAddress = true;
         this.currentMode = this.isLoggedIn ? 'member' : 'guest';
+        this.knownCities = new Set([
+            'adana', 'adiyaman', 'afyon', 'agri', 'amasya', 'ankara', 'antalya', 'artvin', 'aydin',
+            'balikesir', 'bilecik', 'bingol', 'bitlis', 'bolu', 'burdur', 'bursa', 'canakkale',
+            'cankiri', 'corum', 'denizli', 'diyarbakir', 'edirne', 'elazig', 'erzincan',
+            'erzurum', 'eskisehir', 'gaziantep', 'giresun', 'gumushane', 'hakkari', 'hatay',
+            'isparta', 'mersin', 'istanbul', 'izmir', 'kars', 'kastamonu', 'kayseri', 'kirklareli',
+            'kirsehir', 'kocaeli', 'konya', 'kutahya', 'malatya', 'manisa', 'kahramanmaras',
+            'mardin', 'mugla', 'mus', 'nevsehir', 'nigde', 'ordu', 'rize', 'sakarya', 'samsun',
+            'siirt', 'sinop', 'sivas', 'tekirdag', 'tokat', 'trabzon', 'tunceli', 'sanliurfa',
+            'usak', 'van', 'yozgat', 'zonguldak', 'aksaray', 'bayburt', 'karaman', 'kirikkale',
+            'batman', 'sirnak', 'bartin', 'ardahan', 'igdir', 'yalova', 'karabuk', 'kilis',
+            'osmaniye', 'duzce'
+        ]);
 
         // Coupon state
         this.appliedCoupon = null;
         this.couponDiscount = 0;
+
+        // Shipping Support data (from API)
+        this.shippingData = null;
 
         console.log('[Checkout Page API] Initializing...');
         this.init();
@@ -86,12 +102,37 @@ class CheckoutPageAPI {
             if (this.cart.length === 0) {
                 alert('Your cart is empty');
                 window.location.href = 'cart.html';
+                return;
             }
+
+            // Calculate shipping using Shipping Support API
+            await this.calculateShipping();
+
         } catch (error) {
             console.error('[Checkout Page API] Error loading cart:', error);
             this.cart = [];
             alert('Failed to load cart. Please try again.');
             window.location.href = 'cart.html';
+        }
+    }
+
+    async calculateShipping() {
+        try {
+            const shippingItems = this.cart.map(item => ({
+                store_id: item.store_id || item.product?.store_id,
+                price: item.price || item.product?.price || 0,
+                quantity: item.quantity || 1
+            }));
+
+            const response = await this.apiClient.post('/shipping-support/calculate', { items: shippingItems });
+            if (response.success) {
+                this.shippingData = response.data;
+                console.log('[Checkout Page API] Shipping data loaded:', this.shippingData);
+            }
+        } catch (error) {
+            console.error('[Checkout Page API] Error calculating shipping:', error);
+            // Fallback to default
+            this.shippingData = { summary: { totalShippingSupport: 35, isFree: false } };
         }
     }
 
@@ -113,7 +154,7 @@ class CheckoutPageAPI {
 
         if (!this.cart || this.cart.length === 0) {
             console.warn('[Checkout Page API] Cart is empty');
-            itemsContainer.innerHTML = '<p style="text-align:center;color:#666;padding:2rem;">Sepetiniz boş</p>';
+            itemsContainer.innerHTML = '<p style="text-align:center;color:#666;padding:2rem;">Sepetiniz boÅŸ</p>';
             totalElement.textContent = '$0.00';
             return;
         }
@@ -127,8 +168,10 @@ class CheckoutPageAPI {
             return sum + (price * item.quantity);
         }, 0);
 
-        const shipping = subtotal > 100 ? 0 : 10.00; // Free shipping over $100
-        const tax = subtotal * 0.10; // 10% tax
+        // Use shipping data from API
+        const shipping = this.shippingData?.summary?.totalShippingSupport || 35;
+        const isFreeShipping = this.shippingData?.summary?.isFree || false;
+        const tax = subtotal * 0.18; // 18% VAT (Turkey)
 
         // Apply coupon discount
         const discount = this.couponDiscount || 0;
@@ -172,23 +215,23 @@ class CheckoutPageAPI {
         const summaryHTML = `
             <div style="padding: 1rem 0; border-bottom: 1px solid #e0e0e0;">
                 <div class="summary-item" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Subtotal:</span>
-                    <span>$${subtotal.toFixed(2)}</span>
+                    <span>Ara Toplam:</span>
+                    <span>₺${subtotal.toFixed(2)}</span>
                 </div>
                 <div class="summary-item" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Shipping:</span>
-                    <span style="color: ${shipping === 0 ? '#22c55e' : 'inherit'}; font-weight: ${shipping === 0 ? 'bold' : 'normal'};">
-                        ${shipping === 0 ? 'FREE' : '$' + shipping.toFixed(2)}
+                    <span>Kargo Desteği:</span>
+                    <span style="color: ${isFreeShipping ? '#22c55e' : 'inherit'}; font-weight: ${isFreeShipping ? 'bold' : 'normal'};">
+                        ${isFreeShipping ? 'ÜCRETSİZ ✨' : '₺' + shipping.toFixed(2)}
                     </span>
                 </div>
                 <div class="summary-item" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Tax (10%):</span>
-                    <span>$${tax.toFixed(2)}</span>
+                    <span>KDV (%18):</span>
+                    <span>₺${tax.toFixed(2)}</span>
                 </div>
                 ${discount > 0 ? `
                 <div class="summary-item" style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #22c55e; font-weight: bold;">
-                    <span>🎁 Coupon Discount (${this.appliedCoupon?.code || ''}):</span>
-                    <span>-$${discount.toFixed(2)}</span>
+                    <span>🎁 Kupon İndirimi (${this.appliedCoupon?.code || ''}):</span>
+                    <span>-₺${discount.toFixed(2)}</span>
                 </div>
                 ` : ''}
             </div>
@@ -197,7 +240,7 @@ class CheckoutPageAPI {
         itemsContainer.innerHTML = itemsHTML + summaryHTML;
 
         // Update total
-        totalElement.textContent = `$${total.toFixed(2)}`;
+        totalElement.textContent = `₺${total.toFixed(2)}`;
 
         // Store total for later use
         this.orderTotal = total;
@@ -286,19 +329,19 @@ class CheckoutPageAPI {
             <div class="payment-methods">
                 <label class="payment-method">
                     <input type="radio" name="paymentMethod" value="credit_card" checked>
-                    <span>💳 Credit Card</span>
+                    <span>ğŸ’³ Credit Card</span>
                 </label>
                 <label class="payment-method">
                     <input type="radio" name="paymentMethod" value="debit_card">
-                    <span>💳 Debit Card</span>
+                    <span>ğŸ’³ Debit Card</span>
                 </label>
                 <label class="payment-method">
                     <input type="radio" name="paymentMethod" value="paypal">
-                    <span>🅿️ PayPal</span>
+                    <span>ğŸ…¿ï¸ PayPal</span>
                 </label>
                 <label class="payment-method">
                     <input type="radio" name="paymentMethod" value="bank_transfer">
-                    <span>🏦 Bank Transfer</span>
+                    <span>ğŸ¦ Bank Transfer</span>
                 </label>
             </div>
 
@@ -531,15 +574,15 @@ class CheckoutPageAPI {
                 const fullName = [this.user.first_name, this.user.last_name]
                     .filter(Boolean)
                     .join(' ');
-                const displayName = fullName || this.user.email || 'Hesabınız';
-                alert.textContent = `✅ ${displayName} olarak giriş yaptınız.`;
+                const displayName = fullName || this.user.email || 'HesabÄ±nÄ±z';
+                alert.textContent = `âœ… ${displayName} olarak giriÅŸ yaptÄ±nÄ±z.`;
                 loggedInSummary.appendChild(alert);
 
                 const logoutBtn = document.createElement('button');
                 logoutBtn.type = 'button';
                 logoutBtn.id = 'checkoutLogoutBtn';
                 logoutBtn.className = 'login-btn secondary';
-                logoutBtn.textContent = '🚪 Çıkış Yap';
+                logoutBtn.textContent = 'ğŸšª Ã‡Ä±kÄ±ÅŸ Yap';
                 loggedInSummary.appendChild(logoutBtn);
                 loggedInSummary.style.display = 'block';
                 this.setupCheckoutLogout();
@@ -568,7 +611,7 @@ class CheckoutPageAPI {
             const submitBtn = document.getElementById('checkoutLoginSubmit');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = '⏳ Giriş yapılıyor...';
+                submitBtn.textContent = 'â³ GiriÅŸ yapÄ±lÄ±yor...';
             }
 
             this.clearAuthMessage('login');
@@ -578,17 +621,17 @@ class CheckoutPageAPI {
                 const password = document.getElementById('loginPassword')?.value || '';
 
                 if (!email || !password) {
-                    throw new Error('Lütfen e-posta ve şifre giriniz.');
+                    throw new Error('LÃ¼tfen e-posta ve ÅŸifre giriniz.');
                 }
 
                 const response = await this.apiClient.login(email, password);
                 if (!response?.success || !response.data) {
-                    throw new Error(response?.message || 'Giriş başarısız.');
+                    throw new Error(response?.message || 'GiriÅŸ baÅŸarÄ±sÄ±z.');
                 }
 
                 const { user, tokens } = response.data;
                 if (!tokens?.accessToken) {
-                    throw new Error('Sunucudan erişim belirteci alınamadı.');
+                    throw new Error('Sunucudan eriÅŸim belirteci alÄ±namadÄ±.');
                 }
 
                 AuthManager.login(tokens, user);
@@ -604,13 +647,13 @@ class CheckoutPageAPI {
                 }
 
                 await this.afterAuthChange('login');
-                this.showAuthMessage('login', 'success', '✅ Giriş başarılı! Bilgileriniz yüklendi.');
+                this.showAuthMessage('login', 'success', 'âœ… GiriÅŸ baÅŸarÄ±lÄ±! Bilgileriniz yÃ¼klendi.');
             } catch (error) {
-                this.showAuthMessage('login', 'error', error.message || 'Giriş başarısız.');
+                this.showAuthMessage('login', 'error', error.message || 'GiriÅŸ baÅŸarÄ±sÄ±z.');
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '🔐 Login to Account';
+                    submitBtn.textContent = 'ğŸ” Login to Account';
                 }
             }
         });
@@ -635,14 +678,14 @@ class CheckoutPageAPI {
             event.preventDefault();
 
             if (this.isLoggedIn) {
-                this.showAuthMessage('register', 'info', 'Zaten giriş yaptınız.');
+                this.showAuthMessage('register', 'info', 'Zaten giriÅŸ yaptÄ±nÄ±z.');
                 return;
             }
 
             const submitBtn = document.getElementById('checkoutRegisterSubmit');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = '⏳ Hesap oluşturuluyor...';
+                submitBtn.textContent = 'â³ Hesap oluÅŸturuluyor...';
             }
 
             this.clearAuthMessage('register');
@@ -656,11 +699,11 @@ class CheckoutPageAPI {
                 const wantsSeller = sellerCheckbox?.checked || false;
 
                 if (!firstName || !lastName || !email || !password) {
-                    throw new Error('Lütfen gerekli alanları doldurun.');
+                    throw new Error('LÃ¼tfen gerekli alanlarÄ± doldurun.');
                 }
 
                 if (password !== confirmPassword) {
-                    throw new Error('Şifreler eşleşmiyor.');
+                    throw new Error('Åifreler eÅŸleÅŸmiyor.');
                 }
 
                 const role = wantsSeller ? 'seller' : 'buyer';
@@ -675,7 +718,7 @@ class CheckoutPageAPI {
                     : null;
 
                 if (role === 'seller' && (!rawStoreData || !rawStoreData.name)) {
-                    throw new Error('Satıcı kaydı için mağaza adı gereklidir.');
+                    throw new Error('SatÄ±cÄ± kaydÄ± iÃ§in maÄŸaza adÄ± gereklidir.');
                 }
 
                 const response = await this.apiClient.register({
@@ -687,12 +730,12 @@ class CheckoutPageAPI {
                 });
 
                 if (!response?.success || !response.data) {
-                    throw new Error(response?.message || 'Kayıt başarısız.');
+                    throw new Error(response?.message || 'KayÄ±t baÅŸarÄ±sÄ±z.');
                 }
 
                 const { user, tokens } = response.data;
                 if (!tokens?.accessToken) {
-                    throw new Error('Sunucudan erişim belirteci alınamadı.');
+                    throw new Error('Sunucudan eriÅŸim belirteci alÄ±namadÄ±.');
                 }
 
                 AuthManager.login(tokens, user);
@@ -708,13 +751,13 @@ class CheckoutPageAPI {
                 }
 
                 await this.afterAuthChange('register', { role, storeData: rawStoreData });
-                this.showAuthMessage('register', 'success', '🎉 Hesabınız oluşturuldu!');
+                this.showAuthMessage('register', 'success', 'ğŸ‰ HesabÄ±nÄ±z oluÅŸturuldu!');
             } catch (error) {
-                this.showAuthMessage('register', 'error', error.message || 'Kayıt başarısız.');
+                this.showAuthMessage('register', 'error', error.message || 'KayÄ±t baÅŸarÄ±sÄ±z.');
             } finally {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '⭐ Üye Ol ve Devam Et';
+                    submitBtn.textContent = 'â­ Ãœye Ol ve Devam Et';
                 }
             }
         });
@@ -779,8 +822,8 @@ class CheckoutPageAPI {
             empty.className = 'saved-addresses-empty';
             empty.innerHTML = `
                 <p style="text-align: center; color: #6b7280; padding: 2rem;">
-                    📍 Kayıtlı adres bulunamadı.
-                    <a href="profile.html" style="color: #2d6853; text-decoration: underline;">Profil sayfasından</a> adres ekleyebilirsiniz.
+                    ğŸ“ KayÄ±tlÄ± adres bulunamadÄ±.
+                    <a href="profile.html" style="color: #2d6853; text-decoration: underline;">Profil sayfasÄ±ndan</a> adres ekleyebilirsiniz.
                 </p>
             `;
             listContainer.appendChild(empty);
@@ -960,6 +1003,25 @@ class CheckoutPageAPI {
         }
     }
 
+    normalizeText(value) {
+        if (!value && value !== 0) {
+            return '';
+        }
+
+        return value
+            .toString()
+            .trim()
+            .toLocaleLowerCase('tr-TR')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/ğ/g, 'g')
+            .replace(/ü/g, 'u')
+            .replace(/ş/g, 's')
+            .replace(/ı/g, 'i')
+            .replace(/ö/g, 'o')
+            .replace(/ç/g, 'c');
+    }
+
     fillShippingAddress(address) {
         if (!address) return;
 
@@ -971,24 +1033,28 @@ class CheckoutPageAPI {
         const lastName = nameParts.slice(1).join(' ') || nameParts[0] || ''; // If only one name, use it for both
 
         // SMART FIX: Handle Turkey address confusion (City vs State)
-        // If user entered city/state backwards (common issue), swap them
-        let cityValue = address.city || '';
-        let districtValue = address.district || address.state || '';
+        let cityValue = (address.city || '').trim();
+        let districtValue = (address.district || address.state || '').trim();
+        let normalizedCity = this.normalizeText(cityValue);
+        let normalizedDistrict = this.normalizeText(districtValue);
 
-        // Detect if values are swapped: if "city" starts lowercase and "state" starts uppercase
-        // This means user probably entered district in city field and city in state field
-        if (cityValue && districtValue) {
-            const cityFirstChar = cityValue.charAt(0);
-            const stateFirstChar = districtValue.charAt(0);
+        if (!normalizedCity && normalizedDistrict && this.knownCities.has(normalizedDistrict)) {
+            console.log('[Checkout] Detected city in district field, moving to city:', districtValue);
+            cityValue = districtValue;
+            normalizedCity = normalizedDistrict;
+            districtValue = '';
+            normalizedDistrict = '';
+        }
 
-            // If city starts with lowercase and state starts with uppercase, swap them
-            if (cityFirstChar === cityFirstChar.toLowerCase() &&
-                stateFirstChar === stateFirstChar.toUpperCase()) {
-                console.log('[Checkout] Detected swapped city/state, swapping back:', {
-                    before: { city: cityValue, state: districtValue },
-                    after: { city: districtValue, state: cityValue }
+        if (normalizedCity && normalizedDistrict) {
+            // If district field has a known city, and city field doesn't (likely swapped)
+            if (this.knownCities.has(normalizedDistrict) && !this.knownCities.has(normalizedCity)) {
+                console.log('[Checkout] Detected swapped city/district (district has city name), swapping:', {
+                    city: cityValue,
+                    district: districtValue
                 });
                 [cityValue, districtValue] = [districtValue, cityValue];
+                [normalizedCity, normalizedDistrict] = [normalizedDistrict, normalizedCity];
             }
         }
 
@@ -1005,8 +1071,11 @@ class CheckoutPageAPI {
             ].filter(Boolean).join(', '),
             city: cityValue,
             district: districtValue,
+            state: districtValue, // Ensure state is also set for backward compatibility
             postalCode: address.postal_code || address.zip || '',
+            country: address.country || 'Turkey', // Default to Turkey for saved addresses
         };
+
 
         console.log('[Checkout] Extracted from address:', {
             full_name: address.full_name,
@@ -1066,7 +1135,7 @@ class CheckoutPageAPI {
         if (shippingCitySelect && cityValue) {
             // Set city value
             if (!this.setSelectValueByText(shippingCitySelect, cityValue)) {
-                shippingCitySelect.value = cityValue.toLowerCase();
+                shippingCitySelect.value = this.normalizeText(cityValue) || cityValue.toLowerCase();
             }
 
             // Trigger change event to load districts
@@ -1079,12 +1148,16 @@ class CheckoutPageAPI {
                     const shippingDistrict = document.getElementById('shippingDistrict');
                     if (shippingDistrict && shippingDistrict.options.length > 1) {
                         // Try to find the district option
-                        const option = Array.from(shippingDistrict.options).find(
-                            opt => opt.value.toLowerCase() === districtValue.toLowerCase() ||
-                                opt.text.toLowerCase() === districtValue.toLowerCase()
-                        );
+                        const normalizedTarget = this.normalizeText(districtValue);
+                        const option = Array.from(shippingDistrict.options).find((opt) => {
+                            const optionMatchValue = this.normalizeText(opt.value);
+                            const optionMatchText = this.normalizeText(opt.text);
+                            return optionMatchValue === normalizedTarget || optionMatchText === normalizedTarget;
+                        });
                         if (option) {
                             shippingDistrict.value = option.value;
+                            this.shippingAddress.district = option.value;
+                            this.shippingAddress.state = option.value;
                             console.log('[Checkout] District set to:', option.value);
                         } else {
                             console.warn('[Checkout] District option not found:', districtValue);
@@ -1134,11 +1207,11 @@ class CheckoutPageAPI {
 
     setSelectValueByText(select, value) {
         if (!select || !value) return false;
-        const target = value.toString().toLowerCase();
+        const target = this.normalizeText(value);
 
         for (const option of Array.from(select.options)) {
-            const optionValue = option.value?.toString().toLowerCase();
-            const optionText = option.textContent?.toString().toLowerCase();
+            const optionValue = this.normalizeText(option.value);
+            const optionText = this.normalizeText(option.textContent);
             if (optionValue === target || optionText === target) {
                 select.value = option.value;
                 select.dispatchEvent(new Event('change'));
@@ -1146,6 +1219,7 @@ class CheckoutPageAPI {
             }
         }
 
+        console.warn('[Checkout] Matching option not found for value:', value);
         return false;
     }
 
@@ -1259,7 +1333,7 @@ class CheckoutPageAPI {
             this.showAuthMessage(
                 'register',
                 'success',
-                `🏪 Mağazanız oluşturuldu: ${createdStore.name || payload.name}`,
+                `🎉 Mağazanız oluşturuldu: ${createdStore.name || payload.name}`,
                 true
             );
         } catch (error) {
@@ -1345,7 +1419,8 @@ class CheckoutPageAPI {
             }
 
             // Skip address form fields if form is hidden (using saved address)
-            if (!isAddressFormVisible && ['address', 'city', 'postalCode', 'district'].includes(backendName)) {
+            // Note: postalCode and district are optional in backend, so only validate address and city
+            if (!isAddressFormVisible && ['address', 'city'].includes(backendName)) {
                 // Check if value exists in this.shippingAddress (filled from saved address)
                 if (!this.shippingAddress[backendName]) {
                     console.warn(`[Checkout] Saved address missing ${backendName}`);
@@ -1357,6 +1432,16 @@ class CheckoutPageAPI {
                 }
                 continue;
             }
+
+            // Skip optional fields when form is hidden
+            if (!isAddressFormVisible && ['postalCode', 'district'].includes(backendName)) {
+                // These are optional - just log if present
+                if (this.shippingAddress[backendName]) {
+                    console.log(`[Checkout] Optional field ${backendName}: ${this.shippingAddress[backendName]}`);
+                }
+                continue;
+            }
+
 
             if (!input) {
                 console.warn(`[Checkout] Field not found in DOM: ${htmlId} (${backendName})`);
@@ -1459,18 +1544,18 @@ class CheckoutPageAPI {
             const submitBtn = document.querySelector('.checkout-btn');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = '⏳ Processing...';
+                submitBtn.textContent = 'â³ Processing...';
             }
 
             // Prepare order data
             console.log('[Checkout Page API] Raw shipping address:', this.shippingAddress);
-
             const shippingAddressPayload = {
                 full_name: `${this.shippingAddress.firstName || ''} ${this.shippingAddress.lastName || ''}`.trim(),
                 phone: this.shippingAddress.phone || '',
                 address_line1: this.shippingAddress.address || '',
                 address_line2: this.shippingAddress.district || this.shippingAddress.address2 || '',
                 city: this.shippingAddress.city || '',
+                district: this.shippingAddress.district || '',
                 state: this.shippingAddress.district || this.shippingAddress.state || '',
                 postal_code: this.shippingAddress.postalCode || '',
                 country: this.shippingAddress.country || 'Turkey'
@@ -1498,6 +1583,7 @@ class CheckoutPageAPI {
                     address_line1: billing.address || billing.address_line1 || shippingAddressPayload.address_line1,
                     address_line2: billing.district || billing.address2 || billing.address_line2 || shippingAddressPayload.address_line2,
                     city: billing.city || shippingAddressPayload.city,
+                    district: billing.district || shippingAddressPayload.district,
                     state: billing.state || billing.district || shippingAddressPayload.state,
                     postal_code: billing.postalCode || billing.postal_code || shippingAddressPayload.postal_code,
                     country: billing.country || shippingAddressPayload.country
@@ -1525,13 +1611,28 @@ class CheckoutPageAPI {
             console.log('[Checkout Page API] Order created:', order);
 
             try {
+                const fallbackSubtotal = this.cart.reduce((sum, item) => {
+                    const price = parseFloat(item.price || item.product?.price || 0);
+                    const quantity = item.quantity || 1;
+                    return sum + (price * quantity);
+                }, 0);
+
+                const summaryTotals = {
+                    subtotal: Number.isFinite(this.orderSubtotal) ? this.orderSubtotal : fallbackSubtotal,
+                    shipping: Number.isFinite(this.orderShipping) ? this.orderShipping : 0,
+                    tax: Number.isFinite(this.orderTax) ? this.orderTax : 0,
+                };
+                summaryTotals.total = Number.isFinite(this.orderTotal)
+                    ? this.orderTotal
+                    : summaryTotals.subtotal + summaryTotals.shipping + summaryTotals.tax;
+
                 localStorage.setItem('lastOrder', JSON.stringify({
                     orderId: order.id || null,
                     items: this.cart,
-                    totals: window.cartManager.getTotals(),
+                    totals: summaryTotals,
                 }));
-            } catch (_) {
-                // Ignore storage errors silently
+            } catch (storageError) {
+                console.warn('[Checkout Page API] Failed to persist last order summary:', storageError.message);
             }
 
             await window.cartManager.getCart(true);
@@ -1546,7 +1647,7 @@ class CheckoutPageAPI {
             const submitBtn = document.querySelector('.checkout-btn');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = '🛡️ Complete Secure Purchase';
+                submitBtn.textContent = 'ğŸ›¡ï¸ Complete Secure Purchase';
             }
         }
     }
@@ -1563,13 +1664,13 @@ class CheckoutPageAPI {
 
             const code = promoInput.value.trim().toUpperCase();
             if (!code) {
-                promoMessage.textContent = '⚠️ Please enter a coupon code';
+                promoMessage.textContent = 'âš ï¸ Please enter a coupon code';
                 promoMessage.style.color = '#ef4444';
                 return;
             }
 
             // Show loading
-            promoMessage.textContent = '⏳ Validating coupon...';
+            promoMessage.textContent = 'â³ Validating coupon...';
             promoMessage.style.color = '#666';
 
             // Calculate order amount (subtotal only, before shipping and tax)
@@ -1585,7 +1686,7 @@ class CheckoutPageAPI {
             console.log('[Checkout API - applyCoupon] Calculated order amount:', orderAmount);
 
             if (orderAmount <= 0) {
-                promoMessage.textContent = '⚠️ Cart is empty or invalid';
+                promoMessage.textContent = 'âš ï¸ Cart is empty or invalid';
                 promoMessage.style.color = '#ef4444';
                 return;
             }
@@ -1606,7 +1707,7 @@ class CheckoutPageAPI {
                 this.appliedCoupon = response.data.coupon;
                 this.couponDiscount = response.data.discount_amount;
 
-                promoMessage.textContent = `✅ Coupon applied! You saved $${this.couponDiscount.toFixed(2)}`;
+                promoMessage.textContent = `âœ… Coupon applied! You saved $${this.couponDiscount.toFixed(2)}`;
                 promoMessage.style.color = '#22c55e';
                 promoMessage.style.fontWeight = 'bold';
 
@@ -1628,7 +1729,7 @@ class CheckoutPageAPI {
                     errorMsg += ` (${errorFields})`;
                 }
 
-                promoMessage.textContent = `❌ ${errorMsg}`;
+                promoMessage.textContent = `âŒ ${errorMsg}`;
                 promoMessage.style.color = '#ef4444';
                 promoMessage.style.fontWeight = 'normal';
                 console.error('[Checkout Page API] Coupon validation failed:', response);
@@ -1637,7 +1738,7 @@ class CheckoutPageAPI {
             console.error('[Checkout Page API] Coupon validation error:', error);
             const promoMessage = document.getElementById('promo-message');
             if (promoMessage) {
-                promoMessage.textContent = `❌ ${error.message || 'An error occurred'}`;
+                promoMessage.textContent = `âŒ ${error.message || 'An error occurred'}`;
                 promoMessage.style.color = '#ef4444';
             }
         }
@@ -1645,27 +1746,37 @@ class CheckoutPageAPI {
 
     setupCityDistrictSelection() {
         const districts = {
-            'istanbul': [
-                'Kadıköy', 'Beşiktaş', 'Şişli', 'Beyoğlu', 'Üsküdar', 'Fatih',
-                'Bakırköy', 'Maltepe', 'Ataşehir', 'Pendik', 'Kartal', 'Tuzla',
-                'Avcılar', 'Başakşehir', 'Beylikdüzü', 'Büyükçekmece', 'Çekmeköy',
-                'Esenler', 'Esenyurt', 'Gaziosmanpaşa', 'Güngören', 'Kağıthane'
+            istanbul: [
+                'Adalar', 'Arnavutköy', 'Ataşehir', 'Avcılar', 'Bağcılar', 'Bahçelievler',
+                'Bakırköy', 'Başakşehir', 'Bayrampaşa', 'Beşiktaş', 'Beykoz', 'Beylikdüzü',
+                'Beyoğlu', 'Büyükçekmece', 'Çatalca', 'Çekmeköy', 'Esenler', 'Esenyurt',
+                'Eyüpsultan', 'Fatih', 'Gaziosmanpaşa', 'Güngören', 'Kadıköy', 'Kağıthane',
+                'Kartal', 'Küçükçekmece', 'Maltepe', 'Pendik', 'Sancaktepe', 'Sarıyer',
+                'Şile', 'Silivri', 'Şişli', 'Sultanbeyli', 'Sultangazi', 'Tuzla',
+                'Ümraniye', 'Üsküdar', 'Zeytinburnu'
             ],
-            'ankara': [
-                'Çankaya', 'Keçiören', 'Yenimahalle', 'Mamak', 'Sincan', 'Etimesgut',
-                'Gölbaşı', 'Pursaklar', 'Altındağ', 'Polatlı', 'Elmadağ', 'Kalecik'
+            ankara: [
+                'Altındağ', 'Ayaş', 'Bala', 'Beypazarı', 'Çamlıdere', 'Çankaya', 'Çubuk',
+                'Elmadağ', 'Etimesgut', 'Gölbaşı', 'Güdül', 'Haymana', 'Kalecik',
+                'Kazan', 'Keçiören', 'Kızılcahamam', 'Mamak', 'Nallıhan', 'Polatlı',
+                'Pursaklar', 'Sincan', 'Şereflikoçhisar', 'Yenimahalle'
             ],
-            'izmir': [
-                'Konak', 'Karşıyaka', 'Bornova', 'Buca', 'Çiğli', 'Gaziemir',
-                'Narlıdere', 'Balçova', 'Bayraklı', 'Güzelbahçe', 'Karabağlar', 'Torbalı'
+            izmir: [
+                'Aliağa', 'Balçova', 'Bayındır', 'Bayraklı', 'Bergama', 'Beydağ', 'Bornova',
+                'Buca', 'Çeşme', 'Çiğli', 'Dikili', 'Foça', 'Gaziemir', 'Güzelbahçe',
+                'Karabağlar', 'Karaburun', 'Karşıyaka', 'Kemalpaşa', 'Kınık', 'Kiraz',
+                'Konak', 'Menderes', 'Menemen', 'Narlıdere', 'Ödemiş', 'Seferihisar',
+                'Selçuk', 'Tire', 'Torbalı', 'Urla'
             ],
-            'bursa': [
-                'Osmangazi', 'Nilüfer', 'Yıldırım', 'Mudanya', 'Gemlik', 'İnegöl',
-                'Karacabey', 'Mustafakemalpaşa', 'Orhangazi', 'Büyükorhan'
+            bursa: [
+                'Büyükorhan', 'Gemlik', 'Gürsu', 'Harmancık', 'İnegöl', 'İznik', 'Karacabey',
+                'Keles', 'Kestel', 'Mudanya', 'Mustafakemalpaşa', 'Nilüfer', 'Orhaneli',
+                'Orhangazi', 'Osmangazi', 'Yenişehir', 'Yıldırım'
             ],
-            'antalya': [
-                'Muratpaşa', 'Kepez', 'Konyaaltı', 'Döşemealtı', 'Aksu', 'Alanya',
-                'Manavgat', 'Serik', 'Kemer', 'Kaş', 'Demre', 'Finike'
+            antalya: [
+                'Akseki', 'Aksu', 'Alanya', 'Demre', 'Döşemealtı', 'Elmalı', 'Finike',
+                'Gazipaşa', 'Gündoğmuş', 'İbradı', 'Kaş', 'Kemer', 'Kepez', 'Konyaaltı',
+                'Korkuteli', 'Kumluca', 'Manavgat', 'Muratpaşa', 'Serik'
             ]
         };
 
@@ -1674,22 +1785,22 @@ class CheckoutPageAPI {
 
         if (citySelect && districtSelect) {
             citySelect.addEventListener('change', (e) => {
-                const selectedCity = e.target.value.toLowerCase();
+                const selectedCity = this.normalizeText(e.target.value);
                 districtSelect.innerHTML = '<option value="">İlçe Seçin</option>';
                 districtSelect.disabled = !selectedCity;
 
                 if (selectedCity && districts[selectedCity]) {
-                    districts[selectedCity].forEach(districtName => {
+                    districts[selectedCity].forEach((districtName) => {
                         const option = document.createElement('option');
                         option.value = districtName;
                         option.textContent = districtName;
+                        option.dataset.normalized = this.normalizeText(districtName);
                         districtSelect.appendChild(option);
                     });
                     districtSelect.disabled = false;
                     console.log('[Checkout API] Loaded districts for:', selectedCity);
                 }
 
-                // Update shipping address
                 this.shippingAddress.city = e.target.value;
                 this.shippingAddress.district = '';
             });
@@ -1713,3 +1824,4 @@ if (document.readyState === 'loading') {
 } else {
     window.checkoutPageAPI = new CheckoutPageAPI();
 }
+

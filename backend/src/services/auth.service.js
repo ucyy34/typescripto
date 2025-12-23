@@ -222,6 +222,76 @@ class AuthService {
     user.verification_token = null;
     await user.save();
   }
+
+  /**
+   * Forgot password - create reset token
+   * @param {string} email
+   * @returns {Promise<void>}
+   */
+  async forgotPassword(email) {
+    const user = await User.findByEmail(email);
+    if (!user) {
+      // Don't reveal if email exists - just return silently
+      console.log(`[FORGOT PASSWORD] Email not found: ${email}`);
+      return;
+    }
+
+    // Generate reset token (random hex string)
+    const crypto = require('crypto');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Token expires in 1 hour
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Save token to user
+    user.reset_password_token = resetToken;
+    user.reset_password_expires = resetExpires;
+    await user.save();
+
+    // For testing: Log reset link to console instead of sending email
+    const resetUrl = `http://localhost:5500/pages/reset-password.html?token=${resetToken}`;
+    console.log('');
+    console.log('========================================');
+    console.log('🔑 ŞİFRE SIFIRLAMA LİNKİ (TEST MODU)');
+    console.log('========================================');
+    console.log(`📧 Email: ${email}`);
+    console.log(`🔗 Link: ${resetUrl}`);
+    console.log(`⏰ Geçerlilik: 1 saat`);
+    console.log('========================================');
+    console.log('');
+  }
+
+  /**
+   * Reset password with token
+   * @param {string} token
+   * @param {string} newPassword
+   * @returns {Promise<void>}
+   */
+  async resetPassword(token, newPassword) {
+    const { Op } = require('sequelize');
+
+    const user = await User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: {
+          [Op.gt]: new Date()
+        }
+      }
+    });
+
+    if (!user) {
+      throw new ApiError('Şifre sıfırlama linki geçersiz veya süresi dolmuş', StatusCodes.BAD_REQUEST);
+    }
+
+    // Update password
+    user.password_hash = newPassword; // Will be hashed by hook
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+    user.refresh_token = null; // Invalidate all sessions
+    await user.save();
+
+    console.log(`[RESET PASSWORD] Password reset successful for: ${user.email}`);
+  }
 }
 
 module.exports = new AuthService();

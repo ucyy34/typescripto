@@ -59,6 +59,7 @@ const createAddress = asyncHandler(async (req, res) => {
     address_line1,
     address_line2,
     city,
+    district,
     state,
     postal_code,
     country,
@@ -84,6 +85,7 @@ const createAddress = asyncHandler(async (req, res) => {
     address_line1,
     address_line2,
     city,
+    district,
     state,
     postal_code,
     country: country || 'Turkey',
@@ -116,6 +118,7 @@ const updateAddress = asyncHandler(async (req, res) => {
     address_line1,
     address_line2,
     city,
+    district,
     state,
     postal_code,
     country,
@@ -135,17 +138,6 @@ const updateAddress = asyncHandler(async (req, res) => {
   // Update the address
   await address.update({
     type: type !== undefined ? type : address.type,
-    label: label !== undefined ? label : address.label,
-    full_name: full_name || address.full_name,
-    phone: phone || address.phone,
-    address_line1: address_line1 || address.address_line1,
-    address_line2: address_line2 !== undefined ? address_line2 : address.address_line2,
-    city: city || address.city,
-    state: state !== undefined ? state : address.state,
-    postal_code: postal_code || address.postal_code,
-    country: country || address.country,
-    is_default: is_default !== undefined ? is_default : address.is_default,
-    notes: notes !== undefined ? notes : address.notes,
   });
 
   return success(res, {

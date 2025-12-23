@@ -11,6 +11,7 @@ class CartPageAPI {
         this.wishlistItems = [];
         this.recommendations = [];
         this.wishlistUnsubscribe = null;
+        this.shippingData = null; // Shipping Support API response
 
         console.log('[Cart Page API] Initializing...');
         this.init();
@@ -40,6 +41,9 @@ class CartPageAPI {
             this.cart = await window.cartManager.getCart(true);
             console.log('[Cart Page API] Cart loaded:', this.cart.length, 'items');
 
+            // Calculate shipping using Shipping Support API
+            await this.calculateShipping();
+
             this.renderCart();
             this.updateCartSummary();
         } catch (error) {
@@ -53,6 +57,30 @@ class CartPageAPI {
         }
     }
 
+    async calculateShipping() {
+        if (this.cart.length === 0) {
+            this.shippingData = null;
+            return;
+        }
+        try {
+            const shippingItems = this.cart.map(item => ({
+                store_id: item.store_id || item.product?.store_id || item.product?.store?.id,
+                price: item.price || item.product?.price || 0,
+                quantity: item.quantity || 1
+            }));
+
+            const response = await this.apiClient.post('/shipping-support/calculate', { items: shippingItems });
+            if (response.success) {
+                this.shippingData = response.data;
+                console.log('[Cart Page API] Shipping data loaded:', this.shippingData);
+            }
+        } catch (error) {
+            console.error('[Cart Page API] Error calculating shipping:', error);
+            this.shippingData = { summary: { totalShippingSupport: 35, isFree: false } };
+        }
+    }
+
+
     renderCart() {
         const container = document.getElementById('cartItems');
         if (!container) {
@@ -64,90 +92,136 @@ class CartPageAPI {
             container.innerHTML = `
                 <div class="empty-cart" style="text-align: center; padding: 4rem 2rem;">
                     <div class="empty-cart-icon" style="font-size: 5rem; margin-bottom: 1.5rem;">🐉</div>
-                    <h2 style="margin-bottom: 1rem; color: var(--forest-deep);">Your cart is empty</h2>
-                    <p style="color: var(--warm-brown); margin-bottom: 2rem;">Start adding some Nordic treasures!</p>
-                    <a href="../index.html" class="btn btn-primary" style="display: inline-block; padding: 0.75rem 2rem; background: var(--forest-medium); color: white; text-decoration: none; border-radius: 8px;">Browse Products</a>
+                    <h2 style="margin-bottom: 1rem; color: var(--forest-deep);">Sepetiniz boş</h2>
+                    <p style="color: var(--warm-brown); margin-bottom: 2rem;">Tarihi köylerin hazinelerini keşfetmeye başlayın!</p>
+                    <a href="../index.html" class="btn btn-primary" style="display: inline-block; padding: 0.75rem 2rem; background: var(--forest-medium); color: white; text-decoration: none; border-radius: 8px;">Ürünlere Göz At</a>
                 </div>
             `;
             return;
         }
 
+        // Group items by store
+        const storeGroups = {};
+        this.cart.forEach((item, index) => {
+            const storeId = item.store_id || item.store?.id || item.product?.store?.id || 'unknown';
+            const storeName = item.store_name || item.store?.name || item.product?.store?.name || 'Mağaza';
+
+            if (!storeGroups[storeId]) {
+                storeGroups[storeId] = {
+                    storeId,
+                    storeName,
+                    items: [],
+                };
+            }
+            storeGroups[storeId].items.push({ ...item, originalIndex: index });
+        });
+
         // Add header
         const headerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
-                <h2 style="margin: 0;">Selected Treasures</h2>
-                <button id="clearCart" style="background: none; border: none; color: var(--warm-brown); cursor: pointer; text-decoration: underline;">Clear All</button>
+                <h2 style="margin: 0;">Seçilen Hazineler</h2>
+                <button id="clearCart" style="background: none; border: none; color: var(--warm-brown); cursor: pointer; text-decoration: underline;">Tümünü Temizle</button>
             </div>
         `;
 
-        const itemsHTML = this.cart.map((item, index) => {
-            const product = item.product;
-            if (!product) {
-                console.error('[Cart Page API] Product data missing for cart item:', item);
-                // Try to render with minimal data
-                return `
-                    <div class="cart-item" data-product-id="${item.product_id}" data-index="${index}" style="opacity: 0.5;">
-                        <div class="item-image">
-                            <img src="https://via.placeholder.com/300x300?text=Invalid+Product" alt="Invalid Product">
-                        </div>
-                        <div class="item-details">
-                            <h3>Invalid Product Data</h3>
-                            <p style="color: #dc2626;">Product data is corrupted</p>
-                        </div>
-                        <div class="quantity-controls">
-                            <button disabled>−</button>
-                            <input type="number" value="${item.quantity || 1}" disabled>
-                            <button disabled>+</button>
-                        </div>
-                        <button class="remove-item" data-index="${index}" title="Remove item">🗑️</button>
-                    </div>
-                `;
+        // Build store-grouped HTML
+        let storeGroupsHTML = '';
+        Object.values(storeGroups).forEach(group => {
+            // Find shipping for this store
+            let storeShipping = this.shippingData?.stores?.find(s => s.storeId === group.storeId);
+            let shippingText = 'Kargo Desteği: ₺35';
+
+            if (storeShipping) {
+                if (storeShipping.isFree || storeShipping.customerPays <= 0) {
+                    shippingText = 'Kargo Desteği: Ücretsiz ✨';
+                } else {
+                    shippingText = `Kargo Desteği: ₺${storeShipping.customerPays.toFixed(2)}`;
+                }
             }
 
-            const mainImage = product.images && product.images.length > 0
-                ? product.images[0]
-                : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23e5e7eb" width="300" height="300"/%3E%3Ctext fill="%236b7280" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
-
-            const price = parseFloat(item.price || product.price || 0);
-            const title = product.title || 'Unknown Product';
-            const storeName = product.store?.name || 'Unknown Store';
-
-            // Stock check (treat missing/invalid as 99 to avoid false out-of-stock)
-            const rawStock = product.stock;
-            const stock = Number.isFinite(parseInt(rawStock)) ? parseInt(rawStock) : 99;
-            const inStock = stock > 0;
-            const maxQuantity = Math.min(stock || 99, 99);
-
-            return `
-                <div class="cart-item" data-product-id="${item.product_id}" data-index="${index}">
-                    <div class="item-image">
-                        <img src="${mainImage}" alt="${title}">
+            storeGroupsHTML += `
+                <div class="cart-store-group" style="margin-bottom: 1.5rem; border: 1px solid rgba(45, 104, 83, 0.2); border-radius: 12px; overflow: hidden;">
+                    <div class="cart-store-header" style="background: linear-gradient(135deg, var(--forest-medium), var(--forest-deep)); color: white; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600;">🏪 ${group.storeName}</span>
+                        <span style="font-size: 0.85rem; opacity: 0.9;">${shippingText}</span>
                     </div>
-                    <div class="item-details">
-                        <h3>${title}</h3>
-                        ${storeName !== 'Unknown Store' ? `<p class="item-artisan">by ${storeName}</p>` : ''}
-                        <div class="item-price">
-                            ₺${price.toFixed(2)}
+                    <div class="cart-store-items" style="padding: 0.5rem;">
+            `;
+
+            group.items.forEach(item => {
+                const product = item.product;
+                const index = item.originalIndex;
+
+                if (!product) {
+                    storeGroupsHTML += `
+                        <div class="cart-item" data-product-id="${item.product_id}" data-index="${index}" style="opacity: 0.5; display: grid; grid-template-columns: 80px 1fr auto auto; gap: var(--space-md); align-items: center; padding: var(--space-md); border-bottom: 1px solid var(--glass-border);">
+                            <div class="item-image">
+                                <img src="https://via.placeholder.com/300x300?text=Invalid+Product" alt="Invalid Product" style="width: 80px; height: 80px; border-radius: var(--radius-md); object-fit: cover;">
+                            </div>
+                            <div class="item-details">
+                                <h3 style="font-size: 1rem; margin-bottom: 0.25rem;">Geçersiz Ürün Verisi</h3>
+                                <p style="color: #dc2626; font-size: 0.9rem;">Ürün verisi bozuk</p>
+                            </div>
+                            <div class="quantity-controls">
+                                <button disabled>−</button>
+                                <input type="number" value="${item.quantity || 1}" disabled style="width: 50px; text-align: center;">
+                                <button disabled>+</button>
+                            </div>
+                            <button class="remove-item" data-index="${index}" title="Ürünü kaldır" style="background: none; border: none; color: #999; font-size: 1.2rem; cursor: pointer;">🗑️</button>
                         </div>
-                        ${!inStock ? '<div style="color: #dc2626; font-size: 0.9rem; margin-top: 0.5rem;">⚠️ Out of Stock</div>' : ''}
+                    `;
+                    return;
+                }
+
+                const mainImage = product.images && product.images.length > 0
+                    ? product.images[0]
+                    : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300"%3E%3Crect fill="%23e5e7eb" width="300" height="300"/%3E%3Ctext fill="%236b7280" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+                const price = parseFloat(item.price || product.price || 0);
+                const title = product.title || 'Bilinmeyen Ürün';
+
+                // Stock check
+                const rawStock = product.stock;
+                const stock = Number.isFinite(parseInt(rawStock)) ? parseInt(rawStock) : 99;
+                const inStock = stock > 0;
+                const maxQuantity = Math.min(stock || 99, 99);
+
+                storeGroupsHTML += `
+                    <div class="cart-item" data-product-id="${item.product_id}" data-index="${index}" style="display: grid; grid-template-columns: 80px 1fr auto auto; gap: var(--space-md); align-items: center; padding: var(--space-md); border-bottom: 1px solid var(--glass-border);">
+                        <div class="item-image">
+                            <img src="${mainImage}" alt="${title}" style="width: 80px; height: 80px; border-radius: var(--radius-md); object-fit: cover;">
+                        </div>
+                        <div class="item-details">
+                            <h3 style="font-size: 1rem; margin-bottom: 0.25rem; color: var(--forest-deep);">${title}</h3>
+                            <div class="item-price" style="font-size: 1rem; font-weight: 600; color: var(--forest-deep);">
+                                ₺${price.toFixed(2)}
+                            </div>
+                            ${!inStock ? '<div style="color: #dc2626; font-size: 0.85rem; margin-top: 0.25rem;">⚠️ Stokta Yok</div>' : ''}
+                        </div>
+                        <div class="quantity-controls" style="display: flex; align-items: center; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); overflow: hidden;">
+                            <button class="quantity-btn decrease-qty" data-index="${index}" ${!inStock ? 'disabled' : ''} style="width: 32px; height: 32px; border: none; background: var(--glass-bg); cursor: pointer; color: var(--forest-deep);">−</button>
+                            <input type="number"
+                                class="quantity-input"
+                                value="${item.quantity}"
+                                min="1"
+                                max="${maxQuantity}"
+                                data-index="${index}"
+                                ${!inStock ? 'disabled' : ''}
+                                style="width: 50px; height: 32px; border: none; text-align: center; font-size: 0.9rem; background: white;">
+                            <button class="quantity-btn increase-qty" data-index="${index}" ${!inStock ? 'disabled' : ''} style="width: 32px; height: 32px; border: none; background: var(--glass-bg); cursor: pointer; color: var(--forest-deep);">+</button>
+                        </div>
+                        <button class="remove-item" data-index="${index}" title="Ürünü kaldır" style="background: none; border: none; color: #999; font-size: 1.2rem; cursor: pointer; padding: var(--space-sm); border-radius: var(--radius-sm); transition: all var(--transition-fast);">🗑️</button>
                     </div>
-                    <div class="quantity-controls">
-                        <button class="quantity-btn decrease-qty" data-index="${index}" ${!inStock ? 'disabled' : ''}>−</button>
-                        <input type="number"
-                            class="quantity-input"
-                            value="${item.quantity}"
-                            min="1"
-                            max="${maxQuantity}"
-                            data-index="${index}"
-                            ${!inStock ? 'disabled' : ''}>
-                        <button class="quantity-btn increase-qty" data-index="${index}" ${!inStock ? 'disabled' : ''}>+</button>
+                `;
+            });
+
+            storeGroupsHTML += `
                     </div>
-                    <button class="remove-item" data-index="${index}" title="Remove item">🗑️</button>
                 </div>
             `;
-        }).join('');
+        });
 
-        container.innerHTML = headerHTML + itemsHTML;
+        container.innerHTML = headerHTML + storeGroupsHTML;
 
         // Setup clear cart button
         const clearBtn = document.getElementById('clearCart');
@@ -180,8 +254,10 @@ class CartPageAPI {
             return sum + (price * item.quantity);
         }, 0);
 
-        const shipping = subtotal > 100 ? 0 : (subtotal > 0 ? 10.00 : 0); // Free shipping over $100
-        const tax = subtotal * 0.10; // 10% tax
+        // Use shipping data from API
+        const shipping = this.shippingData?.summary?.totalShippingSupport || 35;
+        const isFreeShipping = this.shippingData?.summary?.isFree || false;
+        const tax = subtotal * 0.18; // 18% VAT (Turkey)
         const total = subtotal + shipping + tax;
 
         // Calculate total items
@@ -195,8 +271,8 @@ class CartPageAPI {
 
         if (subtotalEl) subtotalEl.textContent = `₺${subtotal.toFixed(2)}`;
         if (shippingEl) {
-            if (shipping === 0 && subtotal > 0) {
-                shippingEl.textContent = 'ÜCRETSİZ';
+            if (isFreeShipping && subtotal > 0) {
+                shippingEl.textContent = 'ÜCRETSİZ ✨';
                 shippingEl.style.color = 'var(--aurora-green)';
             } else {
                 shippingEl.textContent = `₺${shipping.toFixed(2)}`;
@@ -280,8 +356,8 @@ class CartPageAPI {
                     ? { name: item.store }
                     : item.store
                 : item.artisan
-                ? { name: item.artisan }
-                : null,
+                    ? { name: item.artisan }
+                    : null,
         };
 
         return {
@@ -691,8 +767,8 @@ class CartPageAPI {
         toast.className = `toast-notification ${type}`;
 
         const bgColor = type === 'success' ? '#10b981' :
-                       type === 'warning' ? '#f59e0b' :
-                       type === 'error' ? '#dc2626' : '#3b82f6';
+            type === 'warning' ? '#f59e0b' :
+                type === 'error' ? '#dc2626' : '#3b82f6';
 
         toast.style.cssText = `
             position: fixed;

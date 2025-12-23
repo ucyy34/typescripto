@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/product-cards.css">
     <link rel="stylesheet" href="assets/css/product-modal.css">
+    <link rel="stylesheet" href="assets/css/siftah.css">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -156,43 +157,43 @@
 
 <body>
     <!-- Loading Screen -->
-    <div class="loading-screen" id="loadingScreen" aria-label="Loading page content">
+    <div class="loading-screen" id="loadingScreen" aria-label="Sayfa yükleniyor">
         <div style="text-align: center;">
             <div style="font-size: 4rem; margin-bottom: 1rem; animation: spin 2s linear infinite;" role="img"
-                aria-label="Dragon loading animation">🐉</div>
-            <h2 style="color: var(--forest-deep); margin-bottom: 1rem;">Awakening Nordic Magic...</h2>
-            <div class="loading-spinner" role="progressbar" aria-label="Loading progress"></div>
+                aria-label="Ejderha yükleme animasyonu">🐉</div>
+            <h2 style="color: var(--forest-deep); margin-bottom: 1rem;">Hazineler yükleniyor...</h2>
+            <div class="loading-spinner" role="progressbar" aria-label="Yükleme durumu"></div>
         </div>
     </div>
 
     <!-- Navigation Header -->
     <header class="header glass-card" role="banner">
-        <nav class="navbar container" role="navigation" aria-label="Main navigation">
+        <nav class="navbar container" role="navigation" aria-label="Ana navigasyon">
             <div class="nav-brand">
                 <h1>🐉 DostanWebCSS</h1>
             </div>
 
             <div class="nav-search">
                 <div class="search-container">
-                    <label for="globalSearch" class="sr-only">Search for treasures</label>
-                    <input type="text" class="search-input" placeholder="Search magical treasures..." id="globalSearch"
-                        aria-label="Search for treasures">
+                    <label for="globalSearch" class="sr-only">Hazine ara</label>
+                    <input type="text" class="search-input" placeholder="El yapımı hazineleri ara..." id="globalSearch"
+                        aria-label="Hazine ara">
                     <span class="search-icon" aria-hidden="true">🔍</span>
                 </div>
             </div>
 
             <div class="nav-actions">
                 <a href="pages/products.html" class="nav-link" role="button">
-                    Treasures
+                    Ürünler
                 </a>
                 <a href="pages/artisan.html" class="nav-link" role="button">
-                    Artisans
+                    Ustalar
                 </a>
-                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" type="button">
+                <button class="theme-toggle" id="themeToggle" aria-label="Karanlık mod" type="button">
                     <span aria-hidden="true">🌙</span>
                 </button>
 
-                <a href="pages/profile.html" class="profile-btn" aria-label="User profile">
+                <a href="pages/profile.html" class="profile-btn" aria-label="Kullanıcı profili">
                     <span aria-hidden="true">👤</span>
                 </a>
             </div>
@@ -210,30 +211,30 @@
             <div class="container">
                 <div class="hero-content">
                     <h1 id="hero-title" class="hero-title">
-                        Welcome to the Nordic Realm
+                        El Yapımı Hazineler Dünyası
                         <span class="accent-text"
                             style="display: block; font-size: 0.6em; margin-top: var(--space-sm);">
-                            where ancient crafts meet modern magic
+                            geleneksel zanaatların modern büyüsü
                         </span>
                     </h1>
 
                     <p class="hero-text hero-subtitle">
-                        Discover handcrafted treasures from Nordic artisans, guided by Dostik,
-                        your mystical dragon companion through this revolutionary marketplace experience.
+                        Ustalarımızın ellerinden çıkan benzersiz el yapımı ürünleri keşfedin.
+                        AI asistanımız Dostik, size bu büyülü pazaryerinde rehberlik edecek.
                     </p>
 
                     <div class="hero-cta"
                         style="display: flex; gap: var(--space-lg); justify-content: center; flex-wrap: wrap;">
                         <a href="#featured-products" class="btn btn-primary" aria-describedby="hero-description">
-                            <span aria-hidden="true">🌟</span> Explore Treasures
+                            <span aria-hidden="true">🌟</span> Hazineleri Keşfet
                         </a>
                         <a href="pages/artisan.html" class="btn btn-secondary">
-                            <span aria-hidden="true">🎨</span> Meet Artisans
+                            <span aria-hidden="true">🎨</span> Ustalarımız
                         </a>
                         <button class="btn btn-accent"
                             onclick="window.dostikAI && window.dostikAI.chatWidget.classList.add('open')" type="button"
-                            aria-label="Open chat with Dostik AI assistant">
-                            <span aria-hidden="true">🐉</span> Chat with Dostik
+                            aria-label="Dostik AI asistanı ile sohbet et">
+                            <span aria-hidden="true">🐉</span> Dostik'e Sor
                         </button>
                     </div>
                 </div>
@@ -243,50 +244,50 @@
         <!-- Category Slider Section -->
         <section class="category-slider-section" aria-labelledby="category-title">
             <div class="container">
-                <h2 id="category-title" class="category-slider-title">Explore by Category</h2>
+                <h2 id="category-title" class="category-slider-title">Kategorilere Göz At</h2>
                 <div class="category-slider-container">
                     <button class="slider-arrow slider-arrow-left" id="categorySliderLeft"
                         aria-label="Previous categories" type="button">‹</button>
-                    <div class="category-slider" id="categorySlider" role="tablist" aria-label="Product categories">
+                    <div class="category-slider" id="categorySlider" role="tablist" aria-label="Ürün kategorileri">
                         <div class="category-slide active" data-category="all">
                             <div class="category-icon">✨</div>
-                            <span class="category-name">All Treasures</span>
+                            <span class="category-name">Tüm Ürünler</span>
                         </div>
                         <div class="category-slide" data-category="wood-carvings">
                             <div class="category-icon">🌲</div>
-                            <span class="category-name">Wood Carvings</span>
+                            <span class="category-name">Ahşap Oymalar</span>
                         </div>
                         <div class="category-slide" data-category="glass-art">
                             <div class="category-icon">💎</div>
-                            <span class="category-name">Glass Art</span>
+                            <span class="category-name">Cam Sanatı</span>
                         </div>
                         <div class="category-slide" data-category="leather-goods">
                             <div class="category-icon">🛡️</div>
-                            <span class="category-name">Leather Goods</span>
+                            <span class="category-name">Deri Ürünler</span>
                         </div>
                         <div class="category-slide" data-category="ceramics">
                             <div class="category-icon">🏺</div>
-                            <span class="category-name">Ceramics</span>
+                            <span class="category-name">Seramik</span>
                         </div>
                         <div class="category-slide" data-category="candles-scents">
                             <div class="category-icon">🕯️</div>
-                            <span class="category-name">Candles & Scents</span>
+                            <span class="category-name">Mum & Kokular</span>
                         </div>
                         <div class="category-slide" data-category="spiritual-art">
                             <div class="category-icon">🔮</div>
-                            <span class="category-name">Spiritual Art</span>
+                            <span class="category-name">Spiritüel Sanat</span>
                         </div>
                         <div class="category-slide" data-category="textiles">
                             <div class="category-icon">🧶</div>
-                            <span class="category-name">Textiles</span>
+                            <span class="category-name">Tekstil</span>
                         </div>
                         <div class="category-slide" data-category="jewelry">
                             <div class="category-icon">💍</div>
-                            <span class="category-name">Jewelry</span>
+                            <span class="category-name">Takı</span>
                         </div>
                         <div class="category-slide" data-category="home-decor">
                             <div class="category-icon">🏠</div>
-                            <span class="category-name">Home Décor</span>
+                            <span class="category-name">Ev Dekorasyonu</span>
                         </div>
                     </div>
                     <button class="slider-arrow slider-arrow-right" id="categorySliderRight"
@@ -299,16 +300,15 @@
         <section id="featured-products" class="section">
             <div class="container">
                 <div class="text-center mb-xl">
-                    <h2>Featured Treasures</h2>
-                    <p class="hero-text">Handpicked by our Nordic artisans and blessed by Dostik</p>
+                    <h2>Öne Çıkan Ürünler</h2>
+                    <p class="hero-text">Ustalarımızın elinden çıkan özel hazineler</p>
                 </div>
 
                 <div id="products-grid" class="products-container asymmetric-grid">
                     <!-- Product cards will be dynamically loaded from API -->
                     <div class="loading-products" style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem;">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">🐉</div>
-                        <p style="font-size: 1.2rem; color: var(--forest-medium);">Dostik is fetching treasures from the
-                            vault...</p>
+                        <p style="font-size: 1.2rem; color: var(--forest-medium);">Dostik hazineleri getiriyor...</p>
                         <div style="margin-top: 1rem;">
                             <div class="spinner"
                                 style="width: 40px; height: 40px; border: 3px solid var(--cream-warm); border-top-color: var(--forest-medium); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;">
@@ -320,10 +320,10 @@
                 <div class="text-center mt-xl"
                     style="display: flex; justify-content: center; gap: var(--space-lg); align-items: center;">
                     <button class="btn btn-primary" id="loadMoreTreasures">
-                        🌟 Load More Treasures
+                        🌟 Daha Fazla Ürün
                     </button>
                     <a href="pages/products.html" class="btn btn-secondary">
-                        🏰 View All Treasures
+                        🏰 Tüm Ürünleri Gör
                     </a>
                 </div>
             </div>
@@ -337,22 +337,22 @@
                     <div class="mini-slide active"
                         style="background: linear-gradient(135deg, rgba(var(--forest-deep-rgb), 0.8), rgba(var(--aurora-blue-rgb), 0.6)), url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
                         <div class="mini-slide-content">
-                            <h3>Nordic Crafts Collection</h3>
-                            <p>Discover authentic handmade treasures from the heart of Scandinavia</p>
+                            <h3>El Yapımı Koleksiyonu</h3>
+                            <p>Anadolu'nun kalbinden otantik el yapımı hazineleri keşfedin</p>
                         </div>
                     </div>
                     <div class="mini-slide"
                         style="background: linear-gradient(135deg, rgba(var(--aurora-green-rgb), 0.8), rgba(var(--forest-medium-rgb), 0.6)), url('https://images.unsplash.com/photo-1565106430482-8f6e74349ca1?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
                         <div class="mini-slide-content">
-                            <h3>Traditional Techniques</h3>
-                            <p>Time-honored methods passed down through generations</p>
+                            <h3>Geleneksel Teknikler</h3>
+                            <p>Nesilden nesile aktarılan kadim yöntemler</p>
                         </div>
                     </div>
                     <div class="mini-slide"
                         style="background: linear-gradient(135deg, rgba(var(--aurora-purple-rgb), 0.8), rgba(var(--cream-warm-rgb), 0.6)), url('https://images.unsplash.com/photo-1542779283-429940ce8336?ixlib=rb-4.0.3&w=800&h=300') center/cover;">
                         <div class="mini-slide-content">
-                            <h3>Limited Edition</h3>
-                            <p>Exclusive pieces available for a limited time only</p>
+                            <h3>Sınırlı Üretim</h3>
+                            <p>Sadece kısa süreliğine satışta olan özel parçalar</p>
                         </div>
                     </div>
                 </div>
@@ -365,8 +365,8 @@
             style="background: linear-gradient(135deg, var(--cream-warm) 0%, var(--cream-soft) 100%);">
             <div class="container">
                 <div class="text-center mb-xl">
-                    <h2>Meet Our Nordic Artisans</h2>
-                    <p class="hero-text">The masterful creators behind every treasure</p>
+                    <h2>Ustalarımızla Tanışın</h2>
+                    <p class="hero-text">Her hazinenin arkasındaki usta eller</p>
                 </div>
 
                 <div
@@ -375,33 +375,33 @@
                         <div
                             style="width: 100px; height: 100px; background: var(--aurora-green); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
                             🎨</div>
-                        <h3>Erik Nordström</h3>
-                        <p class="accent-text">Master Wood Carver</p>
-                        <p>With 30 years of experience, Erik transforms ancient Nordic trees into spiritual sculptures
-                            that carry the essence of the forest.</p>
-                        <a href="pages/artisan.html?artisan=erik" class="btn btn-secondary mt-md">View Profile</a>
+                        <h3>Ahmet Usta</h3>
+                        <p class="accent-text">Ahşap Oyma Ustası</p>
+                        <p>30 yıllık deneyimiyle Ahmet Usta, kadim ağaçları ormanın ruhunu taşıyan heykellere
+                            dönüştürüyor.</p>
+                        <a href="pages/artisan.html?artisan=ahmet" class="btn btn-secondary mt-md">Profili Gör</a>
                     </div>
 
                     <div class="glass-card text-center">
                         <div
                             style="width: 100px; height: 100px; background: var(--aurora-blue); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
                             💎</div>
-                        <h3>Astrid Björk</h3>
-                        <p class="accent-text">Glass & Crystal Artist</p>
-                        <p>Astrid captures the Northern Lights in glass, creating pieces that seem to hold the aurora's
-                            magical energy within their depths.</p>
-                        <a href="pages/artisan.html?artisan=astrid" class="btn btn-secondary mt-md">View Profile</a>
+                        <h3>Zeynep Hanım</h3>
+                        <p class="accent-text">Cam & Seramik Sanatçısı</p>
+                        <p>Zeynep Hanım, doğanın güzelliğini came ve seramiğe yansıtıyor, her parça benzersiz bir hikaye
+                            anlatıyor.</p>
+                        <a href="pages/artisan.html?artisan=zeynep" class="btn btn-secondary mt-md">Profili Gör</a>
                     </div>
 
                     <div class="glass-card text-center">
                         <div
                             style="width: 100px; height: 100px; background: var(--aurora-purple); border-radius: 50%; margin: 0 auto var(--space-lg); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
                             ⚔️</div>
-                        <h3>Magnus Eriksson</h3>
-                        <p class="accent-text">Leather & Metal Craftsman</p>
-                        <p>Magnus forges the spirit of Viking warriors into leather goods and metal works, each piece
-                            telling tales of ancient adventures.</p>
-                        <a href="pages/artisan.html?artisan=magnus" class="btn btn-secondary mt-md">View Profile</a>
+                        <h3>Mustafa Usta</h3>
+                        <p class="accent-text">Deri & Metal Ustası</p>
+                        <p>Mustafa Usta, geleneksel Anadolu zanaatkarının ruhunu deri ve metal işçiliğine yansıtıyor.
+                        </p>
+                        <a href="pages/artisan.html?artisan=mustafa" class="btn btn-secondary mt-md">Profili Gör</a>
                     </div>
                 </div>
             </div>
@@ -411,18 +411,18 @@
         <section class="section">
             <div class="container">
                 <div class="glass-card text-center" style="max-width: 600px; margin: 0 auto;">
-                    <h3 style="margin-bottom: var(--space-md);">🐉 Join Dostik's Circle</h3>
-                    <p class="mb-lg">Subscribe to receive mystical updates about new treasures, artisan stories, and
-                        exclusive Nordic wisdom from Dostik himself.</p>
+                    <h3 style="margin-bottom: var(--space-md);">🐉 Dostik Ailesine Katıl</h3>
+                    <p class="mb-lg">Yeni ürünler, usta hikayeleri ve özel fırsatlardan haberdar olmak için bültenimize
+                        abone olun.</p>
 
                     <div style="display: flex; gap: var(--space-md); max-width: 400px; margin: 0 auto;">
-                        <input type="email" placeholder="Enter your email..."
+                        <input type="email" placeholder="E-posta adresiniz..."
                             style="flex: 1; padding: var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-md); background: var(--glass-bg);">
-                        <button class="btn btn-primary">Subscribe</button>
+                        <button class="btn btn-primary">Abone Ol</button>
                     </div>
 
                     <p style="margin-top: var(--space-md); font-size: 0.9rem; color: var(--warm-brown);">
-                        ✨ Dostik promises to guard your email like a dragon guards treasure
+                        ✨ Dostik e-postanızı bir ejderhanın hazinesini koruması gibi koruyacak
                     </p>
                 </div>
             </div>
@@ -445,8 +445,9 @@
                 style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-xl); margin-bottom: var(--space-xl);">
                 <div>
                     <h3 style="color: var(--cream-soft); margin-bottom: var(--space-md);">🐉 DostanWebCSS</h3>
-                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">A revolutionary Nordic marketplace where
-                        ancient craftsmanship meets modern technology, guided by the wisdom of Dostik the dragon.</p>
+                    <p style="margin-bottom: var(--space-md); opacity: 0.8;">Geleneksel zanaatkarlığın modern
+                        teknolojiyle buluştuğu, Dostik ejderhasının bilgeliğiyle yönlendirilen devrimci bir pazar yeri.
+                    </p>
                     <div style="display: flex; gap: var(--space-md);">
                         <span style="font-size: 1.5rem; cursor: pointer;">📧</span>
                         <span style="font-size: 1.5rem; cursor: pointer;">📱</span>
@@ -456,55 +457,57 @@
                 </div>
 
                 <div>
-                    <h4 style="margin-bottom: var(--space-md);">Quick Links</h4>
+                    <h4 style="margin-bottom: var(--space-md);">Hızlı Bağlantılar</h4>
                     <ul style="list-style: none; padding: 0;">
                         <li><a href="pages/products.html"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">All
-                                Treasures</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Tüm
+                                Ürünler</a></li>
                         <li><a href="pages/artisan.html"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Meet
-                                Artisans</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Ustalarımız</a>
+                        </li>
                         <li><a href="pages/cart.html"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shopping
-                                Cart</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Sepetim</a>
+                        </li>
                         <li><a href="pages/profile.html"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Your
-                                Profile</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Profilim</a>
+                        </li>
                     </ul>
                 </div>
 
                 <div>
-                    <h4 style="margin-bottom: var(--space-md);">Support</h4>
+                    <h4 style="margin-bottom: var(--space-md);">Destek</h4>
                     <ul style="list-style: none; padding: 0;">
                         <li><a href="#"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Help
-                                Center</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Yardım
+                                Merkezi</a></li>
                         <li><a href="#"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Shipping
-                                Info</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Kargo
+                                Bilgisi</a></li>
                         <li><a href="#"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Returns</a>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">İade
+                                Koşulları</a>
                         </li>
                         <li><a href="#"
-                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Privacy
-                                Policy</a></li>
+                                style="color: var(--cream-soft); text-decoration: none; opacity: 0.8; display: block; margin-bottom: var(--space-sm);">Gizlilik
+                                Politikası</a></li>
                     </ul>
                 </div>
 
                 <div>
-                    <h4 style="margin-bottom: var(--space-md);">Nordic Wisdom</h4>
+                    <h4 style="margin-bottom: var(--space-md);">Dostik'in Bilgeliği</h4>
                     <p style="opacity: 0.8; font-style: italic; margin-bottom: var(--space-md);">
-                        "Every treasure tells a story, every artisan carries ancient wisdom."
+                        "Her hazine bir hikaye anlatır, her usta kadim bilgeliği taşır."
                     </p>
                     <p style="opacity: 0.6; font-size: 0.9rem;">
-                        - Dostik the Dragon
+                        - Dostik Ejderhası
                     </p>
                 </div>
             </div>
 
             <div
                 style="border-top: 1px solid rgba(245, 242, 235, 0.2); padding-top: var(--space-lg); text-align: center; opacity: 0.8;">
-                <p>&copy; 2024 DostanWebCSS. All rights reserved. | Powered by Nordic magic and dragon wisdom 🐉</p>
+                <p>&copy; 2024 DostanWebCSS. Tüm hakları saklıdır. | Ejderha bilgeliği ve geleneksel zanaat ile
+                    güçlendirilmiştir 🐉</p>
             </div>
         </div>
     </footer>
@@ -530,17 +533,18 @@
     <script src="assets/js/carsi-pazar-browser.js"></script>
     <script src="assets/js/main.js"></script>
     <script src="assets/js/product-modal.js"></script>
+    <script src="assets/js/siftah.js"></script>
     <script src="assets/js/home-api.js"></script>
 
     <!-- Loading screen script -->
     <script>
+        // Optimized loading - hide when ready, max 500ms
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                const loadingScreen = document.getElementById('loadingScreen');
-                if (loadingScreen) {
-                    loadingScreen.classList.add('hidden');
-                }
-            }, 2000);
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                // Small delay for smooth transition, but not blocking
+                setTimeout(() => loadingScreen.classList.add('hidden'), 300);
+            }
         });
 
 

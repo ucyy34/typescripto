@@ -712,7 +712,8 @@ class ProfileAPI {
             address_line1: document.getElementById('address-line1').value,
             address_line2: document.getElementById('address-line2').value,
             city: document.getElementById('address-city').value,
-            state: document.getElementById('address-district').value, // Use district select value
+            district: document.getElementById('address-district').value,
+            state: document.getElementById('address-district').value, // Keep state for backward compatibility
             postal_code: document.getElementById('address-postal').value,
             country: document.getElementById('address-country').value,
             notes: document.getElementById('address-notes').value,
