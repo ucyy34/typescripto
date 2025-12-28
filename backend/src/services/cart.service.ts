@@ -14,18 +14,18 @@ const { redisClient } = require('../config/redis');
 const orderService = require('./order.service');
 
 // Types
-import { Cart, CartItem, Product as IProduct, CheckoutInit } from '../types';
+import { Product as IProduct } from '../types';
+import {
+  ICartCheckoutItem,
+  ICartEnrichedItem,
+  ICartItemVariant,
+  ICartState,
+  ICartStoredItem,
+  ICartTotals,
+} from '../domain/types';
 
-interface CartState {
-  key: string | null;
-  items: CartItem[];
-  metadata: Record<string, any>;
-}
-
-interface CartTotals {
-  subtotal: number;
-  item_count: number;
-}
+type CartState = ICartState;
+type CartTotals = ICartTotals;
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
 const DEFAULT_MISSING_PRODUCT_TTL = 10 * 1000; // 10 seconds
@@ -55,7 +55,7 @@ class CartService {
   /**
    * Retrieve cart for a user or guest based on identifiers
    */
-  async getCart(userId: string | null = null, guestId: string | null = null): Promise<{ items: any[], totals: CartTotals, updated_at: string | null }> {
+  async getCart(userId: string | null = null, guestId: string | null = null): Promise<{ items: ICartEnrichedItem[], totals: CartTotals, updated_at: string | null }> {
     const key = this._resolveCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
     const { items, metadata } = await this._loadCartState(key);
@@ -81,7 +81,7 @@ class CartService {
   /**
    * Add item to cart for user or guest
    */
-  async addItem(userId: string | null, guestId: string | null, productId: string, quantity: number, variant: any = {}) {
+  async addItem(userId: string | null, guestId: string | null, productId: string, quantity: number, variant: ICartItemVariant | null = null) {
     const key = this._requireCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
 
@@ -90,7 +90,6 @@ class CartService {
     const { items } = await this._loadCartState(key);
     // @ts-ignore
     const existing = items.find(
-      // @ts-ignore
       (item) => item.product_id === productId && this._isSameVariant(item.variant, variant)
     );
 
@@ -98,7 +97,6 @@ class CartService {
       const newQuantity = existing.quantity + quantity;
       await this.validateProductAndStock(productId, newQuantity, variant);
       existing.quantity = newQuantity;
-      // @ts-ignore
       existing.variant = variant && Object.keys(variant).length ? { ...variant } : existing.variant;
     } else {
       items.push({
@@ -106,7 +104,6 @@ class CartService {
         product_id: productId,
         quantity,
         price: 0, // Will be populated
-        // @ts-ignore
         variant: variant && Object.keys(variant).length ? { ...variant } : null,
       });
     }
@@ -135,7 +132,6 @@ class CartService {
       return this.getCart(userId, guestId);
     }
 
-    // @ts-ignore
     await this.validateProductAndStock(productId, quantity, existing.variant);
     existing.quantity = quantity;
     await this._persistCartState(key, items, ttl);
@@ -244,7 +240,7 @@ class CartService {
   /**
    * Checkout: Checkout Init Logic
    */
-  async checkout({ userId = null, guestId = null, checkoutInput = {} }: { userId?: string | null, guestId?: string | null, checkoutInput: any }) {
+  async checkout({ userId = null, guestId = null, checkoutInput = {} }: { userId?: string | null, guestId?: string | null, checkoutInput: Record<string, unknown> }) {
     const cart = await this.getCart(userId, guestId);
 
     if (!cart.items || cart.items.length === 0) {
@@ -256,7 +252,7 @@ class CartService {
       throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
     }
 
-    const items = cart.items.map((item: any) => ({
+    const items = cart.items.map((item) => ({
       product_id: item.product_id,
       quantity: item.quantity,
     }));
@@ -284,7 +280,7 @@ class CartService {
   /**
    * Validate product exists, is available, and has sufficient stock
    */
-  async validateProductAndStock(productId: string, quantity: number, variant: any = {}) {
+  async validateProductAndStock(productId: string, quantity: number, variant: ICartItemVariant | null = null) {
     const product = await Product.findByPk(productId, {
       include: [{ model: Store, as: 'store', attributes: ['status'] }],
     });
@@ -313,7 +309,7 @@ class CartService {
   /**
    * Populate cart items with product details and calculate totals
    */
-  async populateCartItems(items: CartItem[]): Promise<{ items: any[], totals: CartTotals, missingProductIds: string[] }> {
+  async populateCartItems(items: ICartStoredItem[]): Promise<{ items: ICartEnrichedItem[], totals: CartTotals, missingProductIds: string[] }> {
     if (!items || items.length === 0) {
       return {
         items: [],
@@ -329,7 +325,7 @@ class CartService {
     let item_count = 0;
     const missingProductIds: string[] = [];
 
-    const populatedItems = items
+    const populatedItems: ICartEnrichedItem[] = items
       .map((item) => {
         const product = productMap.get(item.product_id);
         if (!product) {
@@ -337,8 +333,7 @@ class CartService {
           return null;
         }
 
-        // @ts-ignore
-        const variantPrice = item.variant && item.variant.price ? parseFloat(item.variant.price) : null;
+        const variantPrice = item.variant && item.variant.price ? parseFloat(item.variant.price.toString()) : null;
         const priceToUse = variantPrice !== null ? variantPrice : parseFloat(product.price.toString());
         const itemTotal = priceToUse * item.quantity;
         subtotal += itemTotal;
@@ -349,25 +344,19 @@ class CartService {
           title: product.title,
           slug: product.slug,
           price: priceToUse,
-          // @ts-ignore
           compare_price: product.compare_price ? parseFloat(product.compare_price) : null,
           images: product.images,
-          // @ts-ignore
           image: product.images && product.images[0] ? product.images[0] : null,
           quantity: item.quantity,
-          // @ts-ignore
           stock: item.variant?.stock ?? product.stock,
           is_available: product.is_active && product.status === 'approved',
-          // @ts-ignore
           store: product.store,
-          // @ts-ignore
           category: product.category,
-          // @ts-ignore
           variant: item.variant || null,
           item_total: itemTotal,
         };
       })
-      .filter((item) => item !== null);
+      .filter((item): item is ICartEnrichedItem => item !== null);
 
     return {
       items: populatedItems,
@@ -472,11 +461,11 @@ class CartService {
       return { key, items: [], metadata: {} };
     }
 
-    let items = [];
+    let items: ICartStoredItem[] = [];
     if (data.items) {
       try {
         const parsed = JSON.parse(data.items);
-        items = Array.isArray(parsed) ? parsed : [];
+        items = Array.isArray(parsed) ? (parsed as ICartStoredItem[]) : [];
       } catch (error) {
         console.warn(`[CartService] Failed to parse cart data for ${key}`, error);
         items = [];
@@ -486,7 +475,7 @@ class CartService {
     return { key, items, metadata: data };
   }
 
-  async _persistCartState(key: string | null, items: CartItem[], ttlSeconds: number | null) {
+  async _persistCartState(key: string | null, items: ICartStoredItem[], ttlSeconds: number | null) {
     if (!key) {
       return;
     }
@@ -501,7 +490,7 @@ class CartService {
     }
   }
 
-  async _pruneMissingProductsInStorage({ key, items, missingProductIds, ttl }: { key: string | null, items: CartItem[], missingProductIds: string[], ttl: number | null }) {
+  async _pruneMissingProductsInStorage({ key, items, missingProductIds, ttl }: { key: string | null, items: ICartStoredItem[], missingProductIds: string[], ttl: number | null }) {
     if (!key || !Array.isArray(items) || !missingProductIds || missingProductIds.length === 0) {
       return;
     }
@@ -554,13 +543,13 @@ class CartService {
     }
   }
 
-  _debug(...args: any[]) {
+  _debug(...args: unknown[]) {
     if (this.debugEnabled) {
       console.log('[CartService]', ...args);
     }
   }
 
-  _isSameVariant(existingVariant: any, incomingVariant: any) {
+  _isSameVariant(existingVariant: ICartItemVariant | null | undefined, incomingVariant: ICartItemVariant | null | undefined) {
     if (!existingVariant && !incomingVariant) return true;
     if (!existingVariant || !incomingVariant) return false;
     return (

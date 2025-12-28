@@ -1,55 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Shipment, ShipmentItem, ShipmentEvent, Order } from '../models';
-
-interface ShippingRate {
-  carrier: string;
-  service: string;
-  amount: number;
-  currency: string;
-  etaDays?: number;
-}
-
-interface ShipmentItemPayload {
-  orderItemId?: string;
-  qty?: number;
-}
-
-interface CreateShipmentPayload {
-  storeId: string;
-  orderId: string;
-  selectedRate?: ShippingRate;
-  items?: ShipmentItemPayload[];
-  totalWeight?: number;
-  dimensions?: unknown; // TODO(ts-migration): narrow type if dimensions structure is known
-  destination?: unknown; // TODO(ts-migration): narrow type if address structure is known
-}
-
-interface ShipmentResponse {
-  id: string;
-  store_id: string;
-  order_id: string;
-  carrier: string;
-  service: string;
-  tracking_number: string;
-  label_url: string;
-  cost: number;
-  currency: string;
-  items: ShipmentItemPayload[];
-  status: string;
-}
-
-interface TrackingEvent {
-  code: string;
-  description: string;
-  occurred_at: string;
-}
-
-interface TrackingResult {
-  tracking_number: string;
-  carrier: string;
-  status: string;
-  events: TrackingEvent[];
-}
+import {
+  ICreateShipmentPayload,
+  IShipmentItemPayload,
+  IShipmentResponse,
+  IShippingRate,
+  ITrackingEvent,
+  ITrackingResult,
+} from '../domain/types';
 
 function ensureMock(): void {
   const provider = process.env.SHIPPING_PROVIDER || 'mock';
@@ -58,7 +16,7 @@ function ensureMock(): void {
   }
 }
 
-async function getRates(payload: { totalWeight?: number }): Promise<ShippingRate[]> {
+async function getRates(payload: { totalWeight?: number }): Promise<IShippingRate[]> {
   ensureMock();
   const base = Math.max(20, Math.ceil((payload.totalWeight || 1) * 5));
   return [
@@ -67,12 +25,12 @@ async function getRates(payload: { totalWeight?: number }): Promise<ShippingRate
   ];
 }
 
-async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentResponse> {
+async function createShipment(payload: ICreateShipmentPayload): Promise<IShipmentResponse> {
   ensureMock();
   const trackingNumber = 'MOCK-' + uuidv4().split('-')[0].toUpperCase();
   const labelUrl = `https://example.com/labels/${trackingNumber}.pdf`;
 
-  const response: ShipmentResponse = {
+  const response: IShipmentResponse = {
     id: uuidv4(),
     store_id: payload.storeId,
     order_id: payload.orderId,
@@ -171,7 +129,7 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
   return response;
 }
 
-async function getShipmentById(id: string): Promise<any> {
+async function getShipmentById(id: string): Promise<IShipmentResponse | Record<string, unknown>> {
   ensureMock();
   if (process.env.SHIPPING_PERSIST === 'true') {
     try {
@@ -219,10 +177,10 @@ async function cancelShipment(id: string): Promise<{ id: string; cancelled: bool
   return { id, cancelled: true, message: 'Shipment cancelled (mock)' };
 }
 
-async function track(trackingNumber: string): Promise<TrackingResult> {
+async function track(trackingNumber: string): Promise<ITrackingResult> {
   ensureMock();
   const now = new Date();
-  const events: TrackingEvent[] = [
+  const events: ITrackingEvent[] = [
     { code: 'created', description: 'Label created', occurred_at: new Date(now.getTime() - 1000 * 60 * 60).toISOString() },
     { code: 'in_transit', description: 'In transit', occurred_at: new Date(now.getTime() - 1000 * 60 * 30).toISOString() },
     { code: 'out_for_delivery', description: 'Out for delivery', occurred_at: new Date(now.getTime() - 1000 * 60 * 10).toISOString() },

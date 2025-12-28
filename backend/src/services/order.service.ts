@@ -8,11 +8,13 @@ import { StatusCodes } from 'http-status-codes';
 import { sequelize } from '../config/sequelize';
 import { AppError, ErrorCode } from '../utils/AppError';
 import {
-    Order as IOrder,
+    ICartCheckoutItem,
+    ICartCheckoutPayload,
+    ICartItemVariant,
+    IOrderRecord,
+    IShippingAddress,
     OrderStatus,
-    OrderItem as IOrderItem,
-    Product as IProduct,
-} from '../types';
+} from '../domain/types';
 
 // Models
 // Trigger Restart: 2
@@ -34,25 +36,51 @@ interface OrderItemInput {
     quantity: number;
     variant_price?: number;
     variant_stock?: number;
-    variant?: any;
+    variant?: ICartItemVariant | null;
 }
 
 interface CreateOrderInput {
     store_id: string;
     items: OrderItemInput[];
-    shipping_address: unknown;
-    billing_address?: unknown;
+    shipping_address: IShippingAddress;
+    billing_address?: IShippingAddress;
     payment_method: string;
     customer_note?: string;
     idempotency_key?: string;
 }
 
 interface CheckoutInput {
-    shipping_address: unknown;
-    billing_address?: unknown;
+    shipping_address: IShippingAddress;
+    billing_address?: IShippingAddress;
     payment_method?: string;
     customer_note?: string;
     idempotency_key?: string;
+}
+
+interface ProductRecord {
+    id: string;
+    title: string;
+    slug?: string;
+    sku?: string;
+    price: number | string;
+    stock: number;
+    images?: string[];
+    is_active?: boolean;
+    status?: string;
+}
+
+interface VariantRecord {
+    id: string;
+    stock: number;
+}
+
+interface ValidatedOrderItem {
+    product: ProductRecord;
+    quantity: number;
+    price: number;
+    priceCents?: number;
+    variant: ICartItemVariant | null;
+    totalCents?: number;
 }
 
 const ORDER_RELATIONS = [
@@ -84,7 +112,7 @@ class OrderService {
     /**
      * Create new order from cart items
      */
-    async createOrder(userId: string | null, orderData: CreateOrderInput): Promise<IOrder> {
+    async createOrder(userId: string | null, orderData: CreateOrderInput): Promise<IOrderRecord> {
         const {
             store_id,
             items,
@@ -260,9 +288,9 @@ class OrderService {
      */
     async createFromCart(
         userId: string | null,
-        cart: any,
-        checkoutInput: CheckoutInput = { shipping_address: {} }
-    ): Promise<IOrder[]> {
+        cart: ICartCheckoutPayload,
+        checkoutInput: CheckoutInput = { shipping_address: {} as IShippingAddress }
+    ): Promise<IOrderRecord[]> {
         // Pre-validation (before transaction)
         if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
             throw new AppError('Cart is empty', ErrorCode.VALIDATION_ERROR, StatusCodes.BAD_REQUEST);
@@ -294,33 +322,33 @@ class OrderService {
             }
 
             // 3) Lock all product rows FOR UPDATE
-            const productIds = cartItems.map((item: any) => item.product_id);
+            const productIds = cartItems.map((item) => item.product_id);
             const products = await Product.findAll({
                 where: { id: productIds },
                 lock: transaction.LOCK.UPDATE,
                 transaction,
             });
 
-            const productMap = new Map(products.map((p: any) => [p.id, p]));
+            const productMap = new Map(products.map((p: ProductRecord) => [p.id, p]));
 
             // 3b) Lock all variant rows FOR UPDATE (Phase 8.0 Fix: Race Condition)
             const variantIds = cartItems
-                .filter((item: any) => item.variant?.id)
-                .map((item: any) => item.variant.id);
+                .filter((item) => item.variant?.id)
+                .map((item) => item.variant.id as string);
 
-            let variantMap = new Map<string, any>();
+            let variantMap = new Map<string, VariantRecord>();
             if (variantIds.length > 0) {
                 const variants = await ProductVariant.findAll({
                     where: { id: variantIds },
                     lock: transaction.LOCK.UPDATE,
                     transaction,
                 });
-                variantMap = new Map(variants.map((v: any) => [v.id, v]));
+                variantMap = new Map(variants.map((v: VariantRecord) => [v.id, v]));
             }
 
             // 4) Validate stock for ALL items before any writes
             for (const item of cartItems) {
-                const product: any = productMap.get(item.product_id);
+                const product = productMap.get(item.product_id);
                 if (!product) {
                     throw new AppError(
                         `Product not found: ${item.product_id}`,
@@ -362,7 +390,7 @@ class OrderService {
             }
 
             // 5) Group items by storeId
-            const groupedByStore = new Map<string, any[]>();
+            const groupedByStore = new Map<string, ICartCheckoutItem[]>();
             for (const item of cartItems) {
                 const storeId = item.store?.id || item.store_id || item.storeId;
                 if (!storeId) {
@@ -383,7 +411,7 @@ class OrderService {
 
             // 6) Check idempotency - if orders already exist, return them
             if (baseIdempotencyKey) {
-                const existingOrders: IOrder[] = [];
+                const existingOrders: IOrderRecord[] = [];
                 let allExist = true;
 
                 for (const storeId of sortedStoreIds) {
@@ -405,13 +433,13 @@ class OrderService {
                     await transaction.commit();
                     // Return full order details
                     return Promise.all(
-                        existingOrders.map((o: any) => this.getOrderById(o.id, userId || 'system', 'system'))
+                        existingOrders.map((o) => this.getOrderById(o.id, userId || 'system', 'system'))
                     );
                 }
             }
 
             // 7) Create orders + order_items for each store
-            const orders: IOrder[] = [];
+            const orders: IOrderRecord[] = [];
 
             for (const storeId of sortedStoreIds) {
                 const items = groupedByStore.get(storeId)!;
@@ -427,10 +455,10 @@ class OrderService {
 
                 // Calculate totals for this store
                 let subtotalCents = 0;
-                const validatedItems: any[] = [];
+                const validatedItems: ValidatedOrderItem[] = [];
 
                 for (const item of items) {
-                    const product: any = productMap.get(item.product_id);
+                    const product = productMap.get(item.product_id);
                     const priceDecimal = item.variant?.price ?? parseFloat(product.price);
                     const priceCents = Math.round(priceDecimal * 100);
                     const itemTotalCents = priceCents * item.quantity;
@@ -577,9 +605,9 @@ class OrderService {
                 await publishOrderCreated(
                     serializeOrderForEvent(order, {
                         cartTotals: cart.totals || null,
-                        storeItemCount: items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0),
+                        storeItemCount: items.reduce((acc: number, item) => acc + (item.quantity || 0), 0),
                         storeSubtotal: parseFloat(
-                            items.reduce((acc: number, item: any) => acc + (item.item_total || 0), 0).toFixed(2)
+                            items.reduce((acc: number, item) => acc + (item.item_total || 0), 0).toFixed(2)
                         ),
                         paymentMethod: checkoutInput.payment_method || 'manual',
                     })
@@ -588,7 +616,7 @@ class OrderService {
 
             // Return full order details (sorted by storeId for determinism)
             return Promise.all(
-                orders.map((o: any) => this.getOrderById(o.id, userId || 'system', 'system'))
+                orders.map((o) => this.getOrderById(o.id, userId || 'system', 'system'))
             );
 
         } catch (error) {
@@ -624,7 +652,7 @@ class OrderService {
     /**
      * Get order by ID
      */
-    async getOrderById(orderId: string, userId: string, role: string = 'buyer'): Promise<IOrder> {
+    async getOrderById(orderId: string, userId: string, role: string = 'buyer'): Promise<IOrderRecord> {
         const whereClause: any = { id: orderId };
 
         // Buyers can only see their own orders
@@ -713,7 +741,7 @@ class OrderService {
     /**
      * Get order by order number (for public tracking)
      */
-    async getOrderByNumber(orderNumber: string): Promise<IOrder> {
+    async getOrderByNumber(orderNumber: string): Promise<IOrderRecord> {
         const order = await Order.findOne({
             where: { order_number: orderNumber },
             include: [
@@ -748,10 +776,10 @@ class OrderService {
     /**
      * Update order status with FSM validation
      */
-    async updateOrderStatus(orderId: string, userId: string, role: string, updateData: any): Promise<IOrder> {
+    async updateOrderStatus(orderId: string, userId: string, role: string, updateData: any): Promise<IOrderRecord> {
         const { status, cancellation_reason } = updateData;
 
-        const order: any = await this.getOrderById(orderId, userId, role);
+        const order: IOrderRecord = await this.getOrderById(orderId, userId, role);
 
         // Check if transition is valid
         const validTransitions = OrderService.STATE_TRANSITIONS[order.status as OrderStatus] || [];
@@ -783,8 +811,8 @@ class OrderService {
     /**
      * Mark order as paid
      */
-    async markOrderPaid(orderId: string, paymentDetails: any = {}) {
-        const order: any = await Order.findByPk(orderId);
+    async markOrderPaid(orderId: string, paymentDetails: Record<string, unknown> = {}) {
+        const order: IOrderRecord | null = await Order.findByPk(orderId);
         if (!order) throw new AppError('Order not found', ErrorCode.NOT_FOUND, StatusCodes.NOT_FOUND);
 
         order.payment_status = 'paid';
@@ -808,8 +836,8 @@ class OrderService {
     /**
      * Mark order as completed
      */
-    async markOrderCompleted(orderId: string, details: any = {}) {
-        const order: any = await Order.findByPk(orderId);
+    async markOrderCompleted(orderId: string, details: Record<string, unknown> = {}) {
+        const order: IOrderRecord | null = await Order.findByPk(orderId);
         if (!order) throw new AppError('Order not found', ErrorCode.NOT_FOUND, StatusCodes.NOT_FOUND);
 
         order.status = OrderStatus.COMPLETED; // Assuming COMPLETED exists in enum or string
@@ -859,14 +887,14 @@ class OrderService {
             throw new AppError('Some products are not available', ErrorCode.STOCK_ERROR, StatusCodes.BAD_REQUEST);
         }
 
-        const productMap = new Map(products.map((p: any) => [p.id, p]));
-        const validatedItems = [];
+        const productMap = new Map(products.map((p: ProductRecord) => [p.id, p]));
+        const validatedItems: ValidatedOrderItem[] = [];
         let subtotalCents = 0;
 
         for (const item of items) {
-            const product: any = productMap.get(item.product_id);
+            const product = productMap.get(item.product_id);
 
-            const variantStock = item.variant_stock ?? (item.variant as any)?.stock ?? null;
+            const variantStock = item.variant_stock ?? item.variant?.stock ?? null;
             const stockToCheck =
                 variantStock !== null && variantStock !== undefined ? variantStock : product.stock;
 
@@ -883,7 +911,7 @@ class OrderService {
             // For now we convert safely.
             const priceDecimal =
                 item.variant_price !== undefined && item.variant_price !== null
-                    ? parseFloat(item.variant_price as any)
+                    ? parseFloat(item.variant_price.toString())
                     : parseFloat(product.price);
 
             const priceCents = Math.round(priceDecimal * 100);
