@@ -50,6 +50,13 @@ interface CacheInterface {
     clear: () => Promise<boolean>;
 }
 
+const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
+};
+
 /**
  * Creates an in-memory cache client with Redis-like API
  * This allows existing code to work without modification
@@ -250,8 +257,8 @@ const cache: CacheInterface = {
         try {
             const data = await redisClient.get(key);
             return data ? JSON.parse(data) : null;
-        } catch (error: any) {
-            console.error(`Cache GET error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache GET error for key ${key}:`, getErrorMessage(error));
             return null;
         }
     },
@@ -263,8 +270,8 @@ const cache: CacheInterface = {
         try {
             await redisClient.setex(key, ttl, JSON.stringify(value));
             return true;
-        } catch (error: any) {
-            console.error(`Cache SET error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache SET error for key ${key}:`, getErrorMessage(error));
             return false;
         }
     },
@@ -276,8 +283,8 @@ const cache: CacheInterface = {
         try {
             await redisClient.del(key);
             return true;
-        } catch (error: any) {
-            console.error(`Cache DEL error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache DEL error for key ${key}:`, getErrorMessage(error));
             return false;
         }
     },
@@ -290,8 +297,8 @@ const cache: CacheInterface = {
             const keys = await redisClient.keys(pattern);
             if (keys.length === 0) return 0;
             return await redisClient.del(...keys);
-        } catch (error: any) {
-            console.error(`Cache DEL PATTERN error for ${pattern}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache DEL PATTERN error for ${pattern}:`, getErrorMessage(error));
             return 0;
         }
     },
@@ -303,8 +310,8 @@ const cache: CacheInterface = {
         try {
             const result = await redisClient.exists(key);
             return result === 1;
-        } catch (error: any) {
-            console.error(`Cache EXISTS error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache EXISTS error for key ${key}:`, getErrorMessage(error));
             return false;
         }
     },
@@ -315,8 +322,8 @@ const cache: CacheInterface = {
     async incr(key: string): Promise<number> {
         try {
             return await redisClient.incr(key);
-        } catch (error: any) {
-            console.error(`Cache INCR error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache INCR error for key ${key}:`, getErrorMessage(error));
             return 0;
         }
     },
@@ -328,8 +335,8 @@ const cache: CacheInterface = {
         try {
             await redisClient.expire(key, ttl);
             return true;
-        } catch (error: any) {
-            console.error(`Cache EXPIRE error for key ${key}:`, error.message);
+        } catch (error: unknown) {
+            console.error(`Cache EXPIRE error for key ${key}:`, getErrorMessage(error));
             return false;
         }
     },
@@ -342,8 +349,8 @@ const cache: CacheInterface = {
             // For in-memory, we delete all patterns
             await this.delPattern('*');
             return true;
-        } catch (error: any) {
-            console.error('Cache CLEAR error:', error.message);
+        } catch (error: unknown) {
+            console.error('Cache CLEAR error:', getErrorMessage(error));
             return false;
         }
     },

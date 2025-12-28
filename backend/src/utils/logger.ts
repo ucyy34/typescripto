@@ -3,6 +3,8 @@
  * Winston-based logging with fallback to console
  */
 
+import { env } from '../config/env';
+
 interface Logger {
     info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
@@ -11,10 +13,19 @@ interface Logger {
     child?: () => Logger;
 }
 
-let winston: any;
+type WinstonModule = typeof import('winston');
+interface LogInfo {
+    level: string;
+    message: string;
+    timestamp?: string;
+    stack?: string;
+    [key: string]: unknown;
+}
+
+let winston: WinstonModule | null;
 
 try {
-    winston = require('winston');
+    winston = require('winston') as WinstonModule;
 } catch (error) {
     winston = null;
 }
@@ -35,8 +46,8 @@ if (!winston) {
 } else {
     const { createLogger, format, transports } = winston;
 
-    const isProduction = process.env.NODE_ENV === 'production';
-    const level = process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug');
+    const isProduction = env.NODE_ENV === 'production';
+    const level = env.LOG_LEVEL || (isProduction ? 'info' : 'debug');
 
     const baseFormats = [
         format.errors({ stack: true }),
@@ -46,7 +57,7 @@ if (!winston) {
 
     const consoleFormat = format.combine(
         ...baseFormats,
-        format.printf(({ level: lvl, message, timestamp, stack, ...meta }: any) => {
+        format.printf(({ level: lvl, message, timestamp, stack, ...meta }: LogInfo) => {
             const metaString = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
             if (stack) {
                 return `[${timestamp}] ${lvl.toUpperCase()}: ${message}\n${stack}`;

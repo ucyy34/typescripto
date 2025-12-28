@@ -2,6 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { env } from '../config/env';
 
 interface EventLoggerInterface {
     info: (...args: unknown[]) => void;
@@ -11,10 +12,19 @@ interface EventLoggerInterface {
     add?: (transport: unknown) => void;
 }
 
-let winston: any;
+type WinstonModule = typeof import('winston');
+interface LogInfo {
+    level: string;
+    message: string;
+    timestamp?: string;
+    stack?: string;
+    [key: string]: unknown;
+}
+
+let winston: WinstonModule | null;
 
 try {
-    winston = require('winston');
+    winston = require('winston') as WinstonModule;
 } catch (error) {
     winston = null;
 }
@@ -36,8 +46,8 @@ if (winston && winston.transports && typeof winston.transports.File === 'functio
         maxFiles: 5,
     });
 
-    eventLogger = createLogger({
-        level: process.env.EVENT_LOG_LEVEL || 'info',
+    const logger = createLogger({
+        level: env.EVENT_LOG_LEVEL || 'info',
         format: format.combine(
             format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
             format.errors({ stack: true }),
@@ -47,13 +57,13 @@ if (winston && winston.transports && typeof winston.transports.File === 'functio
         transports: [fileTransport],
     });
 
-    if (process.env.NODE_ENV !== 'production') {
-        (eventLogger as any).add(
+    if (env.NODE_ENV !== 'production') {
+        logger.add(
             new transports.Console({
                 format: format.combine(
                     format.colorize(),
                     format.timestamp({ format: 'HH:mm:ss' }),
-                    format.printf(({ level, message, timestamp, ...meta }: any) => {
+                    format.printf(({ level, message, timestamp, ...meta }: LogInfo) => {
                         const metaString = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
                         return `[${timestamp}] ${level}: ${message}${metaString}`;
                     })
@@ -61,6 +71,8 @@ if (winston && winston.transports && typeof winston.transports.File === 'functio
             })
         );
     }
+
+    eventLogger = logger;
 } else {
     const fallback = (level: string) => {
         return (...args: unknown[]): void => {
@@ -68,7 +80,7 @@ if (winston && winston.transports && typeof winston.transports.File === 'functio
                 .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
                 .join(' ')}`;
             fs.appendFile(path.join(logsDir, 'events.log'), `${entry}\n`, () => { });
-            const consoleFn = (console as any)[level];
+            const consoleFn = (console as Record<string, (...args: unknown[]) => void>)[level];
             consoleFn ? consoleFn(entry) : console.log(entry);
         };
     };
