@@ -6,12 +6,13 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import { Timestamps } from './types/model.types';
+import { WishlistItemMetadata } from './types/json.types';
 
 export interface IWishlistItemAttributes extends Timestamps {
     id: string;
     user_id: string;
     product_id: string;
-    metadata: any | null; // JSONB
+    metadata: WishlistItemMetadata | null; // JSONB
 }
 
 export interface IWishlistItemCreationAttributes extends Optional<IWishlistItemAttributes, 'id' | 'metadata' | 'createdAt' | 'updatedAt' | 'deletedAt'> { }
@@ -20,7 +21,7 @@ export default class WishlistItem extends Model<IWishlistItemAttributes, IWishli
     public id!: string;
     public user_id!: string;
     public product_id!: string;
-    public metadata!: any | null;
+    public metadata!: WishlistItemMetadata | null;
 
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;

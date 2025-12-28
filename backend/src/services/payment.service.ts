@@ -80,7 +80,7 @@ class PaymentService {
     async markPaymentSuccessful(orderId: string, paymentPayload: PaymentPayload = {}): Promise<unknown> {
         // Update order status in DB
         await Order.update(
-            { status: 'paid' as any, payment_status: 'paid', paid_at: new Date() },
+            { status: 'confirmed', payment_status: 'paid', paid_at: new Date() },
             { where: { id: orderId } }
         );
 
@@ -95,7 +95,7 @@ class PaymentService {
 
         // Update order status in DB
         await Order.update(
-            { status: 'failed' as any, payment_status: 'failed', cancellation_reason: reason },
+            { status: 'cancelled', payment_status: 'failed', cancellation_reason: reason },
             { where: { id: orderId } }
         );
 

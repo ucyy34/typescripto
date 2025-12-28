@@ -7,6 +7,20 @@ import { Op } from 'sequelize';
 import { Product, Store, Category, WishlistItem } from '../models';
 import { cache } from '../config/redis';
 import logger from '../utils/logger';
+import type ProductModel from '../models/Product';
+import type WishlistItemModel from '../models/WishlistItem';
+
+interface StoreSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface CategorySummary {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 const CACHE_TTL_SECONDS = 60 * 3;
 
@@ -33,8 +47,8 @@ interface SerializedProduct {
   rating: number;
   total_reviews: number;
   images: string[];
-  store: any;
-  category: any;
+  store: StoreSummary | null;
+  category: CategorySummary | null;
 }
 
 interface OrderCompletedEvent {
@@ -61,7 +75,7 @@ class RecommendationService {
       return cached as SerializedProduct[];
     }
 
-    const baseWhere: any = {
+    const baseWhere: Record<string, unknown> = {
       status: 'approved',
       is_active: true,
       stock: { [Op.gt]: 0 },
@@ -72,7 +86,7 @@ class RecommendationService {
       { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
     ];
 
-    let products: any[] = [];
+    let products: ProductModel[] = [];
 
     if (categories.length > 0) {
       products = await Product.findAll({
@@ -125,13 +139,13 @@ class RecommendationService {
       return cached as SerializedProduct[];
     }
 
-    const wishlistItems: any[] = await WishlistItem.findAll({
+    const wishlistItems: WishlistItemModel[] = await WishlistItem.findAll({
       where: { user_id: userId },
       attributes: ['product_id'],
     });
 
     const wishlistIds = wishlistItems.map((item) => item.product_id);
-    const categories: any[] = await Product.findAll({
+    const categories: Array<{ category_id: string }> = await Product.findAll({
       where: { id: wishlistIds },
       attributes: ['category_id'],
       group: ['category_id'],
@@ -148,7 +162,7 @@ class RecommendationService {
     return recommendations;
   }
 
-  _serializeProduct(product: any): SerializedProduct {
+  _serializeProduct(product: ProductModel): SerializedProduct {
     return {
       id: product.id,
       title: product.title,

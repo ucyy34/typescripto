@@ -13,6 +13,8 @@ import {
     OrderItem as IOrderItem,
     Product as IProduct,
 } from '../types';
+import type { ICartItemVariant, IShippingAddress } from '../domain/types';
+import type { UpdateOrderStatusDTO } from '../application/schemas/order.schema';
 
 // Models
 // Trigger Restart: 2
@@ -34,25 +36,62 @@ interface OrderItemInput {
     quantity: number;
     variant_price?: number;
     variant_stock?: number;
-    variant?: any;
+    variant?: ICartItemVariant | null;
 }
 
 interface CreateOrderInput {
     store_id: string;
     items: OrderItemInput[];
-    shipping_address: unknown;
-    billing_address?: unknown;
+    shipping_address: IShippingAddress;
+    billing_address?: IShippingAddress;
     payment_method: string;
     customer_note?: string;
     idempotency_key?: string;
 }
 
 interface CheckoutInput {
-    shipping_address: unknown;
-    billing_address?: unknown;
+    shipping_address: IShippingAddress;
+    billing_address?: IShippingAddress;
     payment_method?: string;
     customer_note?: string;
     idempotency_key?: string;
+}
+
+interface CartItemPayload {
+    product_id: string;
+    quantity: number;
+    variant?: ICartItemVariant | null;
+    variant_price?: number;
+    variant_stock?: number;
+    item_total?: number;
+    store?: { id: string } | null;
+    store_id?: string;
+    storeId?: string;
+}
+
+interface CartPayload {
+    id?: string;
+    items: CartItemPayload[];
+    totals?: {
+        subtotal?: number;
+        item_count?: number;
+        [key: string]: number | undefined;
+    };
+}
+
+interface OrderListFilters {
+    page?: number | string;
+    limit?: number | string;
+    status?: string;
+    store_id?: string;
+    user_id?: string;
+    sort?: string;
+    startDate?: string;
+    endDate?: string;
+}
+
+interface PaymentDetailsPayload extends Record<string, unknown> {
+    transactionId?: string;
 }
 
 const ORDER_RELATIONS = [
@@ -260,8 +299,8 @@ class OrderService {
      */
     async createFromCart(
         userId: string | null,
-        cart: any,
-        checkoutInput: CheckoutInput = { shipping_address: {} }
+        cart: CartPayload,
+        checkoutInput: CheckoutInput = { shipping_address: {} as IShippingAddress }
     ): Promise<IOrder[]> {
         // Pre-validation (before transaction)
         if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
@@ -294,33 +333,33 @@ class OrderService {
             }
 
             // 3) Lock all product rows FOR UPDATE
-            const productIds = cartItems.map((item: any) => item.product_id);
+            const productIds = cartItems.map((item) => item.product_id);
             const products = await Product.findAll({
                 where: { id: productIds },
                 lock: transaction.LOCK.UPDATE,
                 transaction,
             });
 
-            const productMap = new Map(products.map((p: any) => [p.id, p]));
+            const productMap = new Map(products.map((product: IProduct) => [product.id, product]));
 
             // 3b) Lock all variant rows FOR UPDATE (Phase 8.0 Fix: Race Condition)
             const variantIds = cartItems
-                .filter((item: any) => item.variant?.id)
-                .map((item: any) => item.variant.id);
+                .filter((item) => item.variant?.id)
+                .map((item) => item.variant!.id as string);
 
-            let variantMap = new Map<string, any>();
+            let variantMap = new Map<string, { id: string; stock: number }>();
             if (variantIds.length > 0) {
                 const variants = await ProductVariant.findAll({
                     where: { id: variantIds },
                     lock: transaction.LOCK.UPDATE,
                     transaction,
                 });
-                variantMap = new Map(variants.map((v: any) => [v.id, v]));
+                variantMap = new Map(variants.map((variant: { id: string; stock: number }) => [variant.id, variant]));
             }
 
             // 4) Validate stock for ALL items before any writes
             for (const item of cartItems) {
-                const product: any = productMap.get(item.product_id);
+                const product = productMap.get(item.product_id);
                 if (!product) {
                     throw new AppError(
                         `Product not found: ${item.product_id}`,
@@ -339,7 +378,7 @@ class OrderService {
                 // Use LOCKED variant stock from DB, not stale cart data
                 let stockToCheck: number;
                 if (item.variant?.id) {
-                    const lockedVariant = variantMap.get(item.variant.id);
+                    const lockedVariant = variantMap.get(item.variant.id as string);
                     if (!lockedVariant) {
                         throw new AppError(
                             `Variant not found: ${item.variant.id} for ${product.title}`,
@@ -362,7 +401,7 @@ class OrderService {
             }
 
             // 5) Group items by storeId
-            const groupedByStore = new Map<string, any[]>();
+            const groupedByStore = new Map<string, CartItemPayload[]>();
             for (const item of cartItems) {
                 const storeId = item.store?.id || item.store_id || item.storeId;
                 if (!storeId) {
@@ -405,7 +444,7 @@ class OrderService {
                     await transaction.commit();
                     // Return full order details
                     return Promise.all(
-                        existingOrders.map((o: any) => this.getOrderById(o.id, userId || 'system', 'system'))
+                        existingOrders.map((order) => this.getOrderById(order.id, userId || 'system', 'system'))
                     );
                 }
             }
@@ -427,10 +466,16 @@ class OrderService {
 
                 // Calculate totals for this store
                 let subtotalCents = 0;
-                const validatedItems: any[] = [];
+                const validatedItems: Array<{
+                    product: IProduct;
+                    quantity: number;
+                    price: number;
+                    priceCents: number;
+                    variant: ICartItemVariant | null;
+                }> = [];
 
                 for (const item of items) {
-                    const product: any = productMap.get(item.product_id);
+                    const product = productMap.get(item.product_id);
                     const priceDecimal = item.variant?.price ?? parseFloat(product.price);
                     const priceCents = Math.round(priceDecimal * 100);
                     const itemTotalCents = priceCents * item.quantity;
@@ -577,9 +622,9 @@ class OrderService {
                 await publishOrderCreated(
                     serializeOrderForEvent(order, {
                         cartTotals: cart.totals || null,
-                        storeItemCount: items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0),
+                        storeItemCount: items.reduce((acc, item) => acc + item.quantity, 0),
                         storeSubtotal: parseFloat(
-                            items.reduce((acc: number, item: any) => acc + (item.item_total || 0), 0).toFixed(2)
+                            items.reduce((acc, item) => acc + (item.item_total ?? 0), 0).toFixed(2)
                         ),
                         paymentMethod: checkoutInput.payment_method || 'manual',
                     })
@@ -588,7 +633,7 @@ class OrderService {
 
             // Return full order details (sorted by storeId for determinism)
             return Promise.all(
-                orders.map((o: any) => this.getOrderById(o.id, userId || 'system', 'system'))
+                orders.map((order) => this.getOrderById(order.id, userId || 'system', 'system'))
             );
 
         } catch (error) {
@@ -600,12 +645,14 @@ class OrderService {
     /**
      * Get all orders (admin only)
      */
-    async getAllOrders(filters: any = {}) {
+    async getAllOrders(filters: OrderListFilters = {}) {
         // ... (Existing implementation kept but simplified needed?)
         // For now returning standard retrieval
         const { page = 1, limit = 20, status, store_id, user_id, sort = '-created_at' } = filters;
-        const offset = (page - 1) * limit;
-        const whereClause: any = {};
+        const parsedPage = Number(page) || 1;
+        const parsedLimit = Number(limit) || 20;
+        const offset = (parsedPage - 1) * parsedLimit;
+        const whereClause: Record<string, unknown> = {};
         if (status) whereClause.status = status;
         if (store_id) whereClause.store_id = store_id;
         if (user_id) whereClause.user_id = user_id;
@@ -614,18 +661,19 @@ class OrderService {
         const { rows, count } = await Order.findAndCountAll({
             where: whereClause,
             include: ORDER_RELATIONS,
-            limit, offset,
+            limit: parsedLimit,
+            offset,
             order: [[sortField, sortOrder]]
         });
 
-        return { orders: rows, pagination: { total: count, page, limit } };
+        return { orders: rows, pagination: { total: count, page: parsedPage, limit: parsedLimit } };
     }
 
     /**
      * Get order by ID
      */
     async getOrderById(orderId: string, userId: string, role: string = 'buyer'): Promise<IOrder> {
-        const whereClause: any = { id: orderId };
+        const whereClause: Record<string, unknown> = { id: orderId };
 
         // Buyers can only see their own orders
         if (role === 'buyer') {
@@ -672,11 +720,13 @@ class OrderService {
     /**
      * Get user's orders with pagination
      */
-    async getUserOrders(userId: string, filters: any = {}) {
+    async getUserOrders(userId: string, filters: OrderListFilters = {}) {
         const { page = 1, limit = 20, status, sort = '-created_at' } = filters;
-        const offset = (page - 1) * limit;
+        const parsedPage = Number(page) || 1;
+        const parsedLimit = Number(limit) || 20;
+        const offset = (parsedPage - 1) * parsedLimit;
 
-        const whereClause: any = { user_id: userId };
+        const whereClause: Record<string, unknown> = { user_id: userId };
         if (status) {
             whereClause.status = status;
         }
@@ -692,7 +742,7 @@ class OrderService {
                 { model: OrderItem, as: 'items' },
                 { model: Store, as: 'store', attributes: ['id', 'name', 'slug'] },
             ],
-            limit,
+            limit: parsedLimit,
             offset,
             order: [[sortField, sortOrder]],
         });
@@ -700,12 +750,12 @@ class OrderService {
         return {
             orders,
             pagination: {
-                page,
-                limit,
+                page: parsedPage,
+                limit: parsedLimit,
                 total,
-                totalPages: Math.ceil(total / limit),
-                hasNext: page < Math.ceil(total / limit),
-                hasPrev: page > 1,
+                totalPages: Math.ceil(total / parsedLimit),
+                hasNext: parsedPage < Math.ceil(total / parsedLimit),
+                hasPrev: parsedPage > 1,
             },
         };
     }
@@ -739,7 +789,7 @@ class OrderService {
     /**
      * Get store's orders (for sellers)
      */
-    async getStoreOrders(storeId: string, userId: string, filters: any = {}) {
+    async getStoreOrders(storeId: string, userId: string, filters: OrderListFilters = {}) {
         // Verify store ownership (Simplified for brevity)
         const { rows, count } = await Order.findAndCountAll({ where: { store_id: storeId }, include: ORDER_RELATIONS });
         return { orders: rows, pagination: { total: count } };
@@ -748,10 +798,10 @@ class OrderService {
     /**
      * Update order status with FSM validation
      */
-    async updateOrderStatus(orderId: string, userId: string, role: string, updateData: any): Promise<IOrder> {
+    async updateOrderStatus(orderId: string, userId: string, role: string, updateData: UpdateOrderStatusDTO): Promise<IOrder> {
         const { status, cancellation_reason } = updateData;
 
-        const order: any = await this.getOrderById(orderId, userId, role);
+        const order = await this.getOrderById(orderId, userId, role);
 
         // Check if transition is valid
         const validTransitions = OrderService.STATE_TRANSITIONS[order.status as OrderStatus] || [];
@@ -783,8 +833,8 @@ class OrderService {
     /**
      * Mark order as paid
      */
-    async markOrderPaid(orderId: string, paymentDetails: any = {}) {
-        const order: any = await Order.findByPk(orderId);
+    async markOrderPaid(orderId: string, paymentDetails: PaymentDetailsPayload = {}) {
+        const order = await Order.findByPk(orderId);
         if (!order) throw new AppError('Order not found', ErrorCode.NOT_FOUND, StatusCodes.NOT_FOUND);
 
         order.payment_status = 'paid';
@@ -808,8 +858,8 @@ class OrderService {
     /**
      * Mark order as completed
      */
-    async markOrderCompleted(orderId: string, details: any = {}) {
-        const order: any = await Order.findByPk(orderId);
+    async markOrderCompleted(orderId: string, details: Record<string, unknown> = {}) {
+        const order = await Order.findByPk(orderId);
         if (!order) throw new AppError('Order not found', ErrorCode.NOT_FOUND, StatusCodes.NOT_FOUND);
 
         order.status = OrderStatus.COMPLETED; // Assuming COMPLETED exists in enum or string
@@ -859,14 +909,23 @@ class OrderService {
             throw new AppError('Some products are not available', ErrorCode.STOCK_ERROR, StatusCodes.BAD_REQUEST);
         }
 
-        const productMap = new Map(products.map((p: any) => [p.id, p]));
-        const validatedItems = [];
+        const productMap = new Map((products as IProduct[]).map((product) => [product.id, product]));
+        const validatedItems: Array<{
+            product: IProduct;
+            quantity: number;
+            price: number;
+            variant: ICartItemVariant | null;
+            totalCents: number;
+        }> = [];
         let subtotalCents = 0;
 
         for (const item of items) {
-            const product: any = productMap.get(item.product_id);
+            const product = productMap.get(item.product_id);
+            if (!product) {
+                throw new AppError('Some products are not available', ErrorCode.STOCK_ERROR, StatusCodes.BAD_REQUEST);
+            }
 
-            const variantStock = item.variant_stock ?? (item.variant as any)?.stock ?? null;
+            const variantStock = item.variant_stock ?? item.variant?.stock ?? null;
             const stockToCheck =
                 variantStock !== null && variantStock !== undefined ? variantStock : product.stock;
 
@@ -883,7 +942,7 @@ class OrderService {
             // For now we convert safely.
             const priceDecimal =
                 item.variant_price !== undefined && item.variant_price !== null
-                    ? parseFloat(item.variant_price as any)
+                    ? Number(item.variant_price)
                     : parseFloat(product.price);
 
             const priceCents = Math.round(priceDecimal * 100);

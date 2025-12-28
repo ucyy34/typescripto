@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Shipment, ShipmentItem, ShipmentEvent, Order } from '../models';
+import type ShipmentModel, { IShipmentAddress, IShipmentDimensions, ShipmentStatus } from '../models/Shipment';
+import type OrderModel from '../models/Order';
 
 interface ShippingRate {
   carrier: string;
@@ -20,8 +22,8 @@ interface CreateShipmentPayload {
   selectedRate?: ShippingRate;
   items?: ShipmentItemPayload[];
   totalWeight?: number;
-  dimensions?: unknown; // TODO(ts-migration): narrow type if dimensions structure is known
-  destination?: unknown; // TODO(ts-migration): narrow type if address structure is known
+  dimensions?: IShipmentDimensions | null;
+  destination?: IShipmentAddress | null;
 }
 
 interface ShipmentResponse {
@@ -35,7 +37,7 @@ interface ShipmentResponse {
   cost: number;
   currency: string;
   items: ShipmentItemPayload[];
-  status: string;
+  status: ShipmentStatus;
 }
 
 interface TrackingEvent {
@@ -88,7 +90,7 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
 
   if (process.env.SHIPPING_PERSIST === 'true') {
     try {
-      const created: any = await Shipment.create({
+      const created: ShipmentModel = await Shipment.create({
         order_id: response.order_id,
         store_id: response.store_id,
         carrier: response.carrier,
@@ -97,10 +99,10 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
         label_url: response.label_url,
         cost: response.cost,
         currency: response.currency,
-        status: response.status as any,
+        status: response.status,
         total_weight: payload.totalWeight || null,
-        dimensions: (payload.dimensions || null) as any,
-        shipping_address: (payload.destination || null) as any,
+        dimensions: payload.dimensions || null,
+        shipping_address: payload.destination || null,
       });
 
       // Persist items
@@ -134,7 +136,7 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
 
       // ✅ IMPROVED: Better error handling for order status update
       try {
-        const order: any = await Order.findByPk(response.order_id);
+        const order: OrderModel | null = await Order.findByPk(response.order_id);
         if (order && order.canTransitionTo('shipped')) {
           await order.transitionTo('shipped', {
             tracking_number: response.tracking_number,
@@ -144,23 +146,23 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
         } else {
           console.warn(`[shipping] Order ${response.order_id} cannot transition to shipped`);
         }
-      } catch (orderErr: any) {
+      } catch (orderErr: unknown) {
         // ✅ IMPROVED: Log error but don't fail shipment creation
-        console.error('[shipping] Order status update failed:', orderErr.message);
+        console.error('[shipping] Order status update failed:', orderErr);
         // In production, you might want to queue this for retry or alert ops team
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // ✅ IMPROVED: Better error handling and logging
       console.error('[shipping] Shipment persist error:', {
-        error: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        error: err,
+        stack: process.env.NODE_ENV === 'development' && err instanceof Error ? err.stack : undefined,
         orderId: payload.orderId,
         storeId: payload.storeId,
       });
 
       // ✅ IMPROVED: In production, throw critical errors
       if (process.env.NODE_ENV === 'production') {
-        throw new Error(`Failed to persist shipment: ${err.message}`);
+        throw new Error(`Failed to persist shipment: ${err instanceof Error ? err.message : 'unknown error'}`);
       }
 
       // In development, continue with mock response
@@ -171,14 +173,14 @@ async function createShipment(payload: CreateShipmentPayload): Promise<ShipmentR
   return response;
 }
 
-async function getShipmentById(id: string): Promise<any> {
+async function getShipmentById(id: string): Promise<ShipmentModel | ShipmentResponse> {
   ensureMock();
   if (process.env.SHIPPING_PERSIST === 'true') {
     try {
-      const found: any = await Shipment.findByPk(id, { include: [{ model: ShipmentItem, as: 'items' }, { model: ShipmentEvent, as: 'events' }] });
+      const found: ShipmentModel | null = await Shipment.findByPk(id, { include: [{ model: ShipmentItem, as: 'items' }, { model: ShipmentEvent, as: 'events' }] });
       if (found) return found;
-    } catch (err: any) {
-      console.warn('[shipping] Get shipment fallback to mock:', err.message);
+    } catch (err: unknown) {
+      console.warn('[shipping] Get shipment fallback to mock:', err);
     }
   }
   return {
@@ -195,7 +197,7 @@ async function cancelShipment(id: string): Promise<{ id: string; cancelled: bool
   ensureMock();
   if (process.env.SHIPPING_PERSIST === 'true') {
     try {
-      const found: any = await Shipment.findByPk(id);
+      const found: ShipmentModel | null = await Shipment.findByPk(id);
       if (found) {
         await found.update({ status: 'cancelled' });
         // ✅ FIX: Use findOrCreate to prevent duplicate cancel events
@@ -212,8 +214,8 @@ async function cancelShipment(id: string): Promise<{ id: string; cancelled: bool
           },
         });
       }
-    } catch (err: any) {
-      console.warn('[shipping] Cancel persist error, continuing as mock:', err.message);
+    } catch (err: unknown) {
+      console.warn('[shipping] Cancel persist error, continuing as mock:', err);
     }
   }
   return { id, cancelled: true, message: 'Shipment cancelled (mock)' };
@@ -237,7 +239,7 @@ async function track(trackingNumber: string): Promise<TrackingResult> {
 
   if (process.env.SHIPPING_PERSIST === 'true') {
     try {
-      const shipment: any = await Shipment.findOne({ where: { tracking_number: trackingNumber } });
+      const shipment: ShipmentModel | null = await Shipment.findOne({ where: { tracking_number: trackingNumber } });
       if (shipment) {
         // ✅ FIX: Use findOrCreate to prevent duplicate events
         for (const ev of events) {
@@ -256,8 +258,8 @@ async function track(trackingNumber: string): Promise<TrackingResult> {
         }
         await shipment.update({ status: 'delivered' });
       }
-    } catch (err: any) {
-      console.warn('[shipping] Track persist error, continuing as mock:', err.message);
+    } catch (err: unknown) {
+      console.warn('[shipping] Track persist error, continuing as mock:', err);
     }
   }
 

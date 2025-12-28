@@ -20,6 +20,15 @@ import { Op } from 'sequelize';
 type OrderInstance = InstanceType<typeof Order>;
 type CommissionSettingsInstance = InstanceType<typeof CommissionSettings>;
 type CommissionTransactionInstance = InstanceType<typeof CommissionTransaction>;
+type OrderItemWithProduct = InstanceType<typeof OrderItem> & {
+    product?: {
+        name?: string;
+        category?: {
+            name?: string;
+            commission_rate?: number | null;
+        };
+    };
+};
 
 // Types
 interface CommissionFilters {
@@ -94,7 +103,7 @@ class CommissionService {
         }
 
         // Get order items with product categories
-        const orderItems = await OrderItem.findAll({
+        const orderItems = (await OrderItem.findAll({
             where: { order_id: order.id },
             include: [
                 {
@@ -109,7 +118,7 @@ class CommissionService {
                     ],
                 },
             ],
-        });
+        })) as OrderItemWithProduct[];
 
         let totalCommission = 0;
         let hasCustomRates = false;
@@ -118,7 +127,7 @@ class CommissionService {
         // Calculate commission for each item (category-based or global)
         for (const item of orderItems) {
             const itemTotal = parseFloat(String(item.total));
-            const category = (item as any).product?.category;
+            const category = item.product?.category;
 
             let itemCommissionRate = parseFloat(String(settings.default_rate));
             let rateSource: 'global' | 'category' = 'global';
@@ -135,7 +144,7 @@ class CommissionService {
 
             itemBreakdown.push({
                 product_id: item.product_id,
-                product_name: (item as any).product?.name || 'Unknown',
+                product_name: item.product?.name || 'Unknown',
                 category_name: category?.name || 'Unknown',
                 item_total: itemTotal,
                 commission_rate: itemCommissionRate,

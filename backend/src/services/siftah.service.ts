@@ -14,10 +14,27 @@
  * 4. Return the best match sorted by: rating DESC, price ASC, created_at ASC
  */
 
-import { Op, Transaction } from 'sequelize';
+import { Op, QueryTypes, Transaction } from 'sequelize';
 import { Product, Store, Category, StoreDailySales } from '../models';
 import { sequelize } from '../config/sequelize';
 import { getTurkeyBusinessDateString } from '../utils/dateUtils';
+import type ProductModel from '../models/Product';
+
+type ProductWithStoreCategory = ProductModel & {
+    store: {
+        id: string;
+        status?: string;
+        name?: string;
+        slug?: string;
+        logo?: string | null;
+        rating?: number;
+    };
+    category: {
+        id: string;
+        name: string;
+        slug: string;
+    };
+};
 
 interface SiftahRecommendationResult {
     has_recommendation: boolean;
@@ -67,16 +84,16 @@ class SiftahService {
     async hasStoreMadeSiftah(storeId: string): Promise<boolean> {
         const today = getTurkeyBusinessDateString();
 
-        const [result]: any[] = await sequelize.query(`
+        const [result] = await sequelize.query<{ successful_order_count: number }>(`
       SELECT successful_order_count
       FROM store_daily_sales
       WHERE store_id = :storeId AND sale_date = :today
     `, {
             replacements: { storeId, today },
-            type: (sequelize as any).QueryTypes.SELECT
+            type: QueryTypes.SELECT
         });
 
-        return result && result.successful_order_count > 0;
+        return result ? result.successful_order_count > 0 : false;
     }
 
     /**
@@ -85,7 +102,7 @@ class SiftahService {
     async getNoSiftahStoreIds(): Promise<string[]> {
         const today = getTurkeyBusinessDateString();
 
-        const stores: any[] = await sequelize.query(`
+        const stores = await sequelize.query<{ id: string }>(`
       SELECT s.id
       FROM stores s
       LEFT JOIN store_daily_sales sds 
@@ -94,10 +111,10 @@ class SiftahService {
         AND (sds.id IS NULL OR sds.successful_order_count = 0)
     `, {
             replacements: { today },
-            type: (sequelize as any).QueryTypes.SELECT
+            type: QueryTypes.SELECT
         });
 
-        return stores.map(s => s.id);
+        return stores.map((s) => s.id);
     }
 
     /**
@@ -106,7 +123,7 @@ class SiftahService {
     async getSiftahRecommendation(productId: string): Promise<SiftahRecommendationResult> {
 
         // 1. Fetch source product with store and category
-        const sourceProduct: any = await Product.findByPk(productId, {
+        const sourceProduct: ProductWithStoreCategory | null = await Product.findByPk(productId, {
             include: [
                 { model: Store, as: 'store' },
                 { model: Category, as: 'category' }
@@ -153,7 +170,7 @@ class SiftahService {
 
         // 5. Query for the best matching product - first try same category
         // Sorting: rating DESC, price ASC, created_at ASC (deterministic)
-        let recommendation: any = await Product.findOne({
+        let recommendation: ProductWithStoreCategory | null = await Product.findOne({
             where: {
                 id: { [Op.ne]: productId }, // Exclude source product
                 store_id: { [Op.in]: noSiftahStoreIds }, // Only from no-siftah stores
@@ -177,7 +194,7 @@ class SiftahService {
                     attributes: ['id', 'name', 'slug']
                 }
             ],
-            order: (sequelize as any).random() // Random selection for varied recommendations
+            order: sequelize.random() // Random selection for varied recommendations
         });
 
         // 5b. FALLBACK: If no product in same category, try any category
@@ -206,7 +223,7 @@ class SiftahService {
                         attributes: ['id', 'name', 'slug']
                     }
                 ],
-                order: (sequelize as any).random() // Random selection for varied recommendations
+                order: sequelize.random() // Random selection for varied recommendations
             });
         }
 
@@ -224,7 +241,7 @@ class SiftahService {
     /**
      * Serializes a product for API response
      */
-    serializeProduct(product: any, sourceProduct: any): SerializedProduct {
+    serializeProduct(product: ProductWithStoreCategory, sourceProduct: ProductWithStoreCategory): SerializedProduct {
         const priceDiff = parseFloat(product.price) - parseFloat(sourceProduct.price);
         const priceDiffPercent = Math.round((priceDiff / parseFloat(sourceProduct.price)) * 100);
 
@@ -286,7 +303,7 @@ class SiftahService {
         updated_at = NOW()
     `, {
             replacements: { storeId, today },
-            type: (sequelize as any).QueryTypes.INSERT,
+            type: QueryTypes.INSERT,
             transaction
         });
     }

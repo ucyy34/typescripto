@@ -14,17 +14,33 @@ const { redisClient } = require('../config/redis');
 const orderService = require('./order.service');
 
 // Types
-import { Cart, CartItem, Product as IProduct, CheckoutInit } from '../types';
+import { Cart, CartItem, Order as IOrder, Product as IProduct } from '../types';
+import type { CartCheckoutInput, ICartItemVariant } from '../domain/types';
 
 interface CartState {
   key: string | null;
   items: CartItem[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 interface CartTotals {
   subtotal: number;
   item_count: number;
+}
+
+type CartItemWithVariant = CartItem & {
+  variant?: ICartItemVariant | null;
+};
+
+type CartItemWithProduct = CartItemWithVariant & {
+  product?: IProduct;
+  item_total?: number;
+};
+
+interface CartSummary {
+  items: CartItemWithProduct[];
+  totals: CartTotals;
+  updated_at: string | null;
 }
 
 const DEFAULT_PRODUCT_CACHE_TTL = 60 * 1000; // 60 seconds
@@ -55,7 +71,7 @@ class CartService {
   /**
    * Retrieve cart for a user or guest based on identifiers
    */
-  async getCart(userId: string | null = null, guestId: string | null = null): Promise<{ items: any[], totals: CartTotals, updated_at: string | null }> {
+  async getCart(userId: string | null = null, guestId: string | null = null): Promise<CartSummary> {
     const key = this._resolveCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
     const { items, metadata } = await this._loadCartState(key);
@@ -81,7 +97,13 @@ class CartService {
   /**
    * Add item to cart for user or guest
    */
-  async addItem(userId: string | null, guestId: string | null, productId: string, quantity: number, variant: any = {}) {
+  async addItem(
+    userId: string | null,
+    guestId: string | null,
+    productId: string,
+    quantity: number,
+    variant: ICartItemVariant = {}
+  ): Promise<CartSummary> {
     const key = this._requireCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
 
@@ -90,23 +112,20 @@ class CartService {
     const { items } = await this._loadCartState(key);
     // @ts-ignore
     const existing = items.find(
-      // @ts-ignore
-      (item) => item.product_id === productId && this._isSameVariant(item.variant, variant)
+      (item) => item.product_id === productId && this._isSameVariant((item as CartItemWithVariant).variant, variant)
     );
 
     if (existing) {
       const newQuantity = existing.quantity + quantity;
       await this.validateProductAndStock(productId, newQuantity, variant);
       existing.quantity = newQuantity;
-      // @ts-ignore
-      existing.variant = variant && Object.keys(variant).length ? { ...variant } : existing.variant;
+      (existing as CartItemWithVariant).variant = variant && Object.keys(variant).length ? { ...variant } : (existing as CartItemWithVariant).variant;
     } else {
       items.push({
         id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(), // Mock ID if needed
         product_id: productId,
         quantity,
         price: 0, // Will be populated
-        // @ts-ignore
         variant: variant && Object.keys(variant).length ? { ...variant } : null,
       });
     }
@@ -118,7 +137,7 @@ class CartService {
   /**
    * Update item quantity in cart
    */
-  async updateItem(userId: string | null, guestId: string | null, productId: string, quantity: number) {
+  async updateItem(userId: string | null, guestId: string | null, productId: string, quantity: number): Promise<CartSummary> {
     const key = this._requireCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
 
@@ -136,7 +155,7 @@ class CartService {
     }
 
     // @ts-ignore
-    await this.validateProductAndStock(productId, quantity, existing.variant);
+    await this.validateProductAndStock(productId, quantity, (existing as CartItemWithVariant).variant);
     existing.quantity = quantity;
     await this._persistCartState(key, items, ttl);
     return this.getCart(userId, guestId);
@@ -145,7 +164,7 @@ class CartService {
   /**
    * Remove item from cart
    */
-  async removeItem(userId: string | null, guestId: string | null, productId: string) {
+  async removeItem(userId: string | null, guestId: string | null, productId: string): Promise<CartSummary> {
     const key = this._requireCartKey(userId, guestId);
     const ttl = this._resolveCartTtl(userId);
 
@@ -159,7 +178,7 @@ class CartService {
   /**
    * Clear cart contents
    */
-  async clearCart(userId: string | null = null, guestId: string | null = null) {
+  async clearCart(userId: string | null = null, guestId: string | null = null): Promise<{ items: CartItem[]; totals: CartTotals }> {
     const key = this._resolveCartKey(userId, guestId);
     if (key) {
       await redisClient.del(key);
@@ -171,7 +190,7 @@ class CartService {
   /**
    * Merge guest cart items into authenticated user's cart
    */
-  async mergeGuestCartToUser(userId: string, guestId: string) {
+  async mergeGuestCartToUser(userId: string, guestId: string): Promise<CartSummary> {
     if (!userId) {
       throw new ApiError('User ID is required to merge carts', StatusCodes.BAD_REQUEST);
     }
@@ -244,7 +263,15 @@ class CartService {
   /**
    * Checkout: Checkout Init Logic
    */
-  async checkout({ userId = null, guestId = null, checkoutInput = {} }: { userId?: string | null, guestId?: string | null, checkoutInput: any }) {
+  async checkout({
+    userId = null,
+    guestId = null,
+    checkoutInput = {},
+  }: {
+    userId?: string | null;
+    guestId?: string | null;
+    checkoutInput: CartCheckoutInput;
+  }): Promise<IOrder> {
     const cart = await this.getCart(userId, guestId);
 
     if (!cart.items || cart.items.length === 0) {
@@ -256,7 +283,7 @@ class CartService {
       throw new ApiError('Store ID is required for checkout', StatusCodes.BAD_REQUEST);
     }
 
-    const items = cart.items.map((item: any) => ({
+    const items = cart.items.map((item) => ({
       product_id: item.product_id,
       quantity: item.quantity,
     }));
@@ -284,7 +311,7 @@ class CartService {
   /**
    * Validate product exists, is available, and has sufficient stock
    */
-  async validateProductAndStock(productId: string, quantity: number, variant: any = {}) {
+  async validateProductAndStock(productId: string, quantity: number, variant: ICartItemVariant = {}): Promise<IProduct> {
     const product = await Product.findByPk(productId, {
       include: [{ model: Store, as: 'store', attributes: ['status'] }],
     });
@@ -313,7 +340,7 @@ class CartService {
   /**
    * Populate cart items with product details and calculate totals
    */
-  async populateCartItems(items: CartItem[]): Promise<{ items: any[], totals: CartTotals, missingProductIds: string[] }> {
+  async populateCartItems(items: CartItem[]): Promise<{ items: CartItemWithProduct[]; totals: CartTotals; missingProductIds: string[] }> {
     if (!items || items.length === 0) {
       return {
         items: [],
@@ -329,7 +356,7 @@ class CartService {
     let item_count = 0;
     const missingProductIds: string[] = [];
 
-    const populatedItems = items
+    const populatedItems: CartItemWithProduct[] = items
       .map((item) => {
         const product = productMap.get(item.product_id);
         if (!product) {
@@ -337,8 +364,9 @@ class CartService {
           return null;
         }
 
-        // @ts-ignore
-        const variantPrice = item.variant && item.variant.price ? parseFloat(item.variant.price) : null;
+        const variantPrice = (item as CartItemWithVariant).variant?.price
+          ? parseFloat(String((item as CartItemWithVariant).variant?.price))
+          : null;
         const priceToUse = variantPrice !== null ? variantPrice : parseFloat(product.price.toString());
         const itemTotal = priceToUse * item.quantity;
         subtotal += itemTotal;
@@ -349,25 +377,19 @@ class CartService {
           title: product.title,
           slug: product.slug,
           price: priceToUse,
-          // @ts-ignore
           compare_price: product.compare_price ? parseFloat(product.compare_price) : null,
           images: product.images,
-          // @ts-ignore
           image: product.images && product.images[0] ? product.images[0] : null,
           quantity: item.quantity,
-          // @ts-ignore
-          stock: item.variant?.stock ?? product.stock,
+          stock: (item as CartItemWithVariant).variant?.stock ?? product.stock,
           is_available: product.is_active && product.status === 'approved',
-          // @ts-ignore
           store: product.store,
-          // @ts-ignore
           category: product.category,
-          // @ts-ignore
-          variant: item.variant || null,
+          variant: (item as CartItemWithVariant).variant || null,
           item_total: itemTotal,
         };
       })
-      .filter((item) => item !== null);
+      .filter((item): item is CartItemWithProduct => item !== null);
 
     return {
       items: populatedItems,
@@ -554,13 +576,13 @@ class CartService {
     }
   }
 
-  _debug(...args: any[]) {
+  _debug(...args: Array<unknown>) {
     if (this.debugEnabled) {
       console.log('[CartService]', ...args);
     }
   }
 
-  _isSameVariant(existingVariant: any, incomingVariant: any) {
+  _isSameVariant(existingVariant?: ICartItemVariant | null, incomingVariant?: ICartItemVariant | null) {
     if (!existingVariant && !incomingVariant) return true;
     if (!existingVariant || !incomingVariant) return false;
     return (

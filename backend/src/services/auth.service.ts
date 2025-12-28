@@ -171,7 +171,7 @@ class AuthService {
 
     // Fields that can be updated
     const allowedFields = ['first_name', 'last_name', 'phone', 'avatar'];
-    const filteredData: Record<string, any> = {};
+    const filteredData: Record<string, unknown> = {};
 
     Object.keys(updateData).forEach((key) => {
       if (allowedFields.includes(key)) {

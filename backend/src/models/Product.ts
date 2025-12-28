@@ -7,6 +7,7 @@ import { DataTypes, Model, Optional, Op } from 'sequelize';
 import slugify from 'slugify';
 import { sequelize } from '../config/sequelize';
 import { ProductStatus, Timestamps } from './types/model.types';
+import { ProductAttributes, ProductDimensions } from './types/json.types';
 
 export interface IProductAttributes extends Timestamps {
     id: string;
@@ -28,10 +29,10 @@ export interface IProductAttributes extends Timestamps {
     is_active: boolean;
     is_featured: boolean;
     weight: number | null;
-    dimensions: any | null; // JSONB
+    dimensions: ProductDimensions | null; // JSONB
     material: string | null;
     technique: string | null;
-    attributes: any; // JSONB
+    attributes: ProductAttributes; // JSONB
     seo_title: string | null;
     seo_description: string | null;
     meta_keywords: string[];
@@ -67,10 +68,10 @@ export default class Product extends Model<IProductAttributes, IProductCreationA
     public is_active!: boolean;
     public is_featured!: boolean;
     public weight!: number | null;
-    public dimensions!: any | null;
+    public dimensions!: ProductDimensions | null;
     public material!: string | null;
     public technique!: string | null;
-    public attributes!: any;
+    public attributes!: ProductAttributes;
     public seo_title!: string | null;
     public seo_description!: string | null;
     public meta_keywords!: string[];
@@ -467,5 +468,4 @@ Product.beforeUpdate(async (product: Product) => {
         product.approved_at = new Date();
     }
 });
-
 

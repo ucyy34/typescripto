@@ -5,6 +5,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import { Timestamps } from './types/model.types';
+import { JsonValue } from './types/json.types';
 
 export type ShipmentStatus = 'created' | 'ready_for_pickup' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'failed' | 'cancelled';
 
@@ -22,7 +23,7 @@ export interface IShipmentAddress {
     state?: string;
     postal_code: string;
     country: string;
-    [key: string]: any;
+    [key: string]: JsonValue | undefined;
 }
 
 export interface IShipmentAttributes extends Timestamps {

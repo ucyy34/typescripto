@@ -6,6 +6,7 @@
 import { DataTypes, Model, Optional, Op } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import { OrderStatus, Timestamps } from './types/model.types';
+import { OrderAddress, OrderPaymentDetails } from './types/json.types';
 
 // Order Status State Machine
 const ORDER_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
@@ -18,12 +19,13 @@ const ORDER_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
     cancelled: [],
 };
 
-export interface IPaymentDetails {
-    [key: string]: any;
-}
+export type IPaymentDetails = OrderPaymentDetails;
+export type IAddress = OrderAddress;
 
-export interface IAddress {
-    [key: string]: any;
+export interface OrderTransitionMetadata {
+    tracking_number?: string;
+    carrier?: string;
+    reason?: string;
 }
 
 export interface IOrderAttributes extends Timestamps {
@@ -117,7 +119,7 @@ export default class Order extends Model<IOrderAttributes, IOrderCreationAttribu
         return allowedTransitions.includes(newStatus);
     }
 
-    public async transitionTo(newStatus: OrderStatus, metadata: any = {}): Promise<boolean> {
+    public async transitionTo(newStatus: OrderStatus, metadata: OrderTransitionMetadata = {}): Promise<boolean> {
         if (!this.canTransitionTo(newStatus)) {
             throw new Error(`Cannot transition from ${this.status} to ${newStatus}`);
         }
@@ -167,7 +169,7 @@ export default class Order extends Model<IOrderAttributes, IOrderCreationAttribu
         }
 
         // For refund:
-        if (newStatus as any === 'refunded') {
+        if (newStatus === ('refunded' as OrderStatus)) {
             this.payment_status = 'refunded';
         }
 
@@ -175,7 +177,7 @@ export default class Order extends Model<IOrderAttributes, IOrderCreationAttribu
         return true;
     }
 
-    public calculateTotal(items: any[]): void {
+    public calculateTotal(items: Array<{ price: number; quantity: number }>): void {
         this.subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         this.total = this.subtotal + this.shipping_fee + this.tax - this.discount;
     }
@@ -185,7 +187,7 @@ export default class Order extends Model<IOrderAttributes, IOrderCreationAttribu
     }
 
     public isRefundable(): boolean {
-        return (['delivered', 'completed'] as any[]).includes(this.status) && this.payment_status === 'paid';
+        return (['delivered', 'completed'] as OrderStatus[]).includes(this.status) && this.payment_status === 'paid';
     }
 
     // Static Methods
@@ -472,5 +474,4 @@ Order.beforeUpdate(async (order: Order) => {
         }
     }
 });
-
 

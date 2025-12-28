@@ -174,24 +174,24 @@ class AdminAnalyticsService {
             const endDate = new Date();
             const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
 
-            const orders = await Order.findAll({
+            const orders = (await Order.findAll({
                 where: {
                     status: { [Op.in]: ['completed', 'delivered'] },
                     createdAt: { [Op.between]: [startDate, endDate] },
                 },
                 attributes: ['total', 'createdAt'],
                 order: [['createdAt', 'ASC']],
-            });
+            })) as Array<{ total: string | number; createdAt: Date }>;
 
             // Group by date
-            const dailyData = {};
+            const dailyData: Record<string, { date: string; revenue: number; orders: number }> = {};
             for (let i = 0; i < days; i++) {
                 const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
                 const dateKey = date.toISOString().split('T')[0];
                 dailyData[dateKey] = { date: dateKey, revenue: 0, orders: 0 };
             }
 
-            orders.forEach((order: any) => {
+            orders.forEach((order) => {
                 const dateKey = order.createdAt.toISOString().split('T')[0];
                 if (dailyData[dateKey]) {
                     dailyData[dateKey].revenue += parseFloat(String(order.total)) || 0;

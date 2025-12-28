@@ -9,6 +9,10 @@ import { StatusCodes } from 'http-status-codes';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import commissionService from './commission.service';
+import type OrderModel from '../models/Order';
+import type ReturnRequestModel, { ReturnReason } from '../models/ReturnRequest';
+import type StoreModel from '../models/Store';
+import type { ReturnStatus } from '../models/types/model.types';
 
 interface ReturnItemPayload {
   order_item_id: string;
@@ -18,26 +22,35 @@ interface ReturnItemPayload {
 
 interface ReturnData {
   order_id: string;
-  reason: string;
+  reason: ReturnReason;
   description: string;
   items: ReturnItemPayload[];
   images?: string[];
 }
 
 interface ReturnFilters {
-  page?: number;
-  limit?: number;
+  page?: number | string;
+  limit?: number | string;
   status?: string;
   reason?: string;
 }
 
 interface UpdateStatusData {
-  status: string;
+  status: ReturnStatus;
   store_response?: string;
   tracking_number?: string;
   carrier?: string;
   cancellation_reason?: string;
   admin_notes?: string;
+}
+
+interface OrderItemSummary {
+  id: string;
+  price: number;
+  quantity: number;
+  product_snapshot: {
+    title: string;
+  };
 }
 
 interface ValidatedReturnItem {
@@ -64,11 +77,11 @@ class ReturnService {
    * @param {Object} returnData - Return request data
    * @returns {Promise<ReturnRequest>} Created return request
    */
-  async createReturnRequest(userId: string, returnData: ReturnData): Promise<any> {
+  async createReturnRequest(userId: string, returnData: ReturnData): Promise<ReturnRequestModel> {
     const { order_id, reason, description, items, images } = returnData;
 
     // Get order with items
-    const order: any = await Order.findOne({
+    const order: OrderModel | null = await Order.findOne({
       where: { id: order_id },
       include: [
         {
@@ -108,7 +121,7 @@ class ReturnService {
     );
     let returnWindowDays = 14;
     try {
-      const store: any = await Store.findByPk(order.store_id);
+      const store: StoreModel | null = await Store.findByPk(order.store_id);
       if (store && store.settings && typeof store.settings.return_window_days === 'number') {
         returnWindowDays = store.settings.return_window_days;
       }
@@ -145,11 +158,11 @@ class ReturnService {
     );
 
     // Create return request
-    const returnRequest: any = await ReturnRequest.create({
+    const returnRequest: ReturnRequestModel = await ReturnRequest.create({
       order_id,
       user_id: userId,
       store_id: order.store_id,
-      reason: reason as any, // Type validated at controller level
+      reason,
       description: this.sanitizeText(description, 2000),
       items: validatedItems,
       images: Array.isArray(images) ? images.map((u) => this.sanitizeText(u, 2000)) : [],
@@ -167,13 +180,13 @@ class ReturnService {
    * @returns {Promise<Object>} Validated items and refund amount
    * @private
    */
-  async validateReturnItems(items: ReturnItemPayload[], order: any): Promise<{ validatedItems: ValidatedReturnItem[], refundAmount: number }> {
+  async validateReturnItems(items: ReturnItemPayload[], order: OrderModel): Promise<{ validatedItems: ValidatedReturnItem[]; refundAmount: number }> {
     const validatedItems: ValidatedReturnItem[] = [];
     let refundAmount = 0;
     let returnedSubtotalGross = 0; // sum of unitPrice * qty before coupon
 
     // Build map of previously returned quantities per order_item_id (exclude rejected/cancelled)
-    const previousReturns: any[] = await ReturnRequest.findAll({
+    const previousReturns: ReturnRequestModel[] = await ReturnRequest.findAll({
       where: {
         order_id: order.id,
         status: { [Op.notIn]: ['rejected', 'cancelled'] },
@@ -182,8 +195,8 @@ class ReturnService {
     });
     const previouslyReturned = new Map<string, number>();
     for (const rr of previousReturns) {
-      const rrItems = rr.items || [];
-      rrItems.forEach((ri: any) => {
+      const rrItems = (rr.items || []) as Array<{ order_item_id: string; quantity: number }>;
+      rrItems.forEach((ri) => {
         const key = ri.order_item_id;
         const qty = Number(ri.quantity) || 0;
         previouslyReturned.set(key, (previouslyReturned.get(key) || 0) + qty);
@@ -192,10 +205,14 @@ class ReturnService {
 
     // Pre-calc totals for pro‑rata coupon sharing
     const orderHasCoupon = !!order.coupon_discount && Number(order.coupon_discount) > 0;
-    const orderItemsSubtotal = order.items.reduce((sum: number, oi: any) => sum + (Number(oi.price) * Number(oi.quantity)), 0);
+    const orderItems = order.items as OrderItemSummary[];
+    const orderItemsSubtotal = orderItems.reduce(
+      (sum, oi) => sum + (Number(oi.price) * Number(oi.quantity)),
+      0
+    );
 
     for (const item of items) {
-      const orderItem = order.items.find((oi: any) => oi.id === item.order_item_id);
+      const orderItem = orderItems.find((oi) => oi.id === item.order_item_id);
 
       if (!orderItem) {
         throw new ApiError(`Order item ${item.order_item_id} not found`, StatusCodes.NOT_FOUND);
@@ -246,7 +263,7 @@ class ReturnService {
 
     // Shipping and tax refund policies
     try {
-      const store: any = await Store.findByPk(order.store_id);
+      const store: StoreModel | null = await Store.findByPk(order.store_id);
       const policy = (store && store.settings) || {};
       const shippingPolicy = policy.return_shipping_policy || 'none'; // 'none' | 'pro_rata' | 'full'
       const taxPolicy = policy.tax_refund_policy || 'pro_rata'; // 'none' | 'pro_rata' | 'full'
@@ -286,10 +303,10 @@ class ReturnService {
    * @param {string} role - User role
    * @returns {Promise<ReturnRequest>} Return request
    */
-  async getReturnRequestById(returnId: string, userId: string, role: string = 'buyer'): Promise<any> {
-    const whereClause = { id: returnId };
+  async getReturnRequestById(returnId: string, userId: string, role: string = 'buyer'): Promise<ReturnRequestModel> {
+    const whereClause: Record<string, unknown> = { id: returnId };
 
-    const returnRequest: any = await ReturnRequest.findOne({
+    const returnRequest: ReturnRequestModel | null = await ReturnRequest.findOne({
       where: whereClause,
       include: [
         {
@@ -343,11 +360,13 @@ class ReturnService {
    * @param {Object} filters - Query filters
    * @returns {Promise<Object>} Returns and pagination
    */
-  async getUserReturnRequests(userId: string, filters: ReturnFilters = {}): Promise<any> {
+  async getUserReturnRequests(userId: string, filters: ReturnFilters = {}): Promise<{ returns: ReturnRequestModel[]; pagination: { total: number; page: number; limit: number; pages: number } }> {
     const { page = 1, limit = 20, status, reason } = filters;
-    const offset = (page - 1) * limit;
+    const parsedPage = Number(page) || 1;
+    const parsedLimit = Number(limit) || 20;
+    const offset = (parsedPage - 1) * parsedLimit;
 
-    const whereClause: any = { user_id: userId };
+    const whereClause: Record<string, unknown> = { user_id: userId };
 
     if (status) {
       whereClause.status = status;
@@ -371,7 +390,7 @@ class ReturnService {
           attributes: ['id', 'name'],
         },
       ],
-      limit: parseInt(limit as any),
+      limit: parsedLimit,
       offset,
       order: [['created_at', 'DESC']],
     });
@@ -380,9 +399,9 @@ class ReturnService {
       returns,
       pagination: {
         total: count,
-        page: parseInt(page as any),
-        limit: parseInt(limit as any),
-        pages: Math.ceil(count / limit),
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.ceil(count / parsedLimit),
       },
     };
   }
@@ -394,7 +413,7 @@ class ReturnService {
    * @param {Object} filters - Query filters
    * @returns {Promise<Object>} Returns and pagination
    */
-  async getStoreReturnRequests(storeId: string, userId: string, filters: ReturnFilters = {}): Promise<any> {
+  async getStoreReturnRequests(storeId: string, userId: string, filters: ReturnFilters = {}): Promise<{ returns: ReturnRequestModel[]; pagination: { total: number; page: number; limit: number; pages: number } }> {
     // Verify user owns store
     const store = await Store.findOne({
       where: { id: storeId, user_id: userId },
@@ -405,9 +424,11 @@ class ReturnService {
     }
 
     const { page = 1, limit = 20, status, reason } = filters;
-    const offset = (page - 1) * limit;
+    const parsedPage = Number(page) || 1;
+    const parsedLimit = Number(limit) || 20;
+    const offset = (parsedPage - 1) * parsedLimit;
 
-    const whereClause: any = { store_id: storeId };
+    const whereClause: Record<string, unknown> = { store_id: storeId };
 
     if (status) {
       whereClause.status = status;
@@ -431,7 +452,7 @@ class ReturnService {
           attributes: ['id', 'order_number', 'total'],
         },
       ],
-      limit: parseInt(limit as any),
+      limit: parsedLimit,
       offset,
       order: [['created_at', 'DESC']],
     });
@@ -440,9 +461,9 @@ class ReturnService {
       returns,
       pagination: {
         total: count,
-        page: parseInt(page as any),
-        limit: parseInt(limit as any),
-        pages: Math.ceil(count / limit),
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.ceil(count / parsedLimit),
       },
     };
   }
@@ -455,11 +476,11 @@ class ReturnService {
    * @param {Object} updateData - Status update data
    * @returns {Promise<ReturnRequest>} Updated return request
    */
-  async updateReturnStatus(returnId: string, userId: string, role: string, updateData: UpdateStatusData): Promise<any> {
+  async updateReturnStatus(returnId: string, userId: string, role: string, updateData: UpdateStatusData): Promise<ReturnRequestModel> {
     const { status, store_response, tracking_number, carrier, cancellation_reason, admin_notes } =
       updateData;
 
-    const returnRequest: any = await this.getReturnRequestById(returnId, userId, role);
+    const returnRequest = await this.getReturnRequestById(returnId, userId, role);
 
     // Check if transition is valid
     if (!returnRequest.canTransitionTo(status)) {
@@ -496,7 +517,7 @@ class ReturnService {
 
       // Update order status if refund is processed
       if (status === 'refund_processed' || status === 'completed') {
-        const order: any = await Order.findByPk(returnRequest.order_id);
+        const order: OrderModel | null = await Order.findByPk(returnRequest.order_id);
         if (order) {
           order.status = 'refunded';
           order.payment_status = 'refunded';
@@ -515,9 +536,9 @@ class ReturnService {
         // Adjust commission transaction based on refund
         try {
           await commissionService.handleOrderRefund(returnRequest.order_id, returnRequest.refund_amount);
-        } catch (e: any) {
+        } catch (e: unknown) {
           // Log and continue; commission adjustments should not break returns
-          console.warn('[returns] commission adjust failed:', e.message);
+          console.warn('[returns] commission adjust failed:', e);
         }
       }
 
@@ -537,8 +558,8 @@ class ReturnService {
    * @param {string} reason - Cancellation reason
    * @returns {Promise<ReturnRequest>} Cancelled return request
    */
-  async cancelReturnRequest(returnId: string, userId: string, reason: string): Promise<any> {
-    const returnRequest: any = await this.getReturnRequestById(returnId, userId, 'buyer');
+  async cancelReturnRequest(returnId: string, userId: string, reason: string): Promise<ReturnRequestModel> {
+    const returnRequest = await this.getReturnRequestById(returnId, userId, 'buyer');
 
     if (!returnRequest.isCancellable()) {
       throw new ApiError('This return request cannot be cancelled', StatusCodes.BAD_REQUEST);
@@ -553,13 +574,6 @@ class ReturnService {
 }
 
 export = new ReturnService();
-
-
-
-
-
-
-
 
 
 

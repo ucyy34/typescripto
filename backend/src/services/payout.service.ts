@@ -18,6 +18,7 @@ import {
     User
 } from '../models';
 import logger from '../utils/logger';
+import type StoreModel from '../models/Store';
 
 const MINIMUM_PAYOUT_AMOUNT = 100; // TL
 
@@ -80,40 +81,40 @@ class PayoutService {
     async getVendorBalance(storeId: string): Promise<VendorBalance> {
         try {
             // Get all completed orders for this store
-            const completedOrders = await Order.findAll({
+            const completedOrders = (await Order.findAll({
                 where: {
                     store_id: storeId,
                     status: { [Op.in]: ['delivered', 'completed'] },
                 },
                 attributes: ['id', 'total', 'shipping_fee', 'created_at'],
-            });
+            })) as Array<{ shipping_fee?: string | number }>;
 
             // Get commission transactions for these orders
-            const commissions = await CommissionTransaction.findAll({
+            const commissions = (await CommissionTransaction.findAll({
                 where: {
                     store_id: storeId,
                     status: { [Op.in]: ['calculated', 'paid_to_seller'] },
                 },
                 attributes: ['id', 'order_id', 'seller_amount', 'commission_amount', 'order_total', 'status'],
-            });
+            })) as Array<{ order_total?: string | number; commission_amount?: string | number; seller_amount?: string | number }>;
 
             // Get completed payouts
-            const completedPayouts = await VendorPayout.findAll({
+            const completedPayouts = (await VendorPayout.findAll({
                 where: {
                     store_id: storeId,
                     status: 'completed',
                 },
                 attributes: ['approved_amount'],
-            });
+            })) as Array<{ approved_amount?: string | number }>;
 
             // Get pending/processing payouts
-            const pendingPayouts = await VendorPayout.findAll({
+            const pendingPayouts = (await VendorPayout.findAll({
                 where: {
                     store_id: storeId,
                     status: { [Op.in]: ['pending', 'approved', 'processing'] },
                 },
                 attributes: ['requested_amount', 'status'],
-            });
+            })) as Array<{ requested_amount?: string | number }>;
 
             // Calculate totals
             let totalSales = 0;
@@ -121,20 +122,20 @@ class PayoutService {
             let totalCommission = 0;
             let totalSellerEarnings = 0;
 
-            commissions.forEach((c: any) => {
+            commissions.forEach((c) => {
                 totalSales += parseFloat(String(c.order_total)) || 0;
                 totalCommission += parseFloat(String(c.commission_amount)) || 0;
                 totalSellerEarnings += parseFloat(String(c.seller_amount)) || 0;
             });
 
             // Calculate shipping from orders
-            completedOrders.forEach((o: any) => {
+            completedOrders.forEach((o) => {
                 totalShipping += parseFloat(String(o.shipping_fee)) || 0;
             });
 
             // Total already paid out
             const totalPaidOut = completedPayouts.reduce(
-                (sum: number, p: any) => sum + (parseFloat(String(p.approved_amount)) || 0),
+                (sum: number, p) => sum + (parseFloat(String(p.approved_amount)) || 0),
                 0
             );
 
@@ -191,7 +192,7 @@ class PayoutService {
             }
 
             // Get store's bank details
-            const store = await Store.findByPk(storeId, {
+            const store: StoreModel | null = await Store.findByPk(storeId, {
                 attributes: ['id', 'name', 'bank_details'],
             });
 
@@ -199,7 +200,11 @@ class PayoutService {
                 throw new Error('Mağaza bulunamadı');
             }
 
-            const bankDetails = (store as any).bank_details || {};
+            const bankDetails = (store.bank_details || {}) as {
+                iban?: string;
+                bank_name?: string | null;
+                account_holder?: string | null;
+            };
 
             if (!bankDetails.iban) {
                 throw new Error('Lütfen önce banka bilgilerinizi girin');
@@ -220,7 +225,7 @@ class PayoutService {
                 bank_name: bankDetails.bank_name || null,
                 iban: bankDetails.iban,
                 account_holder: bankDetails.account_holder || store.name,
-                breakdown: breakdown as any,
+                breakdown,
             });
 
             logger.info(`[PayoutService] Payout requested: Store ${storeId}, Amount ₺${amount}`);

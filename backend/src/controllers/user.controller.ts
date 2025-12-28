@@ -8,12 +8,26 @@ import { StatusCodes } from 'http-status-codes';
 import { User } from '../models';
 import { success, paginated } from '../utils/response';
 import { asyncHandler, ApiError } from '../middlewares/errorHandler';
+import type { AuthenticatedRequest } from '../domain/types';
+import type UserModel from '../models/User';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-  };
+interface UserQuery {
+  role?: string;
+  status?: string | boolean;
+  limit?: string;
+  offset?: string;
+}
+
+interface UserParams {
+  id: string;
+}
+
+interface UpdateStatusBody {
+  is_active: boolean;
+}
+
+interface UpdateRoleBody {
+  role: string;
 }
 
 const USER_ATTRIBUTES = [
@@ -39,9 +53,9 @@ const buildStatusFilter = (status: string | boolean | undefined | null): boolean
   return status === 'active';
 };
 
-const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+const getAllUsers = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, UserQuery>, res: Response) => {
   const { role, status, limit = 100, offset = 0 } = req.query;
-  const where: any = {};
+  const where: Record<string, unknown> = {};
 
   if (role) {
     where.role = role;
@@ -88,7 +102,7 @@ const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
-const getUserById = asyncHandler(async (req: Request, res: Response) => {
+const getUserById = asyncHandler(async (req: Request<UserParams>, res: Response) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: USER_ATTRIBUTES,
@@ -109,13 +123,13 @@ const getUserById = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
-const updateUserStatus = asyncHandler(async (req: Request, res: Response) => {
-  const authReq = req as AuthenticatedRequest;
+const updateUserStatus = asyncHandler(async (req: AuthenticatedRequest<UserParams, unknown, UpdateStatusBody>, res: Response) => {
+  const authReq = req;
   const { id } = req.params;
   const { is_active: isActive } = req.body;
 
   try {
-    const user: any = await User.findByPk(id);
+    const user: UserModel | null = await User.findByPk(id);
 
     if (!user) {
       throw new ApiError('User not found', StatusCodes.NOT_FOUND);
@@ -147,13 +161,13 @@ const updateUserStatus = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
-const updateUserRole = asyncHandler(async (req: Request, res: Response) => {
-  const authReq = req as AuthenticatedRequest;
+const updateUserRole = asyncHandler(async (req: AuthenticatedRequest<UserParams, unknown, UpdateRoleBody>, res: Response) => {
+  const authReq = req;
   const { id } = req.params;
   const { role } = req.body;
 
   try {
-    const user: any = await User.findByPk(id);
+    const user: UserModel | null = await User.findByPk(id);
 
     if (!user) {
       throw new ApiError('User not found', StatusCodes.NOT_FOUND);

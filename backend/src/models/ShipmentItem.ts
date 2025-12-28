@@ -5,13 +5,14 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import { Timestamps } from './types/model.types';
+import { ShipmentItemSnapshot } from './types/json.types';
 
 export interface IShipmentItemAttributes extends Timestamps {
     id: string;
     shipment_id: string;
     order_item_id: string | null;
     qty: number;
-    snapshot: any | null;
+    snapshot: ShipmentItemSnapshot | null;
 }
 
 export interface IShipmentItemCreationAttributes extends Optional<IShipmentItemAttributes, 'id' | 'order_item_id' | 'qty' | 'snapshot' | 'createdAt' | 'updatedAt' | 'deletedAt'> { }
@@ -21,7 +22,7 @@ export default class ShipmentItem extends Model<IShipmentItemAttributes, IShipme
     public shipment_id!: string;
     public order_item_id!: string | null;
     public qty!: number;
-    public snapshot!: any | null;
+    public snapshot!: ShipmentItemSnapshot | null;
 
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
