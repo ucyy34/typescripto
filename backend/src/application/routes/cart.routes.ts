@@ -5,7 +5,10 @@ import {
     AddToCartSchema,
     UpdateCartItemSchema,
     CartItemIdParamSchema,
-    MergeCartSchema
+    MergeCartSchema,
+    GetCartRequestSchema,
+    GetGuestCartRequestSchema,
+    EmptyBodySchema
 } from '../schemas/cart.schema';
 
 const { authenticate } = require('../../middlewares/auth');
@@ -17,7 +20,12 @@ const router = Router();
 // ==========================================
 
 // Get User Cart
-router.get('/', authenticate, CartController.getCart as any);
+router.get(
+    '/',
+    authenticate,
+    validateZod(GetCartRequestSchema, 'query'),
+    CartController.getCart as any
+);
 
 // Add Item (User)
 router.post(
@@ -45,7 +53,12 @@ router.delete(
 );
 
 // Clear Cart (User)
-router.delete('/', authenticate, CartController.clearCart as any);
+router.delete(
+    '/',
+    authenticate,
+    validateZod(EmptyBodySchema, 'body'),
+    CartController.clearCart as any
+);
 
 // Merge Guest Cart
 router.post(
@@ -60,7 +73,11 @@ router.post(
 // ==========================================
 
 // Get Guest Cart
-router.get('/guest', CartController.getGuestCart as any);
+router.get(
+    '/guest',
+    validateZod(GetGuestCartRequestSchema, 'query'),
+    CartController.getGuestCart as any
+);
 
 // Add Item (Guest)
 router.post(
@@ -85,7 +102,11 @@ router.delete(
 );
 
 // Clear Cart (Guest)
-router.delete('/guest', CartController.clearGuestCart as any);
+router.delete(
+    '/guest',
+    validateZod(EmptyBodySchema, 'body'),
+    CartController.clearGuestCart as any
+);
 
 
 export default router;

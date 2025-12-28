@@ -171,6 +171,20 @@ export const OrderSummarySchema = z.object({
 });
 
 // ============================================
+// RESPONSE ENVELOPES
+// ============================================
+
+export const OrderCreateResponseSchema = z.object({
+    success: z.literal(true),
+    message: z.string(),
+    data: OrderResponseSchema,
+});
+
+export const OrderGetResponseSchema = OrderCreateResponseSchema;
+
+export const OrderStatusUpdateResponseSchema = OrderCreateResponseSchema;
+
+// ============================================
 // INFERRED TYPES (Single Source)
 // ============================================
 
@@ -197,6 +211,10 @@ export type OrderItemResponseDTO = z.infer<typeof OrderItemResponseSchema>;
 
 /** Order summary */
 export type OrderSummaryDTO = z.infer<typeof OrderSummarySchema>;
+
+export type OrderCreateResponseDTO = z.infer<typeof OrderCreateResponseSchema>;
+export type OrderGetResponseDTO = z.infer<typeof OrderGetResponseSchema>;
+export type OrderStatusUpdateResponseDTO = z.infer<typeof OrderStatusUpdateResponseSchema>;
 
 /** Order status values */
 export type OrderStatusValue = z.infer<typeof OrderStatusEnum>;

@@ -4,7 +4,9 @@ import {
     CartResponseDTO,
     AddToCartDTO,
     UpdateCartItemDTO,
-    GuestKeyHeaderSchema
+    GuestKeyHeaderSchema,
+    CartItemIdParamDTO,
+    MergeCartDTO
 } from '../schemas/cart.schema';
 import { ICart } from '../../domain/types/cart.types';
 import { AuthenticatedRequest } from '../../domain/types/common.types';
@@ -76,7 +78,7 @@ export class CartController {
      */
     static async updateItem(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            const { id } = req.params;
+            const { id }: CartItemIdParamDTO = req.params;
             const { quantity }: UpdateCartItemDTO = req.body;
             const cart = await cartService.updateItem({ userId: req.user!.id }, id, quantity);
             res.json(toDTO(cart));
@@ -90,7 +92,7 @@ export class CartController {
      */
     static async removeItem(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            const { id } = req.params;
+            const { id }: CartItemIdParamDTO = req.params;
             const cart = await cartService.removeItem({ userId: req.user!.id }, id);
             res.json(toDTO(cart));
         } catch (error) {
@@ -117,7 +119,8 @@ export class CartController {
     static async mergeCart(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
             // Accept from header OR body (header takes precedence)
-            const guestKey = req.header('X-Guest-Key') || req.body?.guestKey;
+            const body: MergeCartDTO = req.body;
+            const guestKey = req.header('X-Guest-Key') || body?.guestKey;
 
             // Validate via Zod
             const result = GuestKeyHeaderSchema.safeParse(guestKey);
@@ -191,7 +194,7 @@ export class CartController {
     static async updateGuestItem(req: Request, res: Response, next: NextFunction) {
         try {
             const guestKey = CartController.extractGuestKey(req);
-            const { id } = req.params;
+            const { id }: CartItemIdParamDTO = req.params;
             const { quantity }: UpdateCartItemDTO = req.body;
             const cart = await cartService.updateItem({ guestKey }, id, quantity);
             res.json(toDTO(cart));
@@ -206,7 +209,7 @@ export class CartController {
     static async removeGuestItem(req: Request, res: Response, next: NextFunction) {
         try {
             const guestKey = CartController.extractGuestKey(req);
-            const { id } = req.params;
+            const { id }: CartItemIdParamDTO = req.params;
             const cart = await cartService.removeItem({ guestKey }, id);
             res.json(toDTO(cart));
         } catch (error) {
