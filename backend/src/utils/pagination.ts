@@ -86,8 +86,9 @@ const decodeCursor = (cursor: string | undefined): CursorPayload | null => {
         }
 
         return payload;
-    } catch (error: any) {
-        console.warn('[pagination] Failed to decode cursor:', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn('[pagination] Failed to decode cursor:', message);
         return null;
     }
 };

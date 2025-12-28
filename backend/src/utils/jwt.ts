@@ -4,11 +4,12 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key';
-const JWT_EXPIRE = process.env.JWT_EXPIRE || '1h';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your_super_secret_refresh_key';
-const JWT_REFRESH_EXPIRE = process.env.JWT_REFRESH_EXPIRE || '7d';
+const JWT_SECRET = env.JWT_SECRET || 'your_super_secret_jwt_key';
+const JWT_EXPIRE = env.JWT_EXPIRE || '1h';
+const JWT_REFRESH_SECRET = env.JWT_REFRESH_SECRET || 'your_super_secret_refresh_key';
+const JWT_REFRESH_EXPIRE = env.JWT_REFRESH_EXPIRE || '7d';
 
 interface TokenPayload {
     id: string;
@@ -76,14 +77,15 @@ const verifyAccessToken = (token: string): TokenPayload => {
         return jwt.verify(token, JWT_SECRET, {
             issuer: 'dostan-marketplace',
         }) as TokenPayload;
-    } catch (error: any) {
-        if (error.name === 'TokenExpiredError') {
+    } catch (error: unknown) {
+        const errorName = error instanceof Error ? error.name : '';
+        if (errorName === 'TokenExpiredError') {
             throw new Error('Access token expired');
         }
-        if (error.name === 'JsonWebTokenError') {
+        if (errorName === 'JsonWebTokenError') {
             throw new Error('Invalid access token');
         }
-        throw error;
+        throw error instanceof Error ? error : new Error(String(error));
     }
 };
 
@@ -98,14 +100,15 @@ const verifyRefreshToken = (token: string): TokenPayload => {
         return jwt.verify(token, JWT_REFRESH_SECRET, {
             issuer: 'dostan-marketplace',
         }) as TokenPayload;
-    } catch (error: any) {
-        if (error.name === 'TokenExpiredError') {
+    } catch (error: unknown) {
+        const errorName = error instanceof Error ? error.name : '';
+        if (errorName === 'TokenExpiredError') {
             throw new Error('Refresh token expired');
         }
-        if (error.name === 'JsonWebTokenError') {
+        if (errorName === 'JsonWebTokenError') {
             throw new Error('Invalid refresh token');
         }
-        throw error;
+        throw error instanceof Error ? error : new Error(String(error));
     }
 };
 

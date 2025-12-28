@@ -4,19 +4,27 @@
  */
 
 import { Sequelize, Options } from 'sequelize';
-import * as config from './database';
+import type { DatabaseConfig } from './database';
+import { development, production, test } from './database';
+import { env } from './env';
 import logger from '../utils/logger';
 
 type Environment = 'development' | 'test' | 'production';
 
-const env: Environment = (process.env.NODE_ENV as Environment) || 'development';
-const dbConfig = config[env] as any;
+const runtimeEnv: Environment = env.NODE_ENV || 'development';
+const configByEnv: Record<Environment, DatabaseConfig> = {
+    development,
+    test,
+    production,
+};
+const dbConfig = configByEnv[runtimeEnv];
+const envValues = env as Record<string, string | undefined>;
 
 // Create Sequelize instance
 let sequelize: Sequelize;
 
 if (dbConfig.use_env_variable) {
-    sequelize = new Sequelize(process.env[dbConfig.use_env_variable] as string, {
+    sequelize = new Sequelize(envValues[dbConfig.use_env_variable] as string, {
         dialect: dbConfig.dialect,
         logging: dbConfig.logging,
         pool: dbConfig.pool,
@@ -48,8 +56,9 @@ const testConnection = async (): Promise<boolean> => {
         await sequelize.authenticate();
         logger.info('✅ Connected to PostgreSQL');
         return true;
-    } catch (error: any) {
-        logger.error('Failed to connect to PostgreSQL: %s', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('Failed to connect to PostgreSQL: %s', message);
         return false;
     }
 };
@@ -62,8 +71,9 @@ const syncDatabase = async (options: object = {}): Promise<boolean> => {
         await sequelize.sync(options);
         logger.info('✅ Database synced');
         return true;
-    } catch (error: any) {
-        logger.error('Database sync failed: %s', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('Database sync failed: %s', message);
         return false;
     }
 };
@@ -75,8 +85,9 @@ const closeConnection = async (): Promise<void> => {
     try {
         await sequelize.close();
         logger.info('Database connection closed');
-    } catch (error: any) {
-        logger.error('Database close failed: %s', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error('Database close failed: %s', message);
     }
 };
 

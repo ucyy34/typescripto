@@ -15,14 +15,14 @@ export enum ErrorCode {
 export class AppError extends Error {
     public readonly code: ErrorCode;
     public readonly statusCode: number;
-    public readonly details?: any;
+    public readonly details?: unknown;
     public readonly isOperational: boolean;
 
     constructor(
         message: string,
         code: ErrorCode = ErrorCode.INTERNAL_ERROR,
         statusCode: number = 500,
-        details?: any
+        details?: unknown
     ) {
         super(message);
         this.name = 'AppError';

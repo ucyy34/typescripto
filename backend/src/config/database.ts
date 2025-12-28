@@ -3,10 +3,8 @@
  * Optimized for 50K daily traffic with connection pooling
  */
 
-import * as path from 'path';
-import dotenv from 'dotenv';
-dotenv.config({ path: path.join(__dirname, '../../.env') });
 import logger from '../utils/logger';
+import { env } from './env';
 
 interface DatabaseConnection {
     username: string;
@@ -65,14 +63,15 @@ const parseDatabaseUrl = (databaseUrl: string | undefined): DatabaseConnection |
             port: parsed.port ? parseInt(parsed.port, 10) : 5432,
             sslRequired: parsed.searchParams.get('sslmode') === 'require',
         };
-    } catch (error: any) {
-        logger.warn('Invalid DATABASE_URL provided, falling back to discrete credentials: %s', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn('Invalid DATABASE_URL provided, falling back to discrete credentials: %s', message);
         return null;
     }
 };
 
 const withDatabaseUrl = (config: DatabaseConfig, { enableSsl = false } = {}): DatabaseConfig => {
-    const connection = parseDatabaseUrl(process.env.DATABASE_URL);
+    const connection = parseDatabaseUrl(env.DATABASE_URL);
 
     if (!connection) {
         return config;
@@ -102,18 +101,18 @@ const withDatabaseUrl = (config: DatabaseConfig, { enableSsl = false } = {}): Da
 };
 
 const development = withDatabaseUrl({
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'dostan_marketplace_dev',
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
+    username: env.DB_USER || 'postgres',
+    password: env.DB_PASSWORD || 'postgres',
+    database: env.DB_NAME || 'dostan_marketplace_dev',
+    host: env.DB_HOST || 'localhost',
+    port: env.DB_PORT,
     dialect: 'postgres',
     logging: (msg: string) => logger.debug(msg), // Route SQL logs through central logger
     pool: {
-        max: parseInt(process.env.DB_POOL_MAX || '10', 10),
-        min: parseInt(process.env.DB_POOL_MIN || '2', 10),
-        acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10),
-        idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10),
+        max: env.DB_POOL_MAX ?? 10,
+        min: env.DB_POOL_MIN ?? 2,
+        acquire: env.DB_POOL_ACQUIRE ?? 30000,
+        idle: env.DB_POOL_IDLE ?? 10000,
     },
     define: {
         timestamps: true,
@@ -123,11 +122,11 @@ const development = withDatabaseUrl({
 });
 
 const test = withDatabaseUrl({
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'dostan_marketplace_test',
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
+    username: env.DB_USER || 'postgres',
+    password: env.DB_PASSWORD || 'postgres',
+    database: env.DB_NAME || 'dostan_marketplace_test',
+    host: env.DB_HOST || 'localhost',
+    port: env.DB_PORT,
     dialect: 'postgres',
     logging: false, // Disable SQL logging in tests
     pool: {
@@ -145,18 +144,18 @@ const test = withDatabaseUrl({
 
 const production = withDatabaseUrl(
     {
-        username: process.env.DB_USER || '',
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || '',
-        host: process.env.DB_HOST || '',
-        port: parseInt(process.env.DB_PORT || '5432', 10),
+        username: env.DB_USER || '',
+        password: env.DB_PASSWORD || '',
+        database: env.DB_NAME || '',
+        host: env.DB_HOST || '',
+        port: env.DB_PORT,
         dialect: 'postgres',
         logging: false, // Disable SQL logging in production
         pool: {
-            max: parseInt(process.env.DB_POOL_MAX || '20', 10), // Higher for production
-            min: parseInt(process.env.DB_POOL_MIN || '5', 10),
-            acquire: parseInt(process.env.DB_POOL_ACQUIRE || '30000', 10),
-            idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10),
+            max: env.DB_POOL_MAX ?? 20, // Higher for production
+            min: env.DB_POOL_MIN ?? 5,
+            acquire: env.DB_POOL_ACQUIRE ?? 30000,
+            idle: env.DB_POOL_IDLE ?? 10000,
         },
         define: {
             timestamps: true,
@@ -173,6 +172,7 @@ const production = withDatabaseUrl(
     { enableSsl: true }
 );
 
+export type { DatabaseConfig };
 export { development, test, production };
 
 // CommonJS compatibility
