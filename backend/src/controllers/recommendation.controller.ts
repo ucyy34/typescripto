@@ -4,22 +4,23 @@
 
 import { Request, Response } from 'express';
 
-// TODO(ts-migration): replace any with proper service types
-import _recommendationService from '../services/recommendation.service';
-const recommendationService = _recommendationService as any;
+import recommendationService = require('../services/recommendation.service');
 
 import { success } from '../utils/response';
 import { asyncHandler } from '../middlewares/errorHandler';
+import type { AuthenticatedRequest } from '../domain/types';
 
-interface AuthenticatedRequest extends Request {
-  user?: { id: string; role: string };
+interface RecommendationQuery {
+  limit?: string;
+  cartProductIds?: string | string[];
+  wishlistProductIds?: string | string[];
 }
 
 class RecommendationController {
-  getRecommendations = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  getRecommendations = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, unknown, RecommendationQuery>, res: Response) => {
+    const authReq = req;
     const { limit, cartProductIds, wishlistProductIds } = req.query;
-    const normalizedLimit = Math.min(parseInt(limit as string, 10) || 8, 24);
+    const normalizedLimit = Math.min(parseInt(limit || '8', 10) || 8, 24);
     const products = await recommendationService.getRecommendations({
       userId: authReq.user?.id,
       limit: normalizedLimit,

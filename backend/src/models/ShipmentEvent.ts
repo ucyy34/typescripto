@@ -5,6 +5,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/sequelize';
 import { Timestamps } from './types/model.types';
+import { ShipmentEventPayload } from './types/json.types';
 
 export interface IShipmentEventAttributes extends Timestamps {
     id: string;
@@ -13,7 +14,7 @@ export interface IShipmentEventAttributes extends Timestamps {
     description: string | null;
     location: string | null;
     occurred_at: Date;
-    raw_payload: any | null;
+    raw_payload: ShipmentEventPayload | null;
 }
 
 export interface IShipmentEventCreationAttributes extends Optional<IShipmentEventAttributes, 'id' | 'description' | 'location' | 'raw_payload' | 'createdAt' | 'updatedAt' | 'deletedAt'> { }
@@ -25,7 +26,7 @@ export default class ShipmentEvent extends Model<IShipmentEventAttributes, IShip
     public description!: string | null;
     public location!: string | null;
     public occurred_at!: Date;
-    public raw_payload!: any | null;
+    public raw_payload!: ShipmentEventPayload | null;
 
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;

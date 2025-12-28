@@ -22,7 +22,21 @@ export interface ICartItem {
     productTitle?: string;
     productSlug?: string;
     productImage?: string;
-    variant?: any; // Phase 8.1: Variant Entegrasyonu
+    variant?: ICartItemVariant | null; // Phase 8.1: Variant Entegrasyonu
+}
+
+export type VariantSelectionValue = string | number | boolean | null;
+
+export interface ICartItemVariantSelection {
+    [key: string]: VariantSelectionValue;
+}
+
+export interface ICartItemVariant {
+    id?: string;
+    sku?: string | null;
+    price?: number | null;
+    stock?: number | null;
+    selection?: ICartItemVariantSelection | null;
 }
 
 // Domain Interface
@@ -46,4 +60,32 @@ export interface IAddToCartInput {
     guestKey?: string;
     productId: string;
     quantity: number;
+}
+
+export interface CartCheckoutInput {
+    store_id?: string;
+    shipping_address?: {
+        fullName?: string;
+        phone?: string;
+        addressLine1?: string;
+        addressLine2?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+        [key: string]: string | number | boolean | null | undefined;
+    };
+    billing_address?: {
+        fullName?: string;
+        phone?: string;
+        addressLine1?: string;
+        addressLine2?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+        [key: string]: string | number | boolean | null | undefined;
+    };
+    payment_method?: string;
+    customer_note?: string;
 }

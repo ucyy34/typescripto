@@ -7,6 +7,10 @@ import { ProductVariant, Product, Store } from '../models';
 import { ApiError } from '../middlewares/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { getVariantTypes, getVariantValues, generateSKUSuffix, isValidVariantType } from '../config/variantTypes';
+import type ProductModel from '../models/Product';
+import type ProductVariantModel from '../models/ProductVariant';
+
+type ProductWithStore = ProductModel & { store?: { owner_id?: string } };
 
 interface VariantType {
     key: string;
@@ -62,8 +66,8 @@ class VariantService {
     /**
      * Get all variants for a product
      */
-    async getProductVariants(productId: string): Promise<any[]> {
-        const product = await Product.findByPk(productId);
+    async getProductVariants(productId: string): Promise<ProductVariantModel[]> {
+        const product: ProductModel | null = await Product.findByPk(productId);
         if (!product) {
             throw new ApiError('Product not found', StatusCodes.NOT_FOUND);
         }
@@ -86,9 +90,9 @@ class VariantService {
     /**
      * Add a variant to a product
      */
-    async addVariant(productId: string, variantData: VariantData, userId: string): Promise<any> {
+    async addVariant(productId: string, variantData: VariantData, userId: string): Promise<ProductVariantModel> {
         // Get product and verify ownership
-        const product: any = await Product.findByPk(productId, {
+        const product: ProductWithStore | null = await Product.findByPk(productId, {
             include: [{ model: Store, as: 'store' }]
         });
 
@@ -152,7 +156,7 @@ class VariantService {
         }
 
         // Create variant
-        const variant = await ProductVariant.create({
+        const variant: ProductVariantModel = await ProductVariant.create({
             product_id: productId,
             sku,
             color_hex: variantData.color_hex || null,
@@ -173,9 +177,9 @@ class VariantService {
     /**
      * Update a variant
      */
-    async updateVariant(productId: string, variantId: string, updateData: UpdateData, userId: string): Promise<any> {
+    async updateVariant(productId: string, variantId: string, updateData: UpdateData, userId: string): Promise<ProductVariantModel> {
         // Get product and verify ownership
-        const product: any = await Product.findByPk(productId, {
+        const product: ProductWithStore | null = await Product.findByPk(productId, {
             include: [{ model: Store, as: 'store' }]
         });
 
@@ -188,7 +192,7 @@ class VariantService {
         }
 
         // Get variant
-        const variant: any = await ProductVariant.findOne({
+        const variant: ProductVariantModel | null = await ProductVariant.findOne({
             where: { id: variantId, product_id: productId }
         });
 
@@ -202,10 +206,11 @@ class VariantService {
             'price', 'stock', 'image_url', 'discount_percent', 'discount_ends_at', 'is_active'
         ];
 
-        const updates: Record<string, any> = {};
+        const updates: Partial<UpdateData> = {};
         for (const field of allowedFields) {
-            if ((updateData as any)[field] !== undefined) {
-                updates[field] = (updateData as any)[field];
+            const value = updateData[field as keyof UpdateData];
+            if (value !== undefined) {
+                updates[field as keyof UpdateData] = value;
             }
         }
 
@@ -218,7 +223,7 @@ class VariantService {
      */
     async deleteVariant(productId: string, variantId: string, userId: string): Promise<boolean> {
         // Get product and verify ownership
-        const product: any = await Product.findByPk(productId, {
+        const product: ProductWithStore | null = await Product.findByPk(productId, {
             include: [{ model: Store, as: 'store' }]
         });
 

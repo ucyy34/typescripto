@@ -8,6 +8,21 @@ import { WishlistItem, Product, Store, Category } from '../models';
 import { ApiError } from '../middlewares/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { cache } from '../config/redis';
+import type WishlistItemModel from '../models/WishlistItem';
+import type ProductModel from '../models/Product';
+import type { WishlistItemMetadata } from '../models/types/json.types';
+
+interface StoreSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface CategorySummary {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 const CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
 
@@ -25,8 +40,8 @@ interface SerializedWishlistItem {
     rating: number;
     total_reviews: number;
     images: string[];
-    store: any;
-    category: any;
+    store: StoreSummary | null;
+    category: CategorySummary | null;
   };
 }
 
@@ -42,7 +57,7 @@ class WishlistService {
       return cached as SerializedWishlistItem[];
     }
 
-    const items: any[] = await WishlistItem.findAll({
+    const items: WishlistItemModel[] = await WishlistItem.findAll({
       where: { user_id: userId },
       order: [['created_at', 'DESC']],
       include: [
@@ -67,10 +82,10 @@ class WishlistService {
     return formatted;
   }
 
-  async add(userId: string, productId: string, metadata: any = null): Promise<SerializedWishlistItem[]> {
+  async add(userId: string, productId: string, metadata: WishlistItemMetadata | null = null): Promise<SerializedWishlistItem[]> {
     await this._assertProductExists(productId);
 
-    const [entry]: any = await WishlistItem.findOrCreate({
+    const [entry]: [WishlistItemModel, boolean] = await WishlistItem.findOrCreate({
       where: { user_id: userId, product_id: productId },
       defaults: { metadata },
     });
@@ -109,7 +124,7 @@ class WishlistService {
       return [];
     }
 
-    const validProducts: any[] = await Product.findAll({
+    const validProducts: ProductModel[] = await Product.findAll({
       where: {
         id: uniqueIds,
         status: 'approved',
@@ -127,7 +142,7 @@ class WishlistService {
       },
     });
 
-    const existing: any[] = await WishlistItem.findAll({
+    const existing: WishlistItemModel[] = await WishlistItem.findAll({
       where: {
         user_id: userId,
         product_id: validIds,
@@ -148,8 +163,8 @@ class WishlistService {
     return this.list(userId);
   }
 
-  serializeWishlistItem(item: any): SerializedWishlistItem {
-    const product = item.product;
+  serializeWishlistItem(item: WishlistItemModel): SerializedWishlistItem {
+    const product = item.product as ProductModel & { store?: StoreSummary; category?: CategorySummary };
     return {
       id: item.id,
       product_id: product.id,
@@ -170,8 +185,8 @@ class WishlistService {
     };
   }
 
-  async _assertProductExists(productId: string): Promise<any> {
-    const product = await Product.findOne({
+  async _assertProductExists(productId: string): Promise<ProductModel> {
+    const product: ProductModel | null = await Product.findOne({
       where: {
         id: productId,
         status: 'approved',

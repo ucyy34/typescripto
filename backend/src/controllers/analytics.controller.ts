@@ -6,22 +6,21 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-// TODO(ts-migration): replace any with proper service types
-import _vendorAnalyticsService from '../services/vendorAnalytics.service';
-import _storeService from '../services/store.service';
-const vendorAnalyticsService = _vendorAnalyticsService as any;
-const storeService = _storeService as any;
+import vendorAnalyticsService = require('../services/vendorAnalytics.service');
+import storeService = require('../services/store.service');
 
 import { success } from '../utils/response';
 import { asyncHandler, ApiError } from '../middlewares/errorHandler';
+import type { AuthenticatedRequest } from '../domain/types';
 
-interface AuthenticatedRequest extends Request {
-    user?: { id: string; role: string };
+interface AnalyticsQuery {
+    days?: string;
+    limit?: string;
 }
 
 class AnalyticsController {
-    getVendorDashboard = asyncHandler(async (req: Request, res: Response) => {
-        const authReq = req as AuthenticatedRequest;
+    getVendorDashboard = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const authReq = req;
         const store = await storeService.getStoreByUserId(authReq.user!.id);
         if (!store) {
             throw new ApiError('No store found for this user', StatusCodes.NOT_FOUND);
@@ -30,62 +29,62 @@ class AnalyticsController {
         return success(res, stats, 'Vendor dashboard stats retrieved successfully');
     });
 
-    getVendorSalesChart = asyncHandler(async (req: Request, res: Response) => {
-        const authReq = req as AuthenticatedRequest;
+    getVendorSalesChart = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
+        const authReq = req;
         const store = await storeService.getStoreByUserId(authReq.user!.id);
         if (!store) {
             throw new ApiError('No store found for this user', StatusCodes.NOT_FOUND);
         }
-        const days = parseInt(req.query.days as string) || 30;
+        const days = parseInt(req.query.days || '30', 10) || 30;
         const salesData = await vendorAnalyticsService.getSalesChart(store.id, days);
         return success(res, salesData, 'Sales chart data retrieved successfully');
     });
 
-    getVendorTopProducts = asyncHandler(async (req: Request, res: Response) => {
-        const authReq = req as AuthenticatedRequest;
+    getVendorTopProducts = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
+        const authReq = req;
         const store = await storeService.getStoreByUserId(authReq.user!.id);
         if (!store) {
             throw new ApiError('No store found for this user', StatusCodes.NOT_FOUND);
         }
-        const limit = parseInt(req.query.limit as string) || 5;
+        const limit = parseInt(req.query.limit || '5', 10) || 5;
         const products = await vendorAnalyticsService.getTopProducts(store.id, limit);
         return success(res, products, 'Top products retrieved successfully');
     });
 
-    getVendorRecentOrders = asyncHandler(async (req: Request, res: Response) => {
-        const authReq = req as AuthenticatedRequest;
+    getVendorRecentOrders = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
+        const authReq = req;
         const store = await storeService.getStoreByUserId(authReq.user!.id);
         if (!store) {
             throw new ApiError('No store found for this user', StatusCodes.NOT_FOUND);
         }
-        const limit = parseInt(req.query.limit as string) || 10;
+        const limit = parseInt(req.query.limit || '10', 10) || 10;
         const orders = await vendorAnalyticsService.getRecentOrders(store.id, limit);
         return success(res, orders, 'Recent orders retrieved successfully');
     });
 
-    getAdminOverview = asyncHandler(async (req: Request, res: Response) => {
+    getAdminOverview = asyncHandler(async (_req: Request, res: Response) => {
         const adminAnalyticsService = require('../services/adminAnalytics.service');
         const stats = await adminAnalyticsService.getPlatformOverview();
         return success(res, stats, 'Platform overview retrieved successfully');
     });
 
-    getAdminTopStores = asyncHandler(async (req: Request, res: Response) => {
+    getAdminTopStores = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
         const adminAnalyticsService = require('../services/adminAnalytics.service');
-        const limit = parseInt(req.query.limit as string) || 10;
+        const limit = parseInt(req.query.limit || '10', 10) || 10;
         const stores = await adminAnalyticsService.getTopStores(limit);
         return success(res, stores, 'Top stores retrieved successfully');
     });
 
-    getAdminRevenueChart = asyncHandler(async (req: Request, res: Response) => {
+    getAdminRevenueChart = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
         const adminAnalyticsService = require('../services/adminAnalytics.service');
-        const days = parseInt(req.query.days as string) || 30;
+        const days = parseInt(req.query.days || '30', 10) || 30;
         const revenueData = await adminAnalyticsService.getRevenueChart(days);
         return success(res, revenueData, 'Revenue chart data retrieved successfully');
     });
 
-    getAdminRecentActivity = asyncHandler(async (req: Request, res: Response) => {
+    getAdminRecentActivity = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, AnalyticsQuery>, res: Response) => {
         const adminAnalyticsService = require('../services/adminAnalytics.service');
-        const limit = parseInt(req.query.limit as string) || 20;
+        const limit = parseInt(req.query.limit || '20', 10) || 20;
         const activity = await adminAnalyticsService.getRecentActivity(limit);
         return success(res, activity, 'Recent activity retrieved successfully');
     });

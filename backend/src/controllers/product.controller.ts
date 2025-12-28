@@ -10,22 +10,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-// TODO(ts-migration): replace any with proper ProductService interface when service is fully typed
-import _productService from '../services/product.service';
-const productService = _productService as any;
+import productService = require('../services/product.service');
 import { success, created, noContent, paginated } from '../utils/response';
 import { asyncHandler, ApiError } from '../middlewares/errorHandler';
+import type { AuthenticatedRequest } from '../domain/types';
+import type { CreateProductDTO, ProductIdParams, ProductListQuery } from '../application/schemas/product.schema';
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-  };
-  file?: {
-    buffer: Buffer;
-    size: number;
-    originalname: string;
-  };
+interface ProductQuery extends ProductListQuery {
+  includeAllStatuses?: string | boolean;
+  store_id?: string;
 }
 
 const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'uploads', 'products');
@@ -35,8 +28,8 @@ class ProductController {
    * Create new product
    * POST /api/v1/products
    */
-  createProduct = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  createProduct = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, CreateProductDTO>, res: Response) => {
+    const authReq = req;
     const product = await productService.createProduct(authReq.user!.id, req.body);
 
     return created(res, product, 'Product created successfully. Waiting for admin approval.');
@@ -46,8 +39,8 @@ class ProductController {
    * Get product by ID
    * GET /api/v1/products/:id
    */
-  getProduct = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  getProduct = asyncHandler(async (req: AuthenticatedRequest<ProductIdParams>, res: Response) => {
+    const authReq = req;
     const includeInactive = authReq.user?.role === 'admin';
     const requestUserId = authReq.user?.id;
     const product = await productService.getProductById(req.params.id, includeInactive, requestUserId);
@@ -59,8 +52,8 @@ class ProductController {
    * Get product by slug
    * GET /api/v1/products/slug/:slug
    */
-  getProductBySlug = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  getProductBySlug = asyncHandler(async (req: AuthenticatedRequest<{ slug: string }>, res: Response) => {
+    const authReq = req;
     const includeInactive = authReq.user?.role === 'admin';
     const product = await productService.getProductBySlug(req.params.slug, includeInactive);
 
@@ -71,9 +64,9 @@ class ProductController {
    * Get all products with filters
    * GET /api/v1/products
    */
-  getProducts = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
-    const { includeAllStatuses, store_id, ...otherQuery } = req.query as any;
+  getProducts = asyncHandler(async (req: AuthenticatedRequest<Record<string, string>, unknown, unknown, ProductQuery>, res: Response) => {
+    const authReq = req;
+    const { includeAllStatuses, store_id, ...otherQuery } = req.query;
 
     if (includeAllStatuses === 'true' || includeAllStatuses === true) {
       if (!authReq.user) {
@@ -99,7 +92,7 @@ class ProductController {
    * Search products for storefront
    * GET /api/v1/products/search
    */
-  searchProducts = asyncHandler(async (req: Request, res: Response) => {
+  searchProducts = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, { q?: string; limit?: string; includeSuggestions?: string }>, res: Response) => {
     const { q, limit, includeSuggestions } = req.query;
     const result = await productService.searchProducts({
       query: q,
@@ -114,7 +107,7 @@ class ProductController {
    * Get products by store
    * GET /api/v1/stores/:storeId/products
    */
-  getProductsByStore = asyncHandler(async (req: Request, res: Response) => {
+  getProductsByStore = asyncHandler(async (req: Request<{ storeId: string }, unknown, unknown, ProductQuery>, res: Response) => {
     const result = await productService.getProductsByStore(req.params.storeId, req.query);
 
     return paginated(res, result.products, result.pagination);
@@ -124,8 +117,8 @@ class ProductController {
    * Update product
    * PUT /api/v1/products/:id
    */
-  updateProduct = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  updateProduct = asyncHandler(async (req: AuthenticatedRequest<ProductIdParams, unknown, Partial<CreateProductDTO>>, res: Response) => {
+    const authReq = req;
     const product = await productService.updateProduct(req.params.id, authReq.user!.id, req.body);
 
     return success(res, product, 'Product updated successfully');
@@ -135,8 +128,8 @@ class ProductController {
    * Update product status (admin only)
    * PATCH /api/v1/products/:id/status
    */
-  updateProductStatus = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  updateProductStatus = asyncHandler(async (req: AuthenticatedRequest<ProductIdParams, unknown, { status: string; rejection_reason?: string }>, res: Response) => {
+    const authReq = req;
     const { status, rejection_reason } = req.body;
     const product = await productService.updateProductStatus(req.params.id, authReq.user!.id, status, rejection_reason);
 
@@ -147,8 +140,8 @@ class ProductController {
    * Delete product
    * DELETE /api/v1/products/:id
    */
-  deleteProduct = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  deleteProduct = asyncHandler(async (req: AuthenticatedRequest<ProductIdParams>, res: Response) => {
+    const authReq = req;
     await productService.deleteProduct(req.params.id, authReq.user!.id);
 
     return noContent(res);
@@ -158,8 +151,8 @@ class ProductController {
    * Get featured products
    * GET /api/v1/products/featured
    */
-  getFeaturedProducts = asyncHandler(async (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string, 10) || 10;
+  getFeaturedProducts = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, { limit?: string }>, res: Response) => {
+    const limit = parseInt(req.query.limit || '10', 10) || 10;
     const products = await productService.getFeaturedProducts(limit);
 
     return success(res, products, 'Featured products retrieved successfully');
@@ -169,8 +162,8 @@ class ProductController {
    * Get best-selling products
    * GET /api/v1/products/bestsellers
    */
-  getBestSellers = asyncHandler(async (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string, 10) || 10;
+  getBestSellers = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, { limit?: string }>, res: Response) => {
+    const limit = parseInt(req.query.limit || '10', 10) || 10;
     const products = await productService.getBestSellers(limit);
 
     return success(res, products, 'Best-selling products retrieved successfully');
@@ -180,8 +173,8 @@ class ProductController {
    * Get random products (for discovery experiences)
    * GET /api/v1/products/random
    */
-  getRandomProducts = asyncHandler(async (req: Request, res: Response) => {
-    const limit = Math.min(parseInt(req.query.limit as string, 10) || 6, 24);
+  getRandomProducts = asyncHandler(async (req: Request<Record<string, string>, unknown, unknown, { limit?: string }>, res: Response) => {
+    const limit = Math.min(parseInt(req.query.limit || '6', 10) || 6, 24);
     const products = await productService.getRandomProducts(limit);
 
     return success(res, products, 'Random products retrieved successfully');
@@ -191,8 +184,8 @@ class ProductController {
    * Upload a product image and convert it to WebP format
    * POST /api/v1/products/upload-image
    */
-  uploadProductImage = asyncHandler(async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
+  uploadProductImage = asyncHandler(async (req: AuthenticatedRequest & { file?: { buffer: Buffer; size: number; originalname: string } }, res: Response) => {
+    const authReq = req;
     if (!authReq.file) {
       throw new ApiError('Image file is required', StatusCodes.BAD_REQUEST);
     }

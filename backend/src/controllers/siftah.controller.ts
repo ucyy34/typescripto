@@ -6,12 +6,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-// TODO(ts-migration): replace any with proper service types
-import _siftahService from '../services/siftah.service';
-const siftahService = _siftahService as any;
+import siftahService = require('../services/siftah.service');
+
+interface SiftahQuery {
+    product_id?: string;
+}
 
 class SiftahController {
-    async getRecommendations(req: Request, res: Response, next: NextFunction) {
+    async getRecommendations(req: Request<Record<string, string>, unknown, unknown, SiftahQuery>, res: Response, next: NextFunction) {
         try {
             const { product_id } = req.query;
             const result = await siftahService.getSiftahRecommendation(product_id);

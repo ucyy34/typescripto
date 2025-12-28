@@ -9,6 +9,8 @@ import { StatusCodes } from 'http-status-codes';
 import { cache } from '../config/redis';
 import { sequelize } from '../config/sequelize';
 import { Op } from 'sequelize';
+import type CategoryModel from '../models/Category';
+import type ProductModel from '../models/Product';
 
 class CategoryService {
   /**
@@ -51,8 +53,8 @@ class CategoryService {
    * @param {string} categoryId
    * @returns {Promise<Category>}
    */
-  async getCategoryById(categoryId) {
-    const category = await Category.findByPk(categoryId, {
+  async getCategoryById(categoryId: string) {
+    const category: CategoryModel | null = await Category.findByPk(categoryId, {
       include: [
         {
           model: Category,
@@ -73,7 +75,7 @@ class CategoryService {
     }
 
     const stats = await this.getCategoryStats(category.id);
-    (category as any).setDataValue('stats', stats);
+    category.setDataValue('stats', stats);
 
     return category;
   }
@@ -83,8 +85,8 @@ class CategoryService {
    * @param {string} slug
    * @returns {Promise<Category>}
    */
-  async getCategoryBySlug(slug) {
-    const category = await Category.findOne({
+  async getCategoryBySlug(slug: string) {
+    const category: CategoryModel | null = await Category.findOne({
       where: { slug },
       include: [
         {
@@ -106,7 +108,7 @@ class CategoryService {
     }
 
     const stats = await this.getCategoryStats(category.id);
-    (category as any).setDataValue('stats', stats);
+    category.setDataValue('stats', stats);
 
     return category;
   }
@@ -116,7 +118,7 @@ class CategoryService {
    * @param {string} categoryId
    * @returns {Promise<Object>}
    */
-  async getCategoryStats(categoryId) {
+  async getCategoryStats(categoryId: string) {
     const baseWhere = {
       category_id: categoryId,
       status: 'approved',
@@ -124,7 +126,7 @@ class CategoryService {
       stock: { [Op.gt]: 0 },
     };
 
-    const [summary] = await Product.findAll({
+    const [summary] = (await Product.findAll({
       attributes: [
         [sequelize.fn('COUNT', sequelize.col('Product.id')), 'totalProducts'],
         [sequelize.fn('AVG', sequelize.col('Product.price')), 'avgPrice'],
@@ -144,9 +146,9 @@ class CategoryService {
         },
       ],
       raw: true,
-    }) as any[];
+    })) as Array<Record<string, string | number>>;
 
-    const uniqueStoreCount = await (Product as any).aggregate('store_id', 'count', {
+    const uniqueStoreCount = await (Product as typeof ProductModel).aggregate('store_id', 'count', {
       distinct: true,
       where: baseWhere,
       include: [
@@ -193,7 +195,7 @@ class CategoryService {
    * @param {Object} categoryData
    * @returns {Promise<Category>}
    */
-  async createCategory(categoryData) {
+  async createCategory(categoryData: Record<string, unknown>) {
     // If parent_id is provided, check if parent exists
     if (categoryData.parent_id) {
       const parent = await Category.findByPk(categoryData.parent_id);
@@ -216,8 +218,8 @@ class CategoryService {
    * @param {Object} updateData
    * @returns {Promise<Category>}
    */
-  async updateCategory(categoryId, updateData) {
-    const category = await Category.findByPk(categoryId);
+  async updateCategory(categoryId: string, updateData: Record<string, unknown>) {
+    const category: CategoryModel | null = await Category.findByPk(categoryId);
 
     if (!category) {
       throw new ApiError('Category not found', StatusCodes.NOT_FOUND);

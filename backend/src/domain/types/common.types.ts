@@ -4,13 +4,19 @@
  */
 
 import { Request } from 'express';
+import type { ParsedQs } from 'qs';
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest<
+    Params = Record<string, string>,
+    ResBody = unknown,
+    ReqBody = unknown,
+    ReqQuery = ParsedQs
+> extends Request<Params, ResBody, ReqBody, ReqQuery> {
     user?: {
         id: string;
         email?: string;
         role: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
     guestId?: string;
 }

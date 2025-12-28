@@ -8,6 +8,25 @@ import { ApiError } from '../middlewares/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { Op } from 'sequelize';
 
+interface ValidateCouponOptions {
+  userId?: string | null;
+  orderAmount?: number;
+  orderItems?: Array<{
+    product_id?: string;
+    category_id?: string;
+    store_id?: string;
+  }>;
+  storeId?: string | null;
+}
+
+interface CouponFilters {
+  page?: number | string;
+  limit?: number | string;
+  status?: string;
+  storeId?: string;
+  search?: string;
+}
+
 class CouponService {
   /**
    * Deactivate expired coupons (auto housekeeping)
@@ -30,7 +49,7 @@ class CouponService {
    * @param {Object} options - Validation options
    * @returns {Promise<Object>} Validation result with coupon and discount
    */
-  async validateCoupon(code: string, options: any = {}) {
+  async validateCoupon(code: string, options: ValidateCouponOptions = {}) {
     const {
       userId = null,
       orderAmount = 0,
@@ -314,7 +333,7 @@ class CouponService {
    * @param {Object} filters - Query filters
    * @returns {Promise<Object>}
    */
-  async getAllCoupons(filters: any = {}) {
+  async getAllCoupons(filters: CouponFilters = {}) {
     // Housekeeping: auto-deactivate expired coupons so admin sees up-to-date state
     await this.deactivateExpiredCoupons();
     const {
@@ -325,8 +344,10 @@ class CouponService {
       search,
     } = filters;
 
-    const offset = (page - 1) * limit;
-    const whereClause: any = {};
+    const parsedPage = Number(page) || 1;
+    const parsedLimit = Number(limit) || 20;
+    const offset = (parsedPage - 1) * parsedLimit;
+    const whereClause: Record<string, unknown> = {};
 
     if (is_active !== undefined) {
       whereClause.is_active = is_active === 'true';
@@ -352,7 +373,7 @@ class CouponService {
           attributes: ['id', 'email', 'first_name', 'last_name'],
         },
       ],
-      limit: parseInt(limit),
+      limit: parsedLimit,
       offset,
       order: [['created_at', 'DESC']],
       paranoid: false, // Include soft-deleted
@@ -362,9 +383,9 @@ class CouponService {
       coupons,
       pagination: {
         total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(count / limit),
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.ceil(count / parsedLimit),
       },
     };
   }
@@ -463,7 +484,7 @@ class CouponService {
   /**
    * Disable coupon
    */
-  async disableCoupon(couponId) {
+  async disableCoupon(couponId: string) {
     const coupon = await Coupon.findByPk(couponId);
     if (!coupon) throw new ApiError('Coupon not found', StatusCodes.NOT_FOUND);
 
@@ -476,7 +497,7 @@ class CouponService {
    * @param {string} couponId - Coupon ID
    * @returns {Promise<Object>}
    */
-  async getCouponStats(couponId) {
+  async getCouponStats(couponId: string) {
     const coupon = await Coupon.findByPk(couponId);
 
     if (!coupon) {
@@ -493,12 +514,18 @@ class CouponService {
       raw: true,
     });
 
+    const usageSummary = (usages[0] || {}) as {
+      total_uses?: string | number;
+      total_discount?: string | number;
+      total_sales?: string | number;
+    };
+
     return {
       coupon_id: couponId,
       code: coupon.code,
-      total_uses: parseInt((usages[0] as any).total_uses) || 0,
-      total_discount: parseFloat(String((usages[0] as any).total_discount)) || 0,
-      total_sales: parseFloat(String((usages[0] as any).total_sales)) || 0,
+      total_uses: parseInt(String(usageSummary.total_uses ?? 0), 10) || 0,
+      total_discount: parseFloat(String(usageSummary.total_discount ?? 0)) || 0,
+      total_sales: parseFloat(String(usageSummary.total_sales ?? 0)) || 0,
       usage_limit: coupon.usage_limit,
       times_used: coupon.times_used,
       is_active: coupon.is_active,
@@ -510,7 +537,7 @@ class CouponService {
    * @param {string} userId - User ID
    * @returns {Promise<Array<CouponUsage>>}
    */
-  async getUserCouponHistory(userId) {
+  async getUserCouponHistory(userId: string) {
     return CouponUsage.getUserHistory(userId);
   }
 }

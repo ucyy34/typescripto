@@ -11,16 +11,25 @@ import { Product as IProduct } from '../types';
 // Models
 const { Product, Store, Category, Review, StoreDailySales, WishlistItem, ProductVariant } = require('../models');
 
+interface ProductQuery {
+  page?: string;
+  limit?: string;
+  category?: string;
+  min_price?: string;
+  max_price?: string;
+  search?: string;
+}
+
 class ProductService {
   /**
    * Get all products with filters and pagination
    */
-  async getProducts(query: any = {}) {
+  async getProducts(query: ProductQuery = {}) {
     const page = parseInt(query.page) || 1;
     const limit = parseInt(query.limit) || 12;
     const offset = (page - 1) * limit;
 
-    const where: any = {
+    const where: Record<string, unknown> = {
       is_active: true,
       status: 'approved',
     };

@@ -8,6 +8,18 @@ import { ApiError } from '../middlewares/errorHandler';
 import { StatusCodes } from 'http-status-codes';
 import { Op } from 'sequelize';
 
+interface CampaignQuery {
+  page?: number | string;
+  limit?: number | string;
+  campaign_type?: string;
+  is_active?: boolean | string;
+  approval_status?: string;
+  store_id?: string;
+  search?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc' | string;
+}
+
 class CampaignService {
   /**
    * Create a new campaign
@@ -16,7 +28,7 @@ class CampaignService {
    * @param {string} userRole - User role (admin/seller)
    * @returns {Promise<Campaign>}
    */
-  async createCampaign(data, userId, userRole) {
+  async createCampaign(data: Record<string, unknown>, userId: string, userRole: string) {
     try {
       // Prepare campaign data
       const campaignData = {
@@ -103,7 +115,7 @@ class CampaignService {
    * @param {string} userId - User ID
    * @returns {Promise<Object>} { campaigns, pagination }
    */
-  async getAllCampaigns(query, userRole, userId) {
+  async getAllCampaigns(query: CampaignQuery, userRole: string, userId: string) {
     try {
       const {
         page = 1,
@@ -117,8 +129,10 @@ class CampaignService {
         sort_order = 'desc',
       } = query;
 
-      const offset = (page - 1) * limit;
-      const where: any = {};
+      const parsedPage = Number(page) || 1;
+      const parsedLimit = Number(limit) || 20;
+      const offset = (parsedPage - 1) * parsedLimit;
+      const where: Record<string, unknown> = {};
 
       // Role-based filtering
       if (userRole === 'seller') {
@@ -139,7 +153,9 @@ class CampaignService {
 
       // Filters
       if (campaign_type) where.campaign_type = campaign_type;
-      if (typeof is_active !== 'undefined') where.is_active = is_active;
+      if (typeof is_active !== 'undefined') {
+        where.is_active = is_active === 'true' ? true : is_active === 'false' ? false : is_active;
+      }
       if (approval_status) where.approval_status = approval_status;
 
       // Search
@@ -152,7 +168,7 @@ class CampaignService {
 
       const { count, rows: campaigns } = await Campaign.findAndCountAll({
         where,
-        limit,
+        limit: parsedLimit,
         offset,
         order: [[sort_by, sort_order.toUpperCase()]],
         include: [
@@ -173,9 +189,9 @@ class CampaignService {
         campaigns,
         pagination: {
           total: count,
-          page: parseInt(page),
-          pages: Math.ceil(count / limit),
-          limit: parseInt(limit),
+          page: parsedPage,
+          pages: Math.ceil(count / parsedLimit),
+          limit: parsedLimit,
         },
       };
     } catch (error) {
@@ -399,7 +415,7 @@ class CampaignService {
    * @param {string} userId
    * @returns {Promise<Object>}
    */
-  async getCampaignStats(campaignId, userRole, userId) {
+  async getCampaignStats(campaignId: string, userRole: string, userId: string) {
     try {
       const campaign = await this.getCampaignById(campaignId, userRole, userId);
 
@@ -407,7 +423,7 @@ class CampaignService {
       const orders = await Order.findAll({
         where: {
           campaign_id: campaignId,
-        } as any,
+        },
         attributes: ['id', 'total_amount', 'status', 'createdAt'],
       });
 

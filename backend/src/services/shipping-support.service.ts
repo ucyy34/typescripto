@@ -9,6 +9,9 @@
 import { Op } from 'sequelize';
 import { Store, ShippingSupportRule, Order, PlatformSettings } from '../models';
 import logger from '../utils/logger';
+import type StoreModel from '../models/Store';
+import type ShippingSupportRuleModel from '../models/ShippingSupportRule';
+import type OrderModel from '../models/Order';
 
 // Fallback if database not available
 const FALLBACK_SHIPPING_COST = 35.00;
@@ -69,6 +72,24 @@ interface ShippingReportOptions {
     endDate?: string | Date;
 }
 
+interface CartItemSummary {
+    store_id?: string;
+    storeId?: string;
+    price?: number;
+    quantity?: number;
+}
+
+interface ShippingReportResult {
+    orderCount: number;
+    totalActualCost: number;
+    totalCustomerPaid: number;
+    totalStoreCovered: number;
+    totalPlatformCovered: number;
+    customerPercentage: number;
+    storePercentage: number;
+    platformPercentage: number;
+}
+
 class ShippingSupportService {
 
     /**
@@ -120,8 +141,8 @@ class ShippingSupportService {
      * @param {Object} store - Store object or store_id
      * @returns {number}
      */
-    async getStoreShippingCost(store: any | string): Promise<number> {
-        let storeData: any = store;
+    async getStoreShippingCost(store: StoreModel | string): Promise<number> {
+        let storeData: StoreModel | null = typeof store === 'string' ? null : store;
 
         if (typeof store === 'string') {
             storeData = await Store.findByPk(store);
@@ -144,7 +165,7 @@ class ShippingSupportService {
      */
     async calculateShippingSupport({ storeId, orderTotal, cartTotal = null, storeCount = 1, isNewCustomer = false }: CalculateSupportParams): Promise<ShippingBreakdown> {
         try {
-            const store: any = await Store.findByPk(storeId);
+            const store: StoreModel | null = await Store.findByPk(storeId);
 
             if (!store) {
                 throw new Error('Store not found');
@@ -216,11 +237,11 @@ class ShippingSupportService {
     /**
      * Find applicable platform shipping rule
      */
-    async findApplicablePlatformRule({ cartTotal, storeCount, isNewCustomer }: FindRuleParams): Promise<any | null> {
+    async findApplicablePlatformRule({ cartTotal, storeCount, isNewCustomer }: FindRuleParams): Promise<ShippingSupportRuleModel | null> {
         try {
             const now = new Date();
 
-            const rules: any[] = await ShippingSupportRule.findAll({
+            const rules: ShippingSupportRuleModel[] = await ShippingSupportRule.findAll({
                 where: {
                     is_active: true,
                     [Op.or]: [
@@ -270,10 +291,10 @@ class ShippingSupportService {
     /**
      * Calculate shipping for entire cart (multiple stores)
      */
-    async calculateCartShipping(cartItems: any[], isNewCustomer: boolean = false): Promise<CartShippingResult> {
+    async calculateCartShipping(cartItems: CartItemSummary[], isNewCustomer: boolean = false): Promise<CartShippingResult> {
         try {
             // Group items by store
-            const storeGroups: Record<string, { storeId: string; items: any[]; subtotal: number }> = {};
+            const storeGroups: Record<string, { storeId: string; items: CartItemSummary[]; subtotal: number }> = {};
             let cartTotal = 0;
 
             cartItems.forEach(item => {
@@ -416,11 +437,11 @@ class ShippingSupportService {
      * Get shipping report for admin dashboard
      * @returns {Object} Shipping statistics
      */
-    async getShippingReport(options: ShippingReportOptions = {}): Promise<any> {
+    async getShippingReport(options: ShippingReportOptions = {}): Promise<ShippingReportResult> {
         try {
             const { startDate, endDate } = options;
 
-            const where: any = {};
+            const where: Record<string, unknown> = {};
             if (startDate) {
                 where.created_at = { [Op.gte]: new Date(startDate as string) };
             }
@@ -428,7 +449,7 @@ class ShippingSupportService {
                 where.created_at = { ...where.created_at, [Op.lte]: new Date(endDate as string) };
             }
 
-            const orders: any[] = await Order.findAll({
+            const orders: OrderModel[] = await Order.findAll({
                 where,
                 attributes: [
                     'shipping_actual_cost',
