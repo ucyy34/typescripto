@@ -3,32 +3,18 @@
  * JWT-based authentication with role-based access control (RBAC)
  */
 
-import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { Response, NextFunction, RequestHandler } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
 import { unauthorized, forbidden } from '../utils/response';
 import { ApiError, asyncHandler } from './errorHandler';
 import { User, Store } from '../models';
-
-// Extend Express Request to include user and store
-declare global {
-    namespace Express {
-        interface Request {
-            user?: {
-                id: string;
-                email?: string;
-                role: string;
-                [key: string]: any;
-            };
-            store?: unknown;
-        }
-    }
-}
+import { OptionalAuthRequest } from '../domain/types/common.types';
 
 /**
  * Verify JWT token and attach user to request
  */
-const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
+const authenticate = async (req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<void | Response> => {
     try {
         // Extract token from Authorization header
         const token = extractTokenFromHeader(req.headers.authorization);
@@ -63,7 +49,7 @@ const authenticate = async (req: Request, res: Response, next: NextFunction): Pr
 /**
  * Optional authentication (doesn't fail if no token)
  */
-const optionalAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const optionalAuth = async (req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const token = extractTokenFromHeader(req.headers.authorization);
 
@@ -88,7 +74,7 @@ const optionalAuth = async (req: Request, res: Response, next: NextFunction): Pr
  * @param  {...string} roles - Allowed roles
  */
 const requireRole = (...roles: string[]): RequestHandler => {
-    return (req: Request, res: Response, next: NextFunction): void | Response => {
+    return (req: OptionalAuthRequest, res: Response, next: NextFunction): void | Response => {
         if (!req.user) {
             return unauthorized(res, 'Authentication required');
         }
@@ -125,8 +111,8 @@ const requireSellerOrAdmin = requireRole('seller', 'admin');
  * Check if user owns the resource
  * @param {Function} getResourceUserId - Function to extract user_id from request
  */
-const requireOwnership = (getResourceUserId: (req: Request) => string): RequestHandler => {
-    return (req: Request, res: Response, next: NextFunction): void | Response => {
+const requireOwnership = (getResourceUserId: (req: OptionalAuthRequest) => string): RequestHandler => {
+    return (req: OptionalAuthRequest, res: Response, next: NextFunction): void | Response => {
         if (!req.user) {
             return unauthorized(res, 'Authentication required');
         }
@@ -152,7 +138,7 @@ const requireOwnership = (getResourceUserId: (req: Request) => string): RequestH
  * Ensures the authenticated user owns the store they're trying to access
  * Admins bypass this check
  */
-const validateStoreOwnership = asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const validateStoreOwnership = asyncHandler(async (req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<void> => {
     const storeId = req.params.storeId;
     const userId = req.user?.id;
     const userRole = req.user?.role;

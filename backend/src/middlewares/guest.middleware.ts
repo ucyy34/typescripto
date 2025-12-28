@@ -3,8 +3,9 @@
  * Attach guest ID to request for anonymous users
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
+import { OptionalGuestRequest } from '../domain/types/common.types';
 
 const COOKIE_NAME = 'guest_id';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -19,7 +20,7 @@ const normalizeGuestId = (value: unknown): string | null => {
     return uuidValidate(trimmed) ? trimmed : null;
 };
 
-const attachGuestId = (req: Request, res: Response, next: NextFunction): void => {
+const attachGuestId = (req: OptionalGuestRequest, res: Response, next: NextFunction): void => {
     try {
         const headerGuest = normalizeGuestId(req.headers?.[GUEST_HEADER_NAME]);
         const cookieGuest = normalizeGuestId(req.cookies?.[COOKIE_NAME]);
@@ -38,11 +39,11 @@ const attachGuestId = (req: Request, res: Response, next: NextFunction): void =>
             });
         }
 
-        (req as any).guestId = guestId;
+        req.guestId = guestId;
         res.setHeader('X-Guest-Id', guestId);
     } catch (error) {
         console.error('[GuestMiddleware] Failed to attach guest id', error);
-        (req as any).guestId = (req as any).guestId || undefined;
+        req.guestId = req.guestId || undefined;
     } finally {
         next();
     }
