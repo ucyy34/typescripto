@@ -2,7 +2,6 @@
 
 /**
  * Migration: Add store_daily_sales table
- * Tracks daily successful order counts per store for the siftah system
  */
 
 module.exports = {
@@ -48,14 +47,14 @@ module.exports = {
             },
         });
 
-        // Unique constraint for upsert operations
+        // Unique constraint
         await queryInterface.addConstraint('store_daily_sales', {
             fields: ['store_id', 'sale_date'],
             type: 'unique',
             name: 'uq_store_daily_sales',
         });
 
-        // Performance indexes
+        // Indexes
         await queryInterface.addIndex('store_daily_sales', ['sale_date'], {
             name: 'idx_sds_date',
         });

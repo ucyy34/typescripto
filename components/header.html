@@ -1,0 +1,71 @@
+<!-- 
+  Header Component
+  Reusable header for all pages
+  Usage: Add <div id="header-container"></div> and include component-loader.js
+-->
+
+<header class="header glass-card" role="banner">
+    <nav class="navbar container" role="navigation" aria-label="Ana navigasyon">
+        <div class="nav-brand">
+            <a href="/" style="text-decoration: none; color: inherit;">
+                <h1>🐉 DostanWebCSS</h1>
+            </a>
+        </div>
+
+        <div class="nav-search">
+            <div class="search-container">
+                <label for="globalSearch" class="sr-only">Hazine ara</label>
+                <input type="text" class="search-input" placeholder="El yapımı hazineleri ara..." id="globalSearch"
+                    aria-label="Hazine ara">
+                <span class="search-icon" aria-hidden="true">🔍</span>
+            </div>
+        </div>
+
+        <!-- Mobile Hamburger Button -->
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menüyü aç" type="button">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+
+        <div class="nav-actions" id="navActions">
+            <a href="/urunler" class="nav-link" role="button">
+                Ürünler
+            </a>
+            <a href="/kategori/artisan" class="nav-link" role="button">
+                Ustalar
+            </a>
+            <a href="/pages/cart.html" class="nav-link cart-link" role="button" aria-label="Sepet">
+                🛒 <span class="cart-count" id="cartCount">0</span>
+            </a>
+            <button class="theme-toggle" id="themeToggle" aria-label="Karanlık mod" type="button">
+                <span aria-hidden="true">🌙</span>
+            </button>
+
+            <a href="/pages/profile.html" class="profile-btn" id="profileLinkDesktop" aria-label="Kullanıcı profili">
+                <span aria-hidden="true">👤</span>
+            </a>
+        </div>
+
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-header">
+                <span>🐉 Menü</span>
+                <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Menüyü kapat">✕</button>
+            </div>
+            <div class="mobile-menu-links">
+                <a href="/" class="mobile-nav-link">🏠 Ana Sayfa</a>
+                <a href="/urunler" class="mobile-nav-link">📦 Ürünler</a>
+                <a href="/kategori/artisan" class="mobile-nav-link">🎨 Ustalar</a>
+                <a href="/pages/cart.html" class="mobile-nav-link">🛒 Sepetim</a>
+                <a href="/pages/profile.html" class="mobile-nav-link" id="profileLinkMobile">👤 Profilim</a>
+            </div>
+            <div class="mobile-menu-footer">
+                <button class="theme-toggle-mobile" id="themeToggleMobile">
+                    🌙 Karanlık Mod
+                </button>
+            </div>
+        </div>
+    </nav>
+</header>

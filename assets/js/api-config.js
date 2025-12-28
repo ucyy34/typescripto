@@ -35,8 +35,8 @@ function resolveApiBaseUrl() {
     }
   } catch (_) { }
 
-  // 4) Fallback to backend default dev port (aligned to .env => 3002)
-  return 'http://localhost:3002/api/v1';
+  // 4) Fallback to backend default dev port (aligned to .env.ts => 3100)
+  return 'http://localhost:3100/api/v1';
 }
 
 const API_CONFIG = {
@@ -113,12 +113,29 @@ const API_CONFIG = {
       STORE_STATS: (storeId, id) => `/stores/${storeId}/campaigns/${id}/stats`,
     },
 
-    // Cart endpoints
+    // Cart endpoints (V1 - legacy)
     CART: {
       BASE: '/cart',
       ITEMS: '/cart/items',
       ITEM_BY_ID: (productId) => `/cart/items/${productId}`,
       MERGE: '/cart/merge',
+    },
+
+    // Cart V2 endpoints (New Architecture)
+    CART_V2: {
+      BASE: '/v2/cart',
+      ITEMS: '/v2/cart/items',
+      ITEM_BY_ID: (itemId) => `/v2/cart/items/${itemId}`,
+      MERGE: '/v2/cart/merge',
+      GUEST: '/v2/cart/guest',
+      GUEST_ITEMS: '/v2/cart/guest/items',
+    },
+
+    // Checkout V2 endpoints
+    CHECKOUT: {
+      INIT: '/v2/checkout/init',
+      CONFIRM: '/v2/checkout/confirm',
+      STATUS: (idempotencyKey) => `/v2/checkout/status/${idempotencyKey}`,
     },
 
     // Wishlist endpoints

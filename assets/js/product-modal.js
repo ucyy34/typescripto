@@ -1116,7 +1116,7 @@ class ProductModal {
                 return;
             }
 
-            const API_BASE = window.API_BASE_URL || 'http://localhost:3002/api/v1';
+            const API_BASE = window.API_BASE_URL || 'http://localhost:3100/api/v1';
             const response = await fetch(`${API_BASE}/siftah/recommendations?product_id=${productId}`);
             const data = await response.json();
 

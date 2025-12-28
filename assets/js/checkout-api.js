@@ -1544,7 +1544,7 @@ class CheckoutPageAPI {
             const submitBtn = document.querySelector('.checkout-btn');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'â³ Processing...';
+                submitBtn.textContent = '⏳ Processing...';
             }
 
             // Prepare order data
@@ -1561,54 +1561,64 @@ class CheckoutPageAPI {
                 country: this.shippingAddress.country || 'Turkey'
             };
 
-            const checkoutPayload = {
-                shipping_address: shippingAddressPayload,
-                payment_method: this.paymentMethod || 'card'
+            // ==================================================
+            // V2 CHECKOUT API - Use /v2/checkout/confirm endpoint
+            // Phase 8.0: Multi-store orders[] support
+            // ==================================================
+
+            // Generate idempotency key for safe retries
+            const idempotencyKey = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            // Build V2 checkout confirm payload matching CheckoutConfirmRequestSchema
+            const v2CheckoutPayload = {
+                idempotencyKey,
+                shippingAddress: {
+                    fullName: shippingAddressPayload.full_name,
+                    phone: shippingAddressPayload.phone,
+                    addressLine1: shippingAddressPayload.address_line1,
+                    addressLine2: shippingAddressPayload.address_line2 || undefined,
+                    city: shippingAddressPayload.city,
+                    state: shippingAddressPayload.state || undefined,
+                    postalCode: shippingAddressPayload.postal_code,
+                    country: shippingAddressPayload.country || 'TR'
+                },
+                paymentMethod: this.paymentMethod || 'card',
+                notes: this.shippingAddress.notes || undefined
             };
 
-            const derivedStoreId = this.cart[0]?.product?.store?.id
-                || this.cart[0]?.store?.id
-                || this.cart[0]?.product?.store_id
-                || this.cart[0]?.store_id;
-
-            if (derivedStoreId) {
-                checkoutPayload.store_id = derivedStoreId;
+            // Add coupon if applied
+            if (this.appliedCoupon?.code) {
+                v2CheckoutPayload.couponCode = this.appliedCoupon.code;
             }
 
-            if (!this.useSameAddress) {
-                const billing = this.billingAddress || {};
-                checkoutPayload.billing_address = {
-                    full_name: `${billing.firstName || billing.full_name || shippingAddressPayload.full_name}`.trim(),
-                    phone: billing.phone || shippingAddressPayload.phone,
-                    address_line1: billing.address || billing.address_line1 || shippingAddressPayload.address_line1,
-                    address_line2: billing.district || billing.address2 || billing.address_line2 || shippingAddressPayload.address_line2,
-                    city: billing.city || shippingAddressPayload.city,
-                    district: billing.district || shippingAddressPayload.district,
-                    state: billing.state || billing.district || shippingAddressPayload.state,
-                    postal_code: billing.postalCode || billing.postal_code || shippingAddressPayload.postal_code,
-                    country: billing.country || shippingAddressPayload.country
-                };
-            }
+            console.log('[Checkout Page API] V2 checkout payload:', v2CheckoutPayload);
 
-            if (this.shippingAddress.notes) {
-                checkoutPayload.customer_note = this.shippingAddress.notes;
-            }
-
-            const response = await this.apiClient.post('/cart/checkout', checkoutPayload);
+            // Use V2 checkout/confirm endpoint
+            const checkoutEndpoint = API_CONFIG.ENDPOINTS.CHECKOUT?.CONFIRM || '/v2/checkout/confirm';
+            const response = await this.apiClient.post(checkoutEndpoint, v2CheckoutPayload);
 
             if (!response.success) {
-                console.error('[Checkout Page API] Checkout failed:', response);
-                alert(response.message || 'Failed to complete checkout.');
+                console.error('[Checkout Page API] V2 Checkout failed:', response);
+
+                // Handle specific errors
+                if (response.error === 'STOCK_ERROR') {
+                    alert(`Stok hatası: ${response.message}\nÜrün stokta yok veya yetersiz.`);
+                } else {
+                    alert(response.message || 'Ödeme işlemi tamamlanamadı.');
+                }
                 return;
             }
 
-            console.log('[Checkout Page API] Checkout response:', response);
+            console.log('[Checkout Page API] V2 Checkout response:', response);
 
-            // Backend returns { orders: [...] } array
-            const orders = response.data?.orders || response.orders || [];
-            const order = orders[0] || response.data || response.order || {};
+            // Phase 8.0: Handle multi-store orders[]
+            const orderData = response.data || {};
+            const orders = orderData.orders || [];
+            const orderIds = orderData.orderIds || [orderData.orderId];
+            const orderNumbers = orderData.orderNumbers || [orderData.orderNumber];
 
-            console.log('[Checkout Page API] Order created:', order);
+            console.log('[Checkout Page API] Orders created:', orders.length || 1);
+            console.log('[Checkout Page API] Order IDs:', orderIds);
 
             try {
                 const fallbackSubtotal = this.cart.reduce((sum, item) => {
@@ -1617,17 +1627,25 @@ class CheckoutPageAPI {
                     return sum + (price * quantity);
                 }, 0);
 
+                // Use V2 totals if available, fallback to calculated
+                const v2Totals = orderData.totals || {};
                 const summaryTotals = {
-                    subtotal: Number.isFinite(this.orderSubtotal) ? this.orderSubtotal : fallbackSubtotal,
-                    shipping: Number.isFinite(this.orderShipping) ? this.orderShipping : 0,
+                    subtotal: v2Totals.subtotal || (Number.isFinite(this.orderSubtotal) ? this.orderSubtotal : fallbackSubtotal),
+                    shipping: v2Totals.shipping || (Number.isFinite(this.orderShipping) ? this.orderShipping : 0),
                     tax: Number.isFinite(this.orderTax) ? this.orderTax : 0,
+                    total: v2Totals.total || (Number.isFinite(this.orderTotal) ? this.orderTotal : fallbackSubtotal)
                 };
-                summaryTotals.total = Number.isFinite(this.orderTotal)
-                    ? this.orderTotal
-                    : summaryTotals.subtotal + summaryTotals.shipping + summaryTotals.tax;
 
+                // Phase 8.0: Store all order IDs and details
                 localStorage.setItem('lastOrder', JSON.stringify({
-                    orderId: order.id || null,
+                    orderIds,
+                    orderNumbers,
+                    orders: orders.length > 0 ? orders : [{
+                        orderId: orderData.orderId,
+                        orderNumber: orderData.orderNumber,
+                        status: orderData.status
+                    }],
+                    idempotencyKey: response.idempotencyKey || idempotencyKey,
                     items: this.cart,
                     totals: summaryTotals,
                 }));
@@ -1637,9 +1655,10 @@ class CheckoutPageAPI {
 
             await window.cartManager.getCart(true);
 
-            const orderId = order.id || 'unknown';
-            console.log('[Checkout Page API] Redirecting to order-success.html with order ID:', orderId);
-            window.location.href = `order-success.html?orderId=${orderId}`;
+            // Phase 8.0: Redirect with orderIds (comma-separated)
+            const orderIdsParam = orderIds.join(',');
+            console.log('[Checkout Page API] Redirecting to order-success.html with order IDs:', orderIdsParam);
+            window.location.href = `order-success.html?orderIds=${encodeURIComponent(orderIdsParam)}`;
         } catch (error) {
             console.error('[Checkout Page API] Error placing order:', error);
             alert('Failed to place order. Please try again.');
@@ -1647,7 +1666,7 @@ class CheckoutPageAPI {
             const submitBtn = document.querySelector('.checkout-btn');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'ğŸ›¡ï¸ Complete Secure Purchase';
+                submitBtn.textContent = '🛡️ Complete Secure Purchase';
             }
         }
     }

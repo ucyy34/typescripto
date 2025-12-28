@@ -14,8 +14,12 @@ describe('API maintenance smoke tests', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(
       expect.objectContaining({
-        success: true,
-        message: expect.any(String),
+        ok: true,
+        services: expect.objectContaining({
+          database: expect.stringMatching(/up|down|unknown/),
+          redis: expect.stringMatching(/up|down|unknown/),
+        }),
+        timestamp: expect.any(String),
         environment: expect.any(String),
       })
     );

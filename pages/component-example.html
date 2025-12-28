@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Örnek Sayfa - DostanWebCSS</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Bu sayfa component sistemini kullanarak oluşturuldu.">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/assets/css/main.css">
+
+    <style>
+        /* Page-specific styles */
+        .page-content {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-xxl, 4rem) var(--space-lg, 2rem);
+            text-align: center;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            margin-bottom: var(--space-lg, 2rem);
+            color: var(--forest-deep, #1a3a2a);
+        }
+
+        .page-description {
+            font-size: 1.2rem;
+            color: var(--warm-brown, #6b4423);
+            max-width: 600px;
+            margin-bottom: var(--space-xl, 3rem);
+        }
+
+        .component-info {
+            background: var(--glass-bg, rgba(255, 255, 255, 0.8));
+            border-radius: var(--radius-lg, 12px);
+            padding: var(--space-xl, 2rem);
+            max-width: 700px;
+            text-align: left;
+        }
+
+        .component-info h3 {
+            color: var(--forest-medium, #2d6853);
+            margin-bottom: var(--space-md, 1rem);
+        }
+
+        .component-info code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .component-info pre {
+            background: var(--forest-deep, #1a3a2a);
+            color: #f0f0f0;
+            padding: var(--space-md, 1rem);
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header loaded dynamically -->
+    <div id="header-container"></div>
+
+    <!-- Main Content -->
+    <main class="page-content">
+        <h1 class="page-title">🎉 Component Sistemi Çalışıyor!</h1>
+
+        <p class="page-description">
+            Bu sayfa header ve footer'ı otomatik olarak yüklüyor.
+            Artık her sayfada aynı kodu tekrarlamana gerek yok!
+        </p>
+
+        <div class="component-info">
+            <h3>Nasıl Kullanılır?</h3>
+            <p>Yeni bir sayfa oluştururken:</p>
+
+            <h4>1. Container'ları ekle:</h4>
+            <pre>&lt;div id="header-container"&gt;&lt;/div&gt;
+&lt;!-- Sayfa içeriğin --&gt;
+&lt;div id="footer-container"&gt;&lt;/div&gt;</pre>
+
+            <h4>2. Component loader'ı dahil et (body sonunda):</h4>
+            <pre>&lt;script src="/components/component-loader.js"&gt;&lt;/script&gt;</pre>
+
+            <h4>3. Bu kadar! ✨</h4>
+            <p>Header, footer, mobile menu, theme toggle, auth check... hepsi otomatik!</p>
+        </div>
+    </main>
+
+    <!-- Footer loaded dynamically -->
+    <div id="footer-container"></div>
+
+    <!-- Core Scripts -->
+    <script src="/assets/js/api-config.js"></script>
+    <script src="/assets/js/api-client.js"></script>
+    <script src="/assets/js/auth-manager.js"></script>
+    <script src="/assets/js/cart-manager.js"></script>
+
+    <!-- Component Loader - THIS IS THE KEY! -->
+    <script src="/components/component-loader.js"></script>
+</body>
+
+</html>

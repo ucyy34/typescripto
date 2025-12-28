@@ -1,0 +1,117 @@
+<!-- 
+  Footer Component
+  Reusable footer for all pages
+  Usage: Add <div id="footer-container"></div> and include component-loader.js
+-->
+
+<footer class="footer" role="contentinfo">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h3>🐉 DostanWebCSS</h3>
+                <p>El yapımı hazineler dünyası. Geleneksel zanaatların modern büyüsü.</p>
+            </div>
+
+            <div class="footer-section">
+                <h4>Hızlı Erişim</h4>
+                <ul class="footer-links">
+                    <li><a href="/">Ana Sayfa</a></li>
+                    <li><a href="/urunler">Ürünler</a></li>
+                    <li><a href="/kategori/artisan">Ustalar</a></li>
+                    <li><a href="/pages/cart.html">Sepetim</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Kategoriler</h4>
+                <ul class="footer-links">
+                    <li><a href="/kategori/ceramics">🏺 Seramik</a></li>
+                    <li><a href="/kategori/jewelry">💍 Takı</a></li>
+                    <li><a href="/kategori/textiles">🧶 Tekstil</a></li>
+                    <li><a href="/kategori/wood-carvings">🌲 Ahşap</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h4>Destek</h4>
+                <ul class="footer-links">
+                    <li><a href="/pages/order-tracking.html">Sipariş Takibi</a></li>
+                    <li><a href="#">İade & Değişim</a></li>
+                    <li><a href="#">SSS</a></li>
+                    <li><a href="#">İletişim</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2024 DostanWebCSS. Tüm hakları saklıdır.</p>
+            <p>Made with 🐉 by Dostik</p>
+        </div>
+    </div>
+</footer>
+
+<style>
+    .footer {
+        background: linear-gradient(135deg, var(--forest-deep, #1a3a2a), var(--forest-medium, #2d6853));
+        color: white;
+        padding: var(--space-xl, 3rem) 0 var(--space-lg, 2rem);
+        margin-top: var(--space-xxl, 4rem);
+    }
+
+    .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--space-xl, 2rem);
+        margin-bottom: var(--space-xl, 2rem);
+    }
+
+    .footer-section h3,
+    .footer-section h4 {
+        margin-bottom: var(--space-md, 1rem);
+        color: var(--aurora-green, #7fff94);
+    }
+
+    .footer-links {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .footer-links li {
+        margin-bottom: var(--space-sm, 0.5rem);
+    }
+
+    .footer-links a {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+        color: var(--aurora-green, #7fff94);
+    }
+
+    .footer-bottom {
+        text-align: center;
+        padding-top: var(--space-lg, 2rem);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer-bottom p {
+        margin: var(--space-xs, 0.25rem) 0;
+        opacity: 0.8;
+    }
+
+    @media (max-width: 768px) {
+        .footer-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .footer-grid {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+    }
+</style>

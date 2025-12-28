@@ -2,7 +2,7 @@
  * Çarşı Pazar Gez Browser
  * Handles marketplace modal, random product fetch, and quick actions
  */
-(function() {
+(function () {
     class CarsiPazarBrowser {
         constructor() {
             this.apiBaseUrl = this.resolveApiBaseUrl();
@@ -38,7 +38,7 @@
                 return window.API_BASE_URL;
             }
 
-            return 'http://localhost:5050/api/v1';
+            return 'http://localhost:3100/api/v1';
         }
 
         createTriggerButton() {
@@ -490,7 +490,7 @@
                     if (cartCountEl) {
                         cartCountEl.textContent = count;
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
         }
     }

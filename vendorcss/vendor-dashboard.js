@@ -907,6 +907,7 @@ class VendorDashboard {
                                 <th style="padding: 1rem; text-align: center; font-weight: 600;">Ürün</th>
                                 <th style="padding: 1rem; text-align: right; font-weight: 600;">Tutar</th>
                                 <th style="padding: 1rem; text-align: center; font-weight: 600;">Durum</th>
+                                <th style="padding: 1rem; text-align: left; font-weight: 600;">Kargo</th>
                                 <th style="padding: 1rem; text-align: left; font-weight: 600;">Tarih</th>
                                 <th style="padding: 1rem; text-align: center; font-weight: 600;">İşlemler</th>
                             </tr>
@@ -927,6 +928,14 @@ class VendorDashboard {
                 // Get next available statuses for this order
                 const nextStatuses = this.getNextOrderStatuses(order.status);
 
+                // Tracking info display
+                const trackingInfo = order.tracking_number || order.trackingNumber
+                    ? `<div style="font-size: 0.85rem;">
+                         <div style="font-weight: 600;">${order.carrier || 'Kargo'}</div>
+                         <div style="opacity: 0.8; font-family: monospace; font-size: 0.8rem;">${order.tracking_number || order.trackingNumber}</div>
+                       </div>`
+                    : '<span style="opacity: 0.5; font-size: 0.85rem;">-</span>';
+
                 html += `
                     <tr style="border-bottom: 1px solid var(--vendor-border); transition: background 0.2s;" data-order-id="${order.id}">
                         <td style="padding: 1rem; font-weight: 600; color: var(--vendor-primary);">#${order.order_number || order.orderNumber || order.id}</td>
@@ -938,6 +947,7 @@ class VendorDashboard {
                                 ${statusLabel}
                             </span>
                         </td>
+                        <td style="padding: 1rem;">${trackingInfo}</td>
                         <td style="padding: 1rem; color: #64748b;">${date}</td>
                         <td style="padding: 1rem; text-align: center;">
                             ${nextStatuses.length > 0 ? `
@@ -2616,7 +2626,7 @@ class VendorDashboard {
                 const formData = new FormData();
                 formData.append('image', file);
 
-                const response = await fetch(`${window.API_BASE_URL || 'http://localhost:3001/api'}/uploads/image`, {
+                const response = await fetch(`${window.API_BASE_URL || 'http://localhost:3001/api'}/v1/upload/products`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${AuthManager.getToken()}`
@@ -3430,14 +3440,17 @@ class VendorDashboard {
 
     /**
      * Get next available order statuses based on current status (FSM)
+     * Phase 8.1: Uses canonical ALLOWED_STATUS_TRANSITIONS
      */
     getNextOrderStatuses(currentStatus) {
+        // Phase 8.1 canonical transitions
         const transitions = {
+            'pending': ['processing', 'cancelled'],
             'pending_payment': ['paid', 'cancelled'],
-            'paid': ['processing', 'cancelled', 'refunded'],
+            'paid': ['processing', 'cancelled'],
             'processing': ['shipped', 'cancelled'],
-            'shipped': ['delivered', 'cancelled'],
-            'delivered': ['refunded'],
+            'shipped': ['delivered'],
+            'delivered': [],
             'cancelled': [],
             'refunded': [],
         };
@@ -3473,47 +3486,43 @@ class VendorDashboard {
     }
 
     /**
-     * Update order status via API
+     * Update order status via V2 API
+     * Phase 8.1: Uses /v2/orders/:id/status/v2
      */
     async updateOrderStatus(orderId, newStatus) {
         try {
-            vdLog('Updating order status:', orderId, newStatus);
+            vdLog('Updating order status via V2:', orderId, newStatus);
 
-            // Prepare update data
-            const updateData = {
-                status: newStatus
+            // Confirmation messages
+            const confirmMsg = {
+                'processing': 'Siparişi hazırlanıyor durumuna almak istediğinizden emin misiniz?',
+                'shipped': 'Siparişi kargoya verildi olarak işaretlemek istediğinizden emin misiniz?',
+                'delivered': 'Siparişi teslim edildi olarak işaretlemek istediğinizden emin misiniz?',
+                'cancelled': 'Siparişi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz!'
             };
 
-            // If status is shipped, ask for tracking info with better UX
+            if (!confirm(confirmMsg[newStatus] || 'Bu işlemi onaylıyor musunuz?')) {
+                // Reset select
+                await this.loadOrdersData();
+                return;
+            }
+
+            // If shipping, show tracking modal instead
             if (newStatus === 'shipped') {
-                const trackingNumber = prompt('Kargo takip numarasını girin (opsiyonel):\n\nÖnerilen: Shipping & Logistics menüsünden "Create Shipment" kullanın!');
-                if (trackingNumber && trackingNumber.trim()) {
-                    updateData.tracking_number = trackingNumber.trim();
-                    const carrier = prompt('Kargo firması adını girin (ör: UPS, DHL, Aras Kargo):');
-                    updateData.carrier = carrier && carrier.trim() ? carrier.trim() : 'Unknown';
-                } else if (!trackingNumber || !trackingNumber.trim()) {
-                    // Show warning but continue
-                    const continueWithout = confirm('Takip numarası olmadan devam edilsin mi?\n\nÖnemli: Müşteri kargo takibi yapamayacak!');
-                    if (!continueWithout) {
-                        return; // Cancel the update
-                    }
-                }
+                // Find order row and get order number
+                const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
+                const orderNumber = orderRow?.querySelector('td')?.textContent?.trim() || orderId;
+                this.showTrackingModal(orderId, orderNumber);
+                return;
             }
 
-            // If status is cancelled, could ask for reason (simplified for now)
-            if (newStatus === 'cancelled') {
-                const reason = prompt('İptal nedenini girin (opsiyonel):');
-                if (reason) {
-                    updateData.cancellation_reason = reason;
-                }
-            }
-
-            // Call API
-            const response = await this.apiClient.patch(`/orders/${orderId}/status`, updateData);
+            // Call V2 API
+            const response = await this.apiClient.patch(`/v2/orders/${orderId}/status/v2`, {
+                status: newStatus
+            });
 
             if (response.success) {
-                this.showSuccess(`✅ Sipariş durumu başarıyla güncellendi: ${this.getOrderStatusLabel(newStatus)}`);
-                // Reload orders
+                this.showSuccess(`✅ Sipariş durumu güncellendi: ${this.getOrderStatusLabel(newStatus)}`);
                 await this.loadOrdersData();
             } else {
                 this.showError(response.message || 'Sipariş durumu güncellenemedi');
@@ -3521,9 +3530,99 @@ class VendorDashboard {
 
         } catch (error) {
             console.error('[Vendor Dashboard] Error updating order status:', error);
-            this.showError('Sipariş durumu güncellenirken bir hata oluştu: ' + error.message);
-            // Reload to reset UI
+            this.showError('Sipariş durumu güncellenirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
             await this.loadOrdersData();
+        }
+    }
+
+    /**
+     * Show tracking info modal
+     * Phase 8.1: Used for adding carrier and tracking number
+     */
+    showTrackingModal(orderId, orderNumber) {
+        // Remove existing modal if any
+        const existing = document.getElementById('vendor-tracking-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'vendor-tracking-modal';
+        modal.innerHTML = `
+            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+                <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 450px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
+                    <h3 style="margin: 0 0 1.5rem 0; color: var(--vendor-primary);">📦 Kargo Bilgisi Ekle</h3>
+                    <p style="margin: 0 0 1rem 0; opacity: 0.7;">Sipariş: <strong>${orderNumber}</strong></p>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Kargo Firması</label>
+                        <select id="vendor-tracking-carrier" style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px;">
+                            <option value="">Seçiniz...</option>
+                            <option value="Yurtiçi Kargo">Yurtiçi Kargo</option>
+                            <option value="Aras Kargo">Aras Kargo</option>
+                            <option value="MNG Kargo">MNG Kargo</option>
+                            <option value="PTT Kargo">PTT Kargo</option>
+                            <option value="Sürat Kargo">Sürat Kargo</option>
+                            <option value="UPS">UPS</option>
+                            <option value="DHL">DHL</option>
+                            <option value="FedEx">FedEx</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Takip Numarası</label>
+                        <input type="text" id="vendor-tracking-number" placeholder="Örn: 123456789" 
+                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--vendor-border); border-radius: 6px; box-sizing: border-box;" />
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button onclick="document.getElementById('vendor-tracking-modal').remove()"
+                                style="padding: 0.75rem 1.5rem; border: 1px solid var(--vendor-border); background: white; border-radius: 6px; cursor: pointer;">
+                            İptal
+                        </button>
+                        <button onclick="window.vendorDashboard.submitTracking('${orderId}')"
+                                style="padding: 0.75rem 1.5rem; background: var(--vendor-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📦 Kargoya Ver
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Submit tracking info via V2 API
+     * Phase 8.1: Uses /v2/orders/:id/tracking - auto-ships and sets shippedAt
+     */
+    async submitTracking(orderId) {
+        const carrier = document.getElementById('vendor-tracking-carrier')?.value;
+        const trackingNumber = document.getElementById('vendor-tracking-number')?.value?.trim();
+
+        if (!carrier) {
+            this.showError('Lütfen kargo firmasını seçin');
+            return;
+        }
+        if (!trackingNumber || trackingNumber.length < 3) {
+            this.showError('Lütfen geçerli bir takip numarası girin (en az 3 karakter)');
+            return;
+        }
+
+        try {
+            const response = await this.apiClient.patch(`/v2/orders/${orderId}/tracking`, {
+                carrier: carrier,
+                trackingNumber: trackingNumber
+            });
+
+            if (response.success) {
+                document.getElementById('vendor-tracking-modal')?.remove();
+                this.showSuccess('✅ Kargo bilgisi eklendi ve sipariş kargoya verildi!');
+                await this.loadOrdersData();
+            } else {
+                this.showError(response.message || 'Kargo bilgisi eklenemedi');
+            }
+        } catch (error) {
+            console.error('[Vendor Dashboard] Error submitting tracking:', error);
+            this.showError('Kargo bilgisi eklenirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
         }
     }
 }

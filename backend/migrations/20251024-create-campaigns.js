@@ -210,7 +210,7 @@ module.exports = {
     await queryInterface.addIndex('campaigns', ['created_by']);
     await queryInterface.addIndex('campaigns', ['approval_status']);
     await queryInterface.addIndex('campaigns', ['priority']);
-    
+
     // GIN indexes for array fields
     await queryInterface.addIndex('campaigns', ['product_ids'], {
       using: 'gin',
@@ -222,7 +222,7 @@ module.exports = {
 
   down: async (queryInterface, Sequelize) => {
     await queryInterface.dropTable('campaigns');
-    
+
     // Drop ENUM types
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_campaigns_campaign_type";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_campaigns_discount_type";');
@@ -230,7 +230,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_campaigns_approval_status";');
   },
 };
-
-
-
-

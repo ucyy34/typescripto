@@ -53,11 +53,24 @@ jest.mock('../services/product.service', () => createMockProductService());
 jest.mock('../services/category.service', () => createMockCategoryService());
 jest.mock('../services/store.service', () => createMockStoreService());
 
-const app = require('../app');
+const { createTestApp } = require('../../tests/helpers/testApp');
 const productService = require('../services/product.service');
 const categoryService = require('../services/category.service');
 const storeService = require('../services/store.service');
 const { ApiError } = require('../middlewares/errorHandler');
+
+// Route imports
+const productRoutes = require('../routes/product.routes');
+const categoryRoutes = require('../routes/category.routes');
+const storeRoutes = require('../routes/store.routes');
+
+const buildApp = () => createTestApp({
+  routes: [
+    ['/api/v1/products', productRoutes],
+    ['/api/v1/categories', categoryRoutes],
+    ['/api/v1/stores', storeRoutes],
+  ],
+});
 
 describe('Slug lookup routes', () => {
   beforeEach(() => {
@@ -66,6 +79,7 @@ describe('Slug lookup routes', () => {
 
   describe('GET /api/v1/products/slug/:slug', () => {
     it('returns product data for a valid slug', async () => {
+      const app = buildApp();
       const product = { id: 'prod-1', title: 'Handcrafted Bowl', slug: 'handcrafted-bowl' };
       productService.getProductBySlug.mockResolvedValue(product);
 
@@ -78,6 +92,7 @@ describe('Slug lookup routes', () => {
     });
 
     it('returns validation error for invalid slug format', async () => {
+      const app = buildApp();
       const response = await request(app).get('/api/v1/products/slug/Invalid Slug');
 
       expect(response.status).toBe(StatusCodes.UNPROCESSABLE_ENTITY);
@@ -85,6 +100,7 @@ describe('Slug lookup routes', () => {
     });
 
     it('propagates not found errors from the service', async () => {
+      const app = buildApp();
       productService.getProductBySlug.mockRejectedValue(
         new ApiError('Product not found', StatusCodes.NOT_FOUND)
       );
@@ -99,6 +115,7 @@ describe('Slug lookup routes', () => {
 
   describe('GET /api/v1/categories/slug/:slug', () => {
     it('returns category data for a valid slug', async () => {
+      const app = buildApp();
       const category = { id: 'cat-1', name: 'Glass Art', slug: 'glass-art' };
       categoryService.getCategoryBySlug.mockResolvedValue(category);
 
@@ -111,6 +128,7 @@ describe('Slug lookup routes', () => {
     });
 
     it('returns validation error for malformed category slug', async () => {
+      const app = buildApp();
       const response = await request(app).get('/api/v1/categories/slug/Glass Art');
 
       expect(response.status).toBe(StatusCodes.UNPROCESSABLE_ENTITY);
@@ -118,6 +136,7 @@ describe('Slug lookup routes', () => {
     });
 
     it('returns 404 when category is missing', async () => {
+      const app = buildApp();
       categoryService.getCategoryBySlug.mockRejectedValue(
         new ApiError('Category not found', StatusCodes.NOT_FOUND)
       );
@@ -132,6 +151,7 @@ describe('Slug lookup routes', () => {
 
   describe('GET /api/v1/stores/slug/:slug', () => {
     it('returns store data for a valid slug', async () => {
+      const app = buildApp();
       const store = { id: 'store-1', name: 'Aurora Crafts', slug: 'aurora-crafts' };
       storeService.getStoreBySlug.mockResolvedValue(store);
 
@@ -140,10 +160,11 @@ describe('Slug lookup routes', () => {
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toEqual(store);
-      expect(storeService.getStoreBySlug).toHaveBeenCalledWith('aurora-crafts', false);
+      expect(storeService.getStoreBySlug).toHaveBeenCalledWith('aurora-crafts', null);
     });
 
     it('returns validation error for malformed store slug', async () => {
+      const app = buildApp();
       const response = await request(app).get('/api/v1/stores/slug/Aurora Crafts');
 
       expect(response.status).toBe(StatusCodes.UNPROCESSABLE_ENTITY);
@@ -151,6 +172,7 @@ describe('Slug lookup routes', () => {
     });
 
     it('returns 404 when store is missing', async () => {
+      const app = buildApp();
       storeService.getStoreBySlug.mockRejectedValue(
         new ApiError('Store not found', StatusCodes.NOT_FOUND)
       );

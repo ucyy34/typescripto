@@ -182,7 +182,14 @@
                 </div>
             </div>
 
-            <div class="nav-actions">
+            <!-- Mobile Hamburger Button -->
+            <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menüyü aç" type="button">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+
+            <div class="nav-actions" id="navActions">
                 <a href="pages/products.html" class="nav-link" role="button">
                     Ürünler
                 </a>
@@ -193,9 +200,30 @@
                     <span aria-hidden="true">🌙</span>
                 </button>
 
-                <a href="pages/profile.html" class="profile-btn" aria-label="Kullanıcı profili">
+                <a href="pages/profile.html" class="profile-btn" id="profileLinkDesktop" aria-label="Kullanıcı profili">
                     <span aria-hidden="true">👤</span>
                 </a>
+            </div>
+
+            <!-- Mobile Menu Overlay -->
+            <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+            <div class="mobile-menu" id="mobileMenu">
+                <div class="mobile-menu-header">
+                    <span>🐉 Menü</span>
+                    <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Menüyü kapat">✕</button>
+                </div>
+                <div class="mobile-menu-links">
+                    <a href="index.html" class="mobile-nav-link">🏠 Ana Sayfa</a>
+                    <a href="pages/products.html" class="mobile-nav-link">📦 Ürünler</a>
+                    <a href="pages/artisan.html" class="mobile-nav-link">🎨 Ustalar</a>
+                    <a href="pages/cart.html" class="mobile-nav-link">🛒 Sepetim</a>
+                    <a href="pages/profile.html" class="mobile-nav-link" id="profileLinkMobile">👤 Profilim</a>
+                </div>
+                <div class="mobile-menu-footer">
+                    <button class="theme-toggle-mobile" id="themeToggleMobile">
+                        🌙 Karanlık Mod
+                    </button>
+                </div>
             </div>
         </nav>
     </header>
@@ -526,6 +554,7 @@
     <script src="assets/js/auth-manager.js"></script>
     <script src="assets/js/api-config.js"></script>
     <script src="assets/js/api-client.js"></script>
+    <script src="assets/js/toast.js"></script>
     <script src="assets/js/wishlist-manager.js"></script>
     <script src="assets/js/cart-manager.js"></script>
     <script src="assets/js/cart-ui.js"></script>
@@ -601,33 +630,11 @@
                 const category = slide.dataset.category;
                 this.currentCategory = category;
 
-                // Navigate to category pages instead of filtering
-                const categoryPages = {
-                    'all': 'pages/products.html',
-                    'wood-carvings': 'pages/wood-carvings.html',
-                    'glass-art': 'pages/glass-art.html',
-                    'leather-goods': 'pages/leather-goods.html',
-                    'ceramics': 'pages/ceramics.html',
-                    'candles-scents': 'pages/candles-scents.html',
-                    'spiritual-art': 'pages/spiritual-art.html',
-                    'textiles': 'pages/textiles.html',
-                    'jewelry': 'pages/jewelry.html',
-                    'home-decor': 'pages/home-decor.html'
-                };
-
-                if (categoryPages[category]) {
-                    // Add click animation
-                    slide.style.transform = 'scale(0.95)';
-                    slide.style.transition = 'transform 0.1s ease-out';
-
-                    setTimeout(() => {
-                        slide.style.transform = 'scale(1)';
-                        // Navigate to category page
-                        window.location.href = categoryPages[category];
-                    }, 100);
+                // Navigate to clean URLs - professional e-commerce style
+                if (category === 'all') {
+                    window.location.href = '/urunler';
                 } else {
-                    // Fallback to filtering if no specific page exists
-                    this.filterProducts(category);
+                    window.location.href = `/kategori/${category}`;
                 }
 
                 // Dostik comment
@@ -729,6 +736,64 @@
             if (typeof HomeAPI !== 'undefined') {
                 HomeAPI.initHomePage();
             }
+
+            // Mobile Hamburger Menu functionality
+            const hamburgerBtn = document.getElementById('hamburgerBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+            const mobileMenuClose = document.getElementById('mobileMenuClose');
+            const themeToggleMobile = document.getElementById('themeToggleMobile');
+
+            function openMobileMenu() {
+                hamburgerBtn?.classList.add('active');
+                mobileMenu?.classList.add('active');
+                mobileMenuOverlay?.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeMobileMenu() {
+                hamburgerBtn?.classList.remove('active');
+                mobileMenu?.classList.remove('active');
+                mobileMenuOverlay?.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            hamburgerBtn?.addEventListener('click', openMobileMenu);
+            mobileMenuClose?.addEventListener('click', closeMobileMenu);
+            mobileMenuOverlay?.addEventListener('click', closeMobileMenu);
+
+            // Close menu on ESC key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && mobileMenu?.classList.contains('active')) {
+                    closeMobileMenu();
+                }
+            });
+
+            // Mobile theme toggle
+            themeToggleMobile?.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                themeToggleMobile.textContent = newTheme === 'dark' ? '☀️ Aydınlık Mod' : '🌙 Karanlık Mod';
+            });
+
+            // Sync mobile theme button text with current theme
+            const currentTheme = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme');
+            if (themeToggleMobile && currentTheme === 'dark') {
+                themeToggleMobile.textContent = '☀️ Aydınlık Mod';
+            }
+
+            // Profile link auth check - redirect to login if not logged in
+            const profileLinks = document.querySelectorAll('#profileLinkDesktop, #profileLinkMobile');
+            profileLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    if (typeof AuthManager !== 'undefined' && !AuthManager.isLoggedIn()) {
+                        e.preventDefault();
+                        window.location.href = link.href.includes('pages/') ? 'pages/login.html' : 'login.html';
+                    }
+                });
+            });
         });
     </script>
 

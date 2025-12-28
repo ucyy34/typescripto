@@ -18,20 +18,23 @@ describe('EventBus logging sequence', () => {
     await eventBus.publish('order.paid', { orderId: 'log-order-1' });
     await eventBus.publish('order.completed', { orderId: 'log-order-1' });
 
+    // Flush process.nextTick queue
+    await new Promise(resolve => setImmediate(resolve));
+
     expect(eventLogger.info).toHaveBeenNthCalledWith(
       1,
       '[EventBus] order.created',
-      expect.objectContaining({ orderId: 'log-order-1', type: 'order.created' })
+      expect.objectContaining({ orderId: 'log-order-1', lastEvent: 'order.created' })
     );
     expect(eventLogger.info).toHaveBeenNthCalledWith(
       2,
       '[EventBus] order.created → order.paid',
-      expect.objectContaining({ orderId: 'log-order-1', type: 'order.paid' })
+      expect.objectContaining({ orderId: 'log-order-1', lastEvent: 'order.paid' })
     );
     expect(eventLogger.info).toHaveBeenNthCalledWith(
       3,
       '[EventBus] order.created → order.paid → order.completed',
-      expect.objectContaining({ orderId: 'log-order-1', type: 'order.completed' })
+      expect.objectContaining({ orderId: 'log-order-1', lastEvent: 'order.completed' })
     );
   });
 });

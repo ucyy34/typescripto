@@ -1,0 +1,2011 @@
+﻿
+> dostan-marketplace-backend@1.0.0 test
+> jest --coverage --verbose
+
+  console.log
+    [Worker] CommissionWorker started
+
+      at Object.log (src/workers/commission.worker.js:5:9)
+
+node.exe : FAIL src/s
+ervices/__tests__/ord
+erWorkflow.test.js (1
+6.397 s)
+At C:\Program Files\n
+odejs\npm.ps1:29 char
+:3
++   & $NODE_EXE $NPM_
+CLI_JS $args
++   ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (FAIL sr   
+ c/servic...t.js     
+(16.397 s):Strin    g
+) [], RemoteExc    ep
+tion
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+  Order workflow orch
+estration
+    ├ù markOrderPaid 
+emits order.paid once
+ without auto-complet
+ing (16 ms)
+    ├ù markOrderCompl
+eted publishes comple
+tion event once deliv
+ery is confirmed (1 m
+s)
+    ├ù notification s
+ervice deduplicates i
+dentical events per o
+rder (1 ms)
+    ├ù analytics aggr
+egates store metrics 
+without duplicate cou
+nts (2 ms)
+    ├ù commission wor
+ker reacts to order.p
+aid events (2 ms)
+
+  ÔùÅ Order workflow 
+orchestration ÔÇ║ mar
+kOrderPaid emits orde
+r.paid once without a
+uto-completing
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 57 |[
+39m     saveMock[33m
+.[39mmockReset()[33
+m;[39m
+     [90m 58 |[39m 
+    reloadMock[33m.
+[39mmockReset()[33m;
+[39m
+    [31m[1m>[22m[
+39m[90m 59 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 60 |[39m 
+      [36masync[39m
+ send() {
+     [90m 61 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 62 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/orderWorkfl
+ow.test.js:59:25)
+
+  ÔùÅ Order workflow 
+orchestration ÔÇ║ mar
+kOrderCompleted publi
+shes completion event
+ once delivery is con
+firmed
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 57 |[
+39m     saveMock[33m
+.[39mmockReset()[33
+m;[39m
+     [90m 58 |[39m 
+    reloadMock[33m.
+[39mmockReset()[33m;
+[39m
+    [31m[1m>[22m[
+39m[90m 59 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 60 |[39m 
+      [36masync[39m
+ send() {
+     [90m 61 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 62 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/orderWorkfl
+ow.test.js:59:25)
+
+  ÔùÅ Order workflow 
+orchestration ÔÇ║ not
+ification service ded
+uplicates identical e
+vents per order
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 57 |[
+39m     saveMock[33m
+.[39mmockReset()[33
+m;[39m
+     [90m 58 |[39m 
+    reloadMock[33m.
+[39mmockReset()[33m;
+[39m
+    [31m[1m>[22m[
+39m[90m 59 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 60 |[39m 
+      [36masync[39m
+ send() {
+     [90m 61 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 62 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/orderWorkfl
+ow.test.js:59:25)
+
+  ÔùÅ Order workflow 
+orchestration ÔÇ║ ana
+lytics aggregates sto
+re metrics without du
+plicate counts
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 57 |[
+39m     saveMock[33m
+.[39mmockReset()[33
+m;[39m
+     [90m 58 |[39m 
+    reloadMock[33m.
+[39mmockReset()[33m;
+[39m
+    [31m[1m>[22m[
+39m[90m 59 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 60 |[39m 
+      [36masync[39m
+ send() {
+     [90m 61 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 62 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/orderWorkfl
+ow.test.js:59:25)
+
+  ÔùÅ Order workflow 
+orchestration ÔÇ║ com
+mission worker reacts
+ to order.paid events
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 57 |[
+39m     saveMock[33m
+.[39mmockReset()[33
+m;[39m
+     [90m 58 |[39m 
+    reloadMock[33m.
+[39mmockReset()[33m;
+[39m
+    [31m[1m>[22m[
+39m[90m 59 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 60 |[39m 
+      [36masync[39m
+ send() {
+     [90m 61 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 62 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/orderWorkfl
+ow.test.js:59:25)
+
+  console.log
+    [Worker] CommissionWorker started
+
+      at Object.log (src/workers/commission.worker.js:5:9)
+
+  console.log
+    [Worker] NotificationWorker started
+
+      at Object.log (src/workers/notification.worker.js:5:9)
+
+  console.log
+    [Worker] analytics started
+
+      at Object.log (src/workers/analytics.worker.js:5:9)
+
+  console.log
+    [Worker] payment started
+
+      at Object.log (src/workers/payment.worker.js:5:9)
+
+  console.info
+    2025-12-26T23:39:44.097Z [INFO] [EventBus] order.paid {"orderId":"order-321","lastEvent":"order.paid"}
+
+      at Object.info (src/utils/eventLogger.js:63:38)
+
+  console.info
+    2025-12-26T23:39:44.382Z [INFO] [EventBus] order.paid {"orderId":"order-555","lastEvent":"order.paid"}
+
+      at Object.info (src/utils/eventLogger.js:63:38)
+
+  console.error
+    [EventBus] Handler for order.paid failed: notificationService.handleOrderPaid is not a function
+
+    [0m [90m 76 |[39m       [33m.[39mthen(() [33m=>[39m handler(payload))
+     [90m 77 |[39m       [33m.[39m[36mcatch[39m((error) [33m=>[39m {
+    [31m[1m>[22m[39m[90m 78 |[39m         console[33m.[39merror([32m`[EventBus] Handler for ${type} failed:`[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m    |[39m                 [31m[1m^[22m[39m
+     [90m 79 |[39m       })[33m;[39m
+     [90m 80 |[39m   }[33m;[39m
+     [90m 81 |[39m[0m
+
+      at error (src/events/eventBus.js:78:17)
+
+  console.error
+    [EventBus] Handler for order.paid failed: analyticsService.handleOrderEvent is not a function
+
+    [0m [90m 76 |[39m       [33m.[39mthen(() [33m=>[39m handler(payload))
+     [90m 77 |[39m       [33m.[39m[36mcatch[39m((error) [33m=>[39m {
+    [31m[1m>[22m[39m[90m 78 |[39m         console[33m.[39merror([32m`[EventBus] Handler for ${type} failed:`[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m    |[39m                 [31m[1m^[22m[39m
+     [90m 79 |[39m       })[33m;[39m
+     [90m 80 |[39m   }[33m;[39m
+     [90m 81 |[39m[0m
+
+      at error (src/events/eventBus.js:78:17)
+
+  console.error
+    [EventBus] Handler for order.paid failed: notificationService.handleOrderPaid is not a function
+
+    [0m [90m 76 |[39m       [33m.[39mthen(() [33m=>[39m handler(payload))
+     [90m 77 |[39m       [33m.[39m[36mcatch[39m((error) [33m=>[39m {
+    [31m[1m>[22m[39m[90m 78 |[39m         console[33m.[39merror([32m`[EventBus] Handler for ${type} failed:`[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m    |[39m                 [31m[1m^[22m[39m
+     [90m 79 |[39m       })[33m;[39m
+     [90m 80 |[39m   }[33m;[39m
+     [90m 81 |[39m[0m
+
+      at error (src/events/eventBus.js:78:17)
+
+  console.error
+    [EventBus] Handler for order.paid failed: analyticsService.handleOrderEvent is not a function
+
+    [0m [90m 76 |[39m       [33m.[39mthen(() [33m=>[39m handler(payload))
+     [90m 77 |[39m       [33m.[39m[36mcatch[39m((error) [33m=>[39m {
+    [31m[1m>[22m[39m[90m 78 |[39m         console[33m.[39merror([32m`[EventBus] Handler for ${type} failed:`[39m[33m,[39m error[33m.[39mmessage)[33m;[39m
+     [90m    |[39m                 [31m[1m^[22m[39m
+     [90m 79 |[39m       })[33m;[39m
+     [90m 80 |[39m   }[33m;[39m
+     [90m 81 |[39m[0m
+
+      at error (src/events/eventBus.js:78:17)
+
+FAIL __tests__/order-
+workflow.test.js (17.
+379 s)
+  Marketplace checkou
+t workflow
+    ├ù splits checkou
+t by store and proces
+ses event chain in or
+der (16006 ms)
+
+  ÔùÅ Marketplace che
+ckout workflow ÔÇ║ sp
+lits checkout by stor
+e and processes event
+ chain in order
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 42 |[
+39m     analyticsServ
+ice [33m=[39m requi
+re([32m'../src/servi
+ces/analytics.service
+'[39m)[33m;[39m
+     [90m 43 |[39m
+    [31m[1m>[22m[
+39m[90m 44 |[39m   
+  analyticsService[3
+3m.[39mreset()[33m;
+[39m
+     [90m    |[39m 
+                     
+[31m[1m^[22m[39m
+     [90m 45 |[39m 
+    notificationServi
+ce[33m.[39msentEven
+ts [33m=[39m [36mn
+ew[39m [33mMap[39m
+()[33m;[39m
+     [90m 46 |[39m 
+    notificationServi
+ce[33m.[39msetTrans
+port({
+     [90m 47 |[39m 
+      send[33m:[39m
+ jest[33m.[39mfn((p
+ayload) [33m=>[39m 
+{[0m
+
+      at Object.<anon
+ymous> (__tests__/ord
+er-workflow.test.js:4
+4:22)
+
+FAIL src/__tests__/or
+derEvents.test.js (17
+.593 s)
+  Event-driven order 
+pipeline
+    ├ù marks order as
+ paid when payment su
+cceeds (259 ms)
+    ├ù triggers commi
+ssion calculation aft
+er order.paid event (
+52 ms)
+    ├ù sends notifica
+tions once per event 
+type (2 ms)
+    ├ù aggregates ana
+lytics metrics per st
+ore without duplicate
+s (2 ms)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ mark
+s order as paid when 
+payment succeeds
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 69 |[
+39m   afterEach(() [
+33m=>[39m {
+     [90m 70 |[39m 
+    jest[33m.[39mcl
+earAllMocks()[33m;[
+39m
+    [31m[1m>[22m[
+39m[90m 71 |[39m   
+  analyticsService[3
+3m.[39mreset()[33m;
+[39m
+     [90m    |[39m 
+                     
+[31m[1m^[22m[39m
+     [90m 72 |[39m 
+    notificationServi
+ce[33m.[39msentNoti
+fications[33m.[39mc
+lear()[33m;[39m
+     [90m 73 |[39m 
+    notificationServi
+ce[33m.[39mfinalize
+dOrders[33m.[39mcle
+ar()[33m;[39m
+     [90m 74 |[39m 
+    notificationServi
+ce[33m.[39msetTrans
+port({[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+71:22)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ trig
+gers commission calcu
+lation after order.pa
+id event
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 69 |[
+39m   afterEach(() [
+33m=>[39m {
+     [90m 70 |[39m 
+    jest[33m.[39mcl
+earAllMocks()[33m;[
+39m
+    [31m[1m>[22m[
+39m[90m 71 |[39m   
+  analyticsService[3
+3m.[39mreset()[33m;
+[39m
+     [90m    |[39m 
+                     
+[31m[1m^[22m[39m
+     [90m 72 |[39m 
+    notificationServi
+ce[33m.[39msentNoti
+fications[33m.[39mc
+lear()[33m;[39m
+     [90m 73 |[39m 
+    notificationServi
+ce[33m.[39mfinalize
+dOrders[33m.[39mcle
+ar()[33m;[39m
+     [90m 74 |[39m 
+    notificationServi
+ce[33m.[39msetTrans
+port({[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+71:22)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ send
+s notifications once 
+per event type
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m 113 |
+[39m   it([32m'sends
+ notifications once p
+er event type'[39m[
+33m,[39m [36masync
+[39m () [33m=>[39m 
+{
+     [90m 114 |[39m
+     [36mconst[39m 
+sendMock [33m=[39m 
+jest[33m.[39mfn([3
+6masync[39m (payload
+) [33m=>[39m payloa
+d)[33m;[39m
+    [31m[1m>[22m[
+39m[90m 115 |[39m  
+   notificationServic
+e[33m.[39msetTransp
+ort({ send[33m:[39m
+ sendMock })[33m;[3
+9m
+     [90m     |[39m
+                     
+    [31m[1m^[22m[
+39m
+     [90m 116 |[39m
+     notificationServ
+ice[33m.[39msentNot
+ifications[33m.[39m
+clear()[33m;[39m
+     [90m 117 |[39m
+     [90m 118 |[39m
+     [36mawait[39m 
+notificationService[
+33m.[39mhandleOrderP
+aid({ orderId[33m:[
+39m [32m'order-200'
+[39m[33m,[39m userI
+d[33m:[39m [32m'us
+er-200'[39m })[33m;
+[39m[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+115:25)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ send
+s notifications once 
+per event type
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 69 |[
+39m   afterEach(() [
+33m=>[39m {
+     [90m 70 |[39m 
+    jest[33m.[39mcl
+earAllMocks()[33m;[
+39m
+    [31m[1m>[22m[
+39m[90m 71 |[39m   
+  analyticsService[3
+3m.[39mreset()[33m;
+[39m
+     [90m    |[39m 
+                     
+[31m[1m^[22m[39m
+     [90m 72 |[39m 
+    notificationServi
+ce[33m.[39msentNoti
+fications[33m.[39mc
+lear()[33m;[39m
+     [90m 73 |[39m 
+    notificationServi
+ce[33m.[39mfinalize
+dOrders[33m.[39mcle
+ar()[33m;[39m
+     [90m 74 |[39m 
+    notificationServi
+ce[33m.[39msetTrans
+port({[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+71:22)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ aggr
+egates analytics metr
+ics per store without
+ duplicates
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 127 |
+[39m
+     [90m 128 |[39m
+   it([32m'aggregate
+s analytics metrics p
+er store without dupl
+icates'[39m[33m,[3
+9m [36masync[39m ()
+ [33m=>[39m {
+    [31m[1m>[22m[
+39m[90m 129 |[39m  
+   analyticsService[
+33m.[39mreset()[33m
+;[39m
+     [90m     |[39m
+                     
+ [31m[1m^[22m[39m
+     [90m 130 |[39m
+     [90m 131 |[39m
+     [36mawait[39m 
+analyticsService[33m
+.[39mhandleOrderEven
+t([33mORDER_EVENTS[
+39m[33m.[39m[33mOR
+DER_CREATED[39m[33m
+,[39m {
+     [90m 132 |[39m
+       orderId[33m:
+[39m [32m'order-700'
+[39m[33m,[39m[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+129:22)
+
+  ÔùÅ Event-driven or
+der pipeline ÔÇ║ aggr
+egates analytics metr
+ics per store without
+ duplicates
+
+    TypeError: analyt
+icsService.reset is n
+ot a function
+
+    [0m [90m 69 |[
+39m   afterEach(() [
+33m=>[39m {
+     [90m 70 |[39m 
+    jest[33m.[39mcl
+earAllMocks()[33m;[
+39m
+    [31m[1m>[22m[
+39m[90m 71 |[39m   
+  analyticsService[3
+3m.[39mreset()[33m;
+[39m
+     [90m    |[39m 
+                     
+[31m[1m^[22m[39m
+     [90m 72 |[39m 
+    notificationServi
+ce[33m.[39msentNoti
+fications[33m.[39mc
+lear()[33m;[39m
+     [90m 73 |[39m 
+    notificationServi
+ce[33m.[39mfinalize
+dOrders[33m.[39mcle
+ar()[33m;[39m
+     [90m 74 |[39m 
+    notificationServi
+ce[33m.[39msetTrans
+port({[0m
+
+      at Object.<anon
+ymous> (src/__tests__
+/orderEvents.test.js:
+71:22)
+
+FAIL src/events/__tes
+ts__/eventBus.test.js
+  EventBus logging se
+quence
+    ├ù logs sequentia
+l flow for marketplac
+e orders (12 ms)
+
+  ÔùÅ EventBus loggin
+g sequence ÔÇ║ logs s
+equential flow for ma
+rketplace orders
+
+    expect(jest.fn())
+.toHaveBeenNthCalledW
+ith(n, ...expected)
+
+    n: 1
+    Expected: "[Event
+Bus] order.created", 
+ObjectContaining {"or
+derId": "log-order-1"
+, "type": "order.crea
+ted"}
+    Received
+    ->     1: "[Event
+Bus] order.created", 
+{"lastEvent": "order.
+created", "orderId": 
+"log-order-1"}
+           2: "[Event
+Bus] order.created Ôå
+Æ order.paid", {"last
+Event": "order.paid",
+ "orderId": "log-orde
+r-1"}
+
+    Number of calls: 
+3
+
+    [0m [90m 19 |[
+39m     [36mawait[3
+9m eventBus[33m.[39
+mpublish([32m'order.
+completed'[39m[33m,
+[39m { orderId[33m:
+[39m [32m'log-order
+-1'[39m })[33m;[39
+m
+     [90m 20 |[39m
+    [31m[1m>[22m[
+39m[90m 21 |[39m   
+  expect(eventLogger
+[33m.[39minfo)[33m.
+[39mtoHaveBeenNthCal
+ledWith(
+     [90m    |[39m 
+                     
+        [31m[1m^[2
+2m[39m
+     [90m 22 |[39m 
+      [35m1[39m[33
+m,[39m
+     [90m 23 |[39m 
+      [32m'[EventBus
+] order.created'[39m
+[33m,[39m
+     [90m 24 |[39m 
+      expect[33m.[3
+9mobjectContaining({ 
+orderId[33m:[39m [
+32m'log-order-1'[39m
+[33m,[39m type[33m
+:[39m [32m'order.cr
+eated'[39m })[0m
+
+      at Object.<anon
+ymous> (src/events/__
+tests__/eventBus.test
+.js:21:30)
+
+FAIL tests/services/p
+roduct.service.test.j
+s
+  ProductService.prep
+areProductData
+    ├ù normalizes tex
+t fields, badges, and
+ SEO values (2 ms)
+    ├ù reuses existin
+g descriptions when u
+pdating (4 ms)
+  ProductService.getP
+roducts
+    ├ù enforces appro
+ved, active, and in-s
+tock filters by defau
+lt (27 ms)
+    ├ù skips restrict
+ive filters when vend
+or requests all statu
+ses (12 ms)
+    ├ù returns cached
+ results when availab
+le (4 ms)
+
+  ÔùÅ ProductService.
+prepareProductData ÔÇ
+║ normalizes text fie
+lds, badges, and SEO 
+values
+
+    TypeError: produc
+tService.prepareProdu
+ctData is not a funct
+ion
+
+    [0m [90m 42 |[
+39m
+     [90m 43 |[39m 
+  it([32m'normalizes
+ text fields, badges,
+ and SEO values'[39m
+[33m,[39m () [33m=
+>[39m {
+    [31m[1m>[22m[
+39m[90m 44 |[39m   
+  [36mconst[39m pre
+pared [33m=[39m pro
+ductService[33m.[39
+mprepareProductData({
+     [90m    |[39m 
+                     
+               [31m
+[1m^[22m[39m
+     [90m 45 |[39m 
+      title[33m:[39
+m [32m'  Mystic Tali
+sman  '[39m[33m,[3
+9m
+     [90m 46 |[39m 
+      description[33
+m:[39m [32m'  Ancie
+nt protection stone\n
+'[39m[33m,[39m
+     [90m 47 |[39m 
+      tags[33m:[39m
+ [[32m'amulet'[39m
+[33m,[39m [32m' pro
+tection '[39m[33m,
+[39m [32m'amulet'[3
+9m][33m,[39m[0m
+
+      at Object.<anon
+ymous> (tests/service
+s/product.service.tes
+t.js:44:37)
+
+  ÔùÅ ProductService.
+prepareProductData ÔÇ
+║ reuses existing des
+criptions when updati
+ng
+
+    TypeError: produc
+tService.prepareProdu
+ctData is not a funct
+ion
+
+    [0m [90m 74 |[
+39m     }[33m;[39m
+     [90m 75 |[39m
+    [31m[1m>[22m[
+39m[90m 76 |[39m   
+  [36mconst[39m pre
+pared [33m=[39m pro
+ductService[33m.[39
+mprepareProductData(
+     [90m    |[39m 
+                     
+               [31m
+[1m^[22m[39m
+     [90m 77 |[39m 
+      { seo_title[33
+m:[39m undefined[33
+m,[39m seo_descripti
+on[33m:[39m undefin
+ed[33m,[39m tags[3
+3m:[39m [[32m'one'
+[39m] }[33m,[39m
+     [90m 78 |[39m 
+      { isUpdate[33m
+:[39m [36mtrue[39m
+[33m,[39m existingP
+roduct[33m:[39m exi
+sting }
+     [90m 79 |[39m 
+    )[33m;[39m[0m
+
+      at Object.<anon
+ymous> (tests/service
+s/product.service.tes
+t.js:76:37)
+
+  ÔùÅ ProductService.
+getProducts ÔÇ║ enfor
+ces approved, active,
+ and in-stock filters
+ by default
+
+    TypeError: Cannot
+ read properties of u
+ndefined (reading 'Sy
+mbol(gt)')
+
+    [0m [90m 104 |
+[39m     expect(query
+[33m.[39mwhere[33m
+.[39mstatus)[33m.[
+39mtoBe([32m'approve
+d'[39m)[33m;[39m
+     [90m 105 |[39m
+     expect(query[33
+m.[39mwhere[33m.[3
+9mis_active)[33m.[3
+9mtoBe([36mtrue[39m
+)[33m;[39m
+    [31m[1m>[22m[
+39m[90m 106 |[39m  
+   expect(query[33m.
+[39mwhere[33m.[39m
+stock[[33mOp[39m[3
+3m.[39mgt])[33m.[3
+9mtoBe([35m0[39m)[
+33m;[39m
+     [90m     |[39m
+                     
+        [31m[1m^[2
+2m[39m
+     [90m 107 |[39m
+     expect(result[3
+3m.[39mproducts)[33
+m.[39mtoHaveLength(
+[35m1[39m)[33m;[39
+m
+     [90m 108 |[39m
+     expect(result[3
+3m.[39mpagination[3
+3m.[39mtotal)[33m.
+[39mtoBe([35m1[39m)
+[33m;[39m
+     [90m 109 |[39m
+     expect(mockCache
+[33m.[39m[36mset[
+39m)[33m.[39mtoHave
+BeenCalled()[33m;[3
+9m[0m
+
+      at Object.<anon
+ymous> (tests/service
+s/product.service.tes
+t.js:106:29)
+
+  ÔùÅ ProductService.
+getProducts ÔÇ║ skips
+ restrictive filters 
+when vendor requests 
+all statuses
+
+    expect(received).
+toBeUndefined()
+
+    Received: "approv
+ed"
+
+    [0m [90m 125 |
+[39m     [36mconst[
+39m query [33m=[39m
+ mockProduct[33m.[3
+9mfindAndCountAll[33
+m.[39mmock[33m.[39
+mcalls[[35m0[39m][
+[35m0[39m][33m;[39
+m
+     [90m 126 |[39m
+    [31m[1m>[22m[
+39m[90m 127 |[39m  
+   expect(query[33m.
+[39mwhere[33m.[39m
+status)[33m.[39mtoB
+eUndefined()[33m;[3
+9m
+     [90m     |[39m
+                     
+           [31m[1m^
+[22m[39m
+     [90m 128 |[39m
+     expect(query[33
+m.[39mwhere[33m.[3
+9mis_active)[33m.[3
+9mtoBeUndefined()[33
+m;[39m
+     [90m 129 |[39m
+     expect(query[33
+m.[39mwhere[33m.[3
+9mstock)[33m.[39mto
+BeUndefined()[33m;[
+39m
+     [90m 130 |[39m
+     expect(result[3
+3m.[39mproducts[[35
+m0[39m][33m.[39mis
+_active)[33m.[39mto
+Be([36mfalse[39m)[
+33m;[39m[0m
+
+      at Object.<anon
+ymous> (tests/service
+s/product.service.tes
+t.js:127:32)
+
+  ÔùÅ ProductService.
+getProducts ÔÇ║ retur
+ns cached results whe
+n available
+
+    TypeError: Cannot
+ destructure property
+ 'count' of '((cov_1p
+ipjpqblk(...).s[19]++
+) , (intermediate val
+ue))' as it is undefi
+ned.
+
+    [0m [90m 47 |[
+39m     }
+     [90m 48 |[39m
+    [31m[1m>[22m[
+39m[90m 49 |[39m   
+  [36mconst[39m { c
+ount[33m,[39m rows 
+} [33m=[39m [36maw
+ait[39m [33mProduct
+[39m[33m.[39mfindA
+ndCountAll({
+     [90m    |[39m 
+            [31m[1m
+^[22m[39m
+     [90m 50 |[39m 
+      where[33m,[39
+m
+     [90m 51 |[39m 
+      include[33m:[
+39m [
+     [90m 52 |[39m 
+        {[0m
+
+      at ProductServi
+ce.count [as getProdu
+cts] (src/services/pr
+oduct.service.ts:49:1
+3)
+      at Object.<anon
+ymous> (tests/service
+s/product.service.tes
+t.js:137:20)
+
+FAIL src/services/__t
+ests__/notification.s
+ervice.test.js
+  NotificationService
+    ├ù sends store an
+d customer notificati
+ons once per event ty
+pe (5 ms)
+    ├ù sends failure 
+notifications with re
+ason (2 ms)
+
+  ÔùÅ NotificationSer
+vice ÔÇ║ sends store 
+and customer notifica
+tions once per event 
+type
+
+    TypeError: notifi
+cationService.reset i
+s not a function
+
+    [0m [90m 3 |[3
+9m describe([32m'Not
+ificationService'[39
+m[33m,[39m () [33m
+=>[39m {
+     [90m 4 |[39m  
+ beforeEach(() [33m=
+>[39m {
+    [31m[1m>[22m[
+39m[90m 5 |[39m    
+ notificationService
+[33m.[39mreset()[33
+m;[39m
+     [90m   |[39m  
+                     
+  [31m[1m^[22m[39
+m
+     [90m 6 |[39m  
+ })[33m;[39m
+     [90m 7 |[39m
+     [90m 8 |[39m  
+ afterEach(() [33m=>
+[39m {[0m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/notificatio
+n.service.test.js:5:2
+5)
+
+  ÔùÅ NotificationSer
+vice ÔÇ║ sends store 
+and customer notifica
+tions once per event 
+type
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m  7 |[
+39m
+     [90m  8 |[39m 
+  afterEach(() [33m=
+>[39m {
+    [31m[1m>[22m[
+39m[90m  9 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 10 |[39m 
+      [36masync[39m
+ send() {
+     [90m 11 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 12 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/notificatio
+n.service.test.js:9:2
+5)
+
+  ÔùÅ NotificationSer
+vice ÔÇ║ sends failur
+e notifications with 
+reason
+
+    TypeError: notifi
+cationService.reset i
+s not a function
+
+    [0m [90m 3 |[3
+9m describe([32m'Not
+ificationService'[39
+m[33m,[39m () [33m
+=>[39m {
+     [90m 4 |[39m  
+ beforeEach(() [33m=
+>[39m {
+    [31m[1m>[22m[
+39m[90m 5 |[39m    
+ notificationService
+[33m.[39mreset()[33
+m;[39m
+     [90m   |[39m  
+                     
+  [31m[1m^[22m[39
+m
+     [90m 6 |[39m  
+ })[33m;[39m
+     [90m 7 |[39m
+     [90m 8 |[39m  
+ afterEach(() [33m=>
+[39m {[0m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/notificatio
+n.service.test.js:5:2
+5)
+
+  ÔùÅ NotificationSer
+vice ÔÇ║ sends failur
+e notifications with 
+reason
+
+    TypeError: notifi
+cationService.setTran
+sport is not a functi
+on
+
+    [0m [90m  7 |[
+39m
+     [90m  8 |[39m 
+  afterEach(() [33m=
+>[39m {
+    [31m[1m>[22m[
+39m[90m  9 |[39m   
+  notificationService
+[33m.[39msetTranspo
+rt({
+     [90m    |[39m 
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 10 |[39m 
+      [36masync[39m
+ send() {
+     [90m 11 |[39m 
+        [36mreturn[
+39m [36mnull[39m[3
+3m;[39m
+     [90m 12 |[39m 
+      }[33m,[39m[0
+m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/notificatio
+n.service.test.js:9:2
+5)
+
+PASS src/__tests__/or
+derFulfillmentV2.test
+.js
+  Order Fulfillment V
+2 - Smoke Tests
+    OrderIdParamSchem
+a
+      ÔêÜ should acce
+pt valid UUID (9 ms)
+      ÔêÜ should reje
+ct invalid UUID forma
+t (5 ms)
+      ÔêÜ should reje
+ct empty id (2 ms)
+    UpdateOrderStatus
+Schema
+      ÔêÜ should acce
+pt valid status value
+s (4 ms)
+      ÔêÜ should reje
+ct invalid status val
+ue (2 ms)
+      ÔêÜ should reje
+ct missing status (1 
+ms)
+    UpdateOrderTracki
+ngSchema
+      ÔêÜ should acce
+pt valid tracking dat
+a (2 ms)
+      ÔêÜ should reje
+ct carrier that is to
+o short (2 ms)
+      ÔêÜ should reje
+ct tracking number th
+at is too short (2 ms
+)
+      ÔêÜ should reje
+ct missing carrier (3
+ ms)
+      ÔêÜ should reje
+ct missing tracking n
+umber (2 ms)
+    Status Transition
+ Rules
+      ÔêÜ should allo
+w pending ÔåÆ process
+ing (2 ms)
+      ÔêÜ should allo
+w pending ÔåÆ cancell
+ed (1 ms)
+      ÔêÜ should allo
+w processing ÔåÆ ship
+ped (1 ms)
+      ÔêÜ should allo
+w processing ÔåÆ canc
+elled (2 ms)
+      ÔêÜ should allo
+w shipped ÔåÆ deliver
+ed (2 ms)
+      ÔêÜ should NOT 
+allow delivered ÔåÆ a
+ny other status (2 ms
+)
+      ÔêÜ should NOT 
+allow cancelled ÔåÆ a
+ny other status
+      ÔêÜ should NOT 
+allow pending ÔåÆ shi
+pped (skip processing
+)
+      ÔêÜ should NOT 
+allow pending ÔåÆ del
+ivered (skip processi
+ng, shipped) (1 ms)
+    OrderStatus Enum
+      ÔêÜ should have
+ all Phase 8.1 status
+ values (2 ms)
+      ÔêÜ should main
+tain backward compati
+bility with legacy st
+atuses (3 ms)
+    Integration Scena
+rios (Unit Level)
+      ÔêÜ should vali
+date full happy path:
+ pending ÔåÆ processi
+ng ÔåÆ shipped ÔåÆ de
+livered (3 ms)
+      ÔêÜ should allo
+w cancellation at mul
+tiple stages (2 ms)
+      ÔêÜ should reje
+ct backward transitio
+ns (3 ms)
+      ÔêÜ should reje
+ct skip transitions (
+1 ms)
+    Authorization Rul
+es
+      ÔêÜ buyer can v
+iew their own order (
+1 ms)
+      ÔêÜ buyer canno
+t view another user's
+ order (1 ms)
+      ÔêÜ admin can v
+iew any order (2 ms)
+      ÔêÜ seller can 
+view orders from thei
+r own store (1 ms)
+      ÔêÜ buyer canno
+t modify order status
+ (10 ms)
+      ÔêÜ admin can m
+odify any order statu
+s (4 ms)
+      ÔêÜ seller can 
+modify orders from th
+eir own store (1 ms)
+      ÔêÜ seller cann
+ot modify orders from
+ another store (1 ms)
+      ÔêÜ unauthentic
+ated user cannot view
+ orders (1 ms)
+
+PASS src/services/__t
+ests__/campaign.servi
+ce.test.js
+  CampaignService API
+ health checks
+    ÔêÜ seller campai
+gns without store_id 
+are rejected with BAD
+_REQUEST (9 ms)
+    ÔêÜ seller listin
+g campaigns without a
+ store returns NOT_FO
+UND (6 ms)
+    ÔêÜ seller cannot
+ view another store c
+ampaign (10 ms)
+    ÔêÜ non-ApiError 
+failures bubble up as
+ 500 ApiError envelop
+es (4 ms)
+
+PASS src/services/__t
+ests__/payment.servic
+e.test.js
+  PaymentService
+    ÔêÜ updates order
+ status via Model and
+ publishes event on s
+ucceess (18 ms)
+
+PASS src/__tests__/ma
+ppers/OrderMapper.tes
+t.ts
+  OrderMapper
+    toDomain
+      ÔêÜ should map 
+Sequelize order to do
+main IOrder with cent
+s values (16 ms)
+      ÔêÜ should thro
+w error for null inpu
+t (110 ms)
+      ÔêÜ should hand
+le missing optional f
+ields gracefully (5 m
+s)
+    toPersistence
+      ÔêÜ should map 
+domain order to snake
+_case persistence for
+mat (2 ms)
+
+FAIL src/routes/__tes
+ts__/user.routes.test
+.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 's
+rc/routes/__tests__/u
+ser.routes.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m j
+est[33m.[39mmock([
+32m'../../models'[39
+m[33m,[39m () [33m
+=>[39m {[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (src/routes/__
+tests__/user.routes.t
+est.js:1:17)
+
+FAIL tests/api/wishli
+st.routes.test.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 't
+ests/api/wishlist.rou
+tes.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[36mconst[39m mockWi
+shlistService [33m=
+[39m {[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (tests/api/wis
+hlist.routes.test.js:
+1:17)
+
+FAIL tests/api/user.r
+outes.test.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 't
+ests/api/user.routes.
+test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[36mconst[39m [33mA
+DMIN_ID[39m [33m=[
+39m [32m'8f1c6f0d-8a
+23-4f82-b3f6-0beccf2e
+0549'[39m[33m;[39m
+[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (tests/api/use
+r.routes.test.js:1:17
+)
+
+FAIL src/services/__t
+ests__/order.workflow
+.test.js
+  OrderService workfl
+ow
+    ├ù splits cart by
+ store and publishes 
+order.created per sto
+re (1013 ms)
+    ├ù marks an order
+ as paid without comp
+leting it prematurely
+ (2 ms)
+    ├ù emits order.co
+mpleted only when mar
+kOrderCompleted is ca
+lled (3 ms)
+
+  ÔùÅ OrderService wo
+rkflow ÔÇ║ splits car
+t by store and publis
+hes order.created per
+ store
+
+
+
+    [0m [90m 292 |
+[39m             [90
+m// 3) Lock all produ
+ct rows FOR UPDATE[3
+9m
+     [90m 293 |[39m
+             [36mcon
+st[39m productIds [
+33m=[39m cartItems[
+33m.[39mmap((item[3
+3m:[39m any) [33m=>
+[39m item[33m.[39m
+product_id)[33m;[39
+m
+    [31m[1m>[22m[
+39m[90m 294 |[39m  
+           [36mconst
+[39m products [33m=
+[39m [36mawait[39m
+ [33mProduct[39m[3
+3m.[39mfindAll({
+     [90m     |[39m
+                     
+         [31m[1m^[
+22m[39m
+     [90m 295 |[39m
+                 wher
+e[33m:[39m { id[33
+m:[39m productIds }
+[33m,[39m
+     [90m 296 |[39m
+                 lock
+[33m:[39m transacti
+on[33m.[39m[33mLOC
+K[39m[33m.[39m[33
+mUPDATE[39m[33m,[3
+9m
+     [90m 297 |[39m
+                 tran
+saction[33m,[39m[0
+m
+
+      at Query.run (n
+ode_modules/sequelize
+/src/dialects/postgre
+s/query.js:76:25)
+      at node_modules
+/sequelize/src/sequel
+ize.js:650:28
+      at PostgresQuer
+yInterface.select (no
+de_modules/sequelize/
+src/dialects/abstract
+/query-interface.js:1
+001:12)
+      at Function.fin
+dAll (node_modules/se
+quelize/src/model.js:
+1824:21)
+      at OrderService
+.createFromCart (src/
+services/order.servic
+e.ts:294:30)
+      at Object.<anon
+ymous> (src/services/
+__tests__/order.workf
+low.test.js:117:20)
+
+  ÔùÅ OrderService wo
+rkflow ÔÇ║ marks an o
+rder as paid without 
+completing it prematu
+rely
+
+    TypeError: orderS
+ervice.markOrderPaid 
+is not a function
+
+    [0m [90m 141 |
+[39m     jest[33m.[
+39mspyOn(orderService
+[33m,[39m [32m'_lo
+adOrderWithRelations'
+[39m)[33m.[39mmock
+ResolvedValue(order)
+[33m;[39m
+     [90m 142 |[39m
+    [31m[1m>[22m[
+39m[90m 143 |[39m  
+   [36mawait[39m or
+derService[33m.[39m
+markOrderPaid([32m'o
+rder-99'[39m[33m,[
+39m { transactionId[
+33m:[39m [32m'txn-1
+'[39m })[33m;[39m
+     [90m     |[39m
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 144 |[39m
+     [90m 145 |[39m
+     expect(order[33
+m.[39mstatus)[33m.
+[39mtoBe([32m'paid'
+[39m)[33m;[39m
+     [90m 146 |[39m
+     expect(order[33
+m.[39mpayment_status
+)[33m.[39mtoBe([32
+m'paid'[39m)[33m;[
+39m[0m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/order.workf
+low.test.js:143:24)
+
+  ÔùÅ OrderService wo
+rkflow ÔÇ║ emits orde
+r.completed only when
+ markOrderCompleted i
+s called
+
+    TypeError: orderS
+ervice.markOrderCompl
+eted is not a functio
+n
+
+    [0m [90m 160 |
+[39m     jest[33m.[
+39mspyOn(orderService
+[33m,[39m [32m'_lo
+adOrderWithRelations'
+[39m)[33m.[39mmock
+ResolvedValue(order)
+[33m;[39m
+     [90m 161 |[39m
+    [31m[1m>[22m[
+39m[90m 162 |[39m  
+   [36mawait[39m or
+derService[33m.[39m
+markOrderCompleted([
+32m'order-77'[39m[3
+3m,[39m {})[33m;[3
+9m
+     [90m     |[39m
+                     
+   [31m[1m^[22m[3
+9m
+     [90m 163 |[39m
+     [90m 164 |[39m
+     expect(order[33
+m.[39mstatus)[33m.
+[39mtoBe([32m'delive
+red'[39m)[33m;[39m
+     [90m 165 |[39m
+     expect(orderEven
+ts[33m.[39mpublishO
+rderCompleted)[33m.
+[39mtoHaveBeenCalledT
+imes([35m1[39m)[33
+m;[39m[0m
+
+      at Object.<anon
+ymous> (src/services/
+__tests__/order.workf
+low.test.js:162:24)
+
+FAIL tests/api/recomm
+endation.routes.test.
+js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 't
+ests/api/recommendati
+on.routes.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[36mconst[39m mockRe
+commendationService 
+[33m=[39m {[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (tests/api/rec
+ommendation.routes.te
+st.js:1:17)
+
+FAIL tests/api/review
+.routes.test.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 't
+ests/api/review.route
+s.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[36mconst[39m mockRe
+viewService [33m=[3
+9m {[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (tests/api/rev
+iew.routes.test.js:1:
+17)
+
+FAIL src/__tests__/sl
+ugRoutes.test.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from 's
+rc/__tests__/slugRout
+es.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m { [33
+mStatusCodes[39m } 
+[33m=[39m require([
+32m'http-status-codes
+'[39m)[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m j
+est[33m.[39mmock([
+32m'../config/redis'
+[39m[33m,[39m () [
+33m=>[39m ({[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (src/__tests__
+/slugRoutes.test.js:1
+:17)
+
+FAIL __tests__/api-ma
+intenance.test.js
+  ÔùÅ Test suite fail
+ed to run
+
+    Cannot find modul
+e 'supertest' from '_
+_tests__/api-maintena
+nce.test.js'
+
+    [0m[31m[1m>[2
+2m[39m[90m 1 |[39m
+ [36mconst[39m requ
+est [33m=[39m requi
+re([32m'supertest'[
+39m)[33m;[39m
+     [90m   |[39m  
+               [31m
+[1m^[22m[39m
+     [90m 2 |[39m 
+[36mconst[39m expres
+s [33m=[39m require
+([32m'express'[39m)
+[33m;[39m
+     [90m 3 |[39m
+     [90m 4 |[39m 
+[90m// Ensure app loa
+ds with test environm
+ent defaults[39m[0m
+
+      at Resolver._th
+rowModNotFoundError (
+node_modules/jest-res
+olve/build/index.js:8
+63:11)
+      at Object.<anon
+ymous> (__tests__/api
+-maintenance.test.js:
+1:17)
+
+A worker process has 
+failed to exit gracef
+ully and has been for
+ce exited. This is li
+kely caused by tests 
+leaking due to improp
+er teardown. Try runn
+ing with --detectOpen
+Handles to find leaks
+. Active timers can a
+lso cause this, ensur
+e that .unref() was c
+alled on them.
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+File                          | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                       
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+All files                     |   30.55 |    12.99 |   13.92 |   31.15 |                                                                                         
+ config                       |   39.28 |     44.3 |   33.33 |   39.28 |                                                                                         
+  database.js                 |   39.28 |    44.28 |   66.66 |   39.28 | 15-32,43-55,74                                                                          
+  sequelize.js                |   39.28 |    44.44 |       0 |   39.28 | 17,45-51,59-65,73-77                                                                    
+ events                       |   68.51 |    40.62 |   44.44 |   68.51 |                                                                                         
+  eventBus.js                 |   76.31 |    66.66 |   54.54 |   76.31 | 54,71,85,95-99,107,117-118                                                              
+  order.events.js             |      50 |    17.64 |   28.57 |      50 | 13,20-24,40,42-44                                                                       
+ infrastructure/mappers       |   70.58 |    69.82 |     100 |   89.79 |                                                                                         
+  OrderMapper.ts              |   70.58 |    69.82 |     100 |   89.79 | 111,140,171-172,185                                                                     
+ middlewares                  |   12.94 |     1.75 |    12.5 |   13.41 |                                                                                         
+  errorHandler.js             |   12.94 |     1.75 |    12.5 |   13.41 | 26-27,34-183,190-191                                                                    
+ models                       |   38.64 |        0 |       0 |   39.36 |                                                                                         
+  Address.js                  |   35.48 |        0 |       0 |   35.48 | 130,149-158,170,186,202-226,236-238,253-255                                             
+  Campaign.js                 |   14.58 |        0 |       0 |   15.55 | 278-282,290-291,301-327,335-359,367-375,391-402,415-442,456-479,491-513,522-529         
+  Cart.js                     |     100 |      100 |       0 |     100 |                                                                                         
+  CartItem.js                 |     100 |      100 |     100 |     100 |                                                                                         
+  Category.js                 |   34.09 |        0 |       0 |   34.88 | 130,138-150,161,173-194,203,211,224-234,242-258                                         
+  CategoryVariant.js          |     100 |      100 |     100 |     100 |                                                                                         
+  CommissionSettings.js       |   21.95 |        0 |       0 |   23.68 | 98-104,113-129,141-160,168,186-202                                                      
+  CommissionTransaction.js    |   16.39 |        0 |       0 |   16.39 | 171-177,186-206,214,241-274,284-319,329-343                                             
+  Coupon.js                   |   19.71 |        0 |       0 |      20 | 163-173,181-185,194-224,233-251,259-270,281,293-295,316-320,329-330,338-351             
+  CouponUsage.js              |   58.33 |        0 |       0 |   63.63 | 103-105,119,132                                                                         
+  Order.js                    |   23.52 |        0 |       0 |   23.88 | 247-248,258-298,306-307,315,323,333-352,362,376,390,403-404,412-418                     
+  OrderItem.js                |   54.54 |      100 |       0 |   54.54 | 123-128,137                                                                             
+  PlatformSettings.js         |      28 |        0 |       0 |   29.16 | 69-85,98-107,114-132                                                                    
+  Product.js                  |   32.78 |        0 |       0 |   32.78 | 253,261,269,277-280,289-295,303-304,311-312,320-323,334,350,359,377,395,414-424,432-453 
+  ProductVariant.js           |     100 |      100 |     100 |     100 |                                                                                         
+  ReturnRequest.js            |   17.46 |        0 |       0 |   17.46 | 212-213,223-274,282,292-311,320-321,329-335                                             
+  Review.js                   |   41.37 |        0 |       0 |   41.37 | 142-146,160,168,176-178,185-186,198,215,231-237,246-252                                 
+  Shipment.js                 |     100 |      100 |     100 |     100 |                                                                                         
+  ShipmentEvent.js            |     100 |      100 |     100 |     100 |                                                                                         
+  ShipmentItem.js             |     100 |      100 |     100 |     100 |                                                                                         
+  ShippingSupportRule.js      |      40 |        0 |       0 |      40 | 108-111,139-154                                                                         
+  Store.js                    |   33.33 |        0 |       0 |   33.33 | 190,198-199,207-210,221,233,246,255-265,273-294                                         
+  StoreDailySales.js          |     100 |      100 |     100 |     100 |                                                                                         
+  User.js                     |   46.42 |        0 |       0 |   46.42 | 28,120,128-131,139-140,151-152,161,170,184-185,193-194                                  
+  VendorPayout.js             |   27.27 |        0 |       0 |   29.03 | 136-143,152-158,166-170,178-183                                                         
+  WishlistItem.js             |     100 |      100 |     100 |     100 |                                                                                         
+  index.js                    |     100 |      100 |     100 |     100 |                                                                                         
+ services                     |   13.57 |     5.08 |   13.82 |   13.53 |                                                                                         
+  analytics.service.ts        |   12.96 |        0 |   16.66 |   12.96 | 42-142                                                                                  
+  campaign.service.js         |   23.12 |    14.41 |   28.57 |   23.13 | 34-92,95,135-172,183,212,226,229-349,372-484                                            
+  commission.service.ts       |    4.46 |        0 |       0 |    4.46 | 75-527                                                                                  
+  notification.service.ts     |   12.19 |        0 |      10 |   12.19 | 53,61-175                                                                               
+  order.service.ts            |   10.15 |     2.98 |    8.69 |   10.16 | 92-233,264,277-282,289,300-587,602-884                                                  
+  payment.service.ts          |      60 |    36.36 |   66.66 |      60 | 54,59,66,74-76,94-104                                                                   
+  product.service.ts          |   42.85 |    31.03 |      25 |   46.87 | 31,36-38,43,85-128                                                                      
+  shipping-support.service.js |     3.4 |        0 |       0 |     3.4 | 23-421                                                                                  
+  siftah.service.js           |   11.11 |        0 |       0 |   11.36 | 30-249                                                                                  
+ types                        |     100 |      100 |     100 |     100 |                                                                                         
+  index.ts                    |     100 |      100 |     100 |     100 |                                                                                         
+ utils                        |   49.29 |    45.45 |   28.57 |      50 |                                                                                         
+  AppError.ts                 |   53.33 |       50 |      50 |   53.33 | 27-34                                                                                   
+  dateUtils.js                |    12.5 |      100 |       0 |    12.5 | 17-30                                                                                   
+  eventLogger.js              |    62.5 |    47.05 |      60 |    62.5 | 11,17,23-50                                                                             
+  logger.js                   |   45.83 |    41.66 |       0 |   47.82 | 6,10-19,35-39                                                                           
+ workers                      |   82.92 |       50 |   44.44 |   82.92 |                                                                                         
+  analytics.worker.js         |     100 |      100 |     100 |     100 |                                                                                         
+  commission.worker.js        |   81.81 |       50 |     100 |   81.81 | 9,15                                                                                    
+  notification.worker.js      |   73.33 |      100 |      20 |   73.33 | 12,16,20,24                                                                             
+  payment.worker.js           |   85.71 |      100 |       0 |   85.71 | 8                                                                                       
+------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+Test Suites: 14 faile
+d, 4 passed, 18 total
+Tests:       21 faile
+d, 44 passed, 65 tota
+l
+Snapshots:   0 total
+Time:        23.626 s
+, estimated 36 s
+Ran all test suites.
+Force exiting Jest: H
+ave you considered us
+ing `--detectOpenHand
+les` to detect async 
+operations that kept 
+running after all tes
+ts finished?

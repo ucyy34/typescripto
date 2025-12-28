@@ -160,55 +160,19 @@ const productsData = [
 ];
 
 async function cleanDatabase() {
-  console.log('\n🧹 Cleaning database...\n');
+  console.log('\n🧹 Cleaning database via Sync Force...\n');
 
   try {
-    // Delete in correct order (respecting foreign keys)
-    // Use truncate: true to skip if table doesn't exist
-    const models = [
-      CommissionTransaction,
-      ReturnRequest,
-      OrderItem,
-      Order,
-      Cart,
-      Product,
-      Store
-    ];
+    // FORCE SYNC: Drops and recreates all tables
+    // This is perfect for sandbox environment initialization
+    await sequelize.sync({ force: true });
 
-    for (const model of models) {
-      try {
-        await model.destroy({ where: {}, force: true });
-      } catch (err) {
-        // Skip if table doesn't exist
-        if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
-          console.log(`⚠️  Skipping ${model.name} (table doesn't exist yet)`);
-        } else {
-          throw err;
-        }
-      }
-    }
-
-    // Delete all users except admin
-    try {
-      await User.destroy({
-        where: {
-          role: ['seller', 'buyer']
-        },
-        force: true
-      });
-    } catch (err) {
-      if (err.name === 'SequelizeDatabaseError' && err.parent?.code === '42P01') {
-        console.log('⚠️  Skipping User cleanup (table doesn\'t exist yet)');
-      } else {
-        throw err;
-      }
-    }
-
-    console.log('✅ Database cleaned (admin user preserved)\n');
+    console.log('✅ Database schema created & cleaned (All tables reset)\n');
   } catch (error) {
     console.error('❌ Error cleaning database:', error);
-    // Don't throw, allow seeding to continue
-    console.log('⚠️  Continuing with seed despite clean errors...\n');
+    // Continue despite error if specific tables fail, but usually sync throws.
+    // For sandbox, we want to know if it fails.
+    throw error;
   }
 }
 
@@ -367,6 +331,21 @@ async function main() {
   try {
     console.log('🚀 Starting database cleanup and seed...\n');
     console.log('Connected to DB:', sequelize.config.database);
+
+    // SAFETY CHECK: Ensure we are in a safe dev environment
+    const { ENV_TAG, DB_NAME } = process.env;
+
+    if (ENV_TAG !== 'dev') {
+      console.error(`\n❌ FATAL: ENV_TAG must be "dev" to run seed. Found: "${ENV_TAG}"`);
+      console.error('   This script wipes the database. Safety abort!');
+      process.exit(1);
+    }
+
+    if (!DB_NAME || !DB_NAME.endsWith('_dev')) {
+      console.error(`\n❌ FATAL: DB_NAME must end with "_dev". Found: "${DB_NAME}"`);
+      console.error('   This script wipes the database. Safety abort!');
+      process.exit(1);
+    }
 
     await cleanDatabase();
     await seedData();

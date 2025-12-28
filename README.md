@@ -119,7 +119,7 @@ dosttanpalas-railway/
 ## 🐛 Known Issues
 
 See [BUGS.md](BUGS.md) for current issues and planned fixes:
-- Image upload handler missing (CRITICAL)
+- ~~Image upload handler missing~~ ✅ **COMPLETED** (2025-12-27)
 - Product re-approval workflow needed
 - Category validation disabled
 
@@ -145,6 +145,9 @@ See [BUGS.md](BUGS.md) for current issues and planned fixes:
 - `GET /api/v1/stores/:id/orders` - Store orders (Seller)
 - `POST /api/v1/orders` - Create order
 - `PATCH /api/v1/orders/:id/status` - Update order status
+
+### Upload
+- `POST /api/v1/upload/products` - Upload product image (Seller, 10MB max, jpeg/png/webp)
 
 See full API documentation in `/backend/src/routes/`
 

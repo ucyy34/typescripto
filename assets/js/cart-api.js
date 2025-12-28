@@ -254,14 +254,17 @@ class CartPageAPI {
             return sum + (price * item.quantity);
         }, 0);
 
-        // Use shipping data from API
-        const shipping = this.shippingData?.summary?.totalShippingSupport || 35;
+        // Calculate total items
+        const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+
+        // If cart is empty, everything should be 0
+        const isCartEmpty = this.cart.length === 0 || subtotal === 0;
+
+        // Use shipping data from API, but 0 if cart is empty
+        const shipping = isCartEmpty ? 0 : (this.shippingData?.summary?.totalShippingSupport || 35);
         const isFreeShipping = this.shippingData?.summary?.isFree || false;
         const tax = subtotal * 0.18; // 18% VAT (Turkey)
         const total = subtotal + shipping + tax;
-
-        // Calculate total items
-        const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
 
         // Update summary display (using actual IDs from cart.html)
         const subtotalEl = document.getElementById('subtotal');
@@ -271,7 +274,10 @@ class CartPageAPI {
 
         if (subtotalEl) subtotalEl.textContent = `₺${subtotal.toFixed(2)}`;
         if (shippingEl) {
-            if (isFreeShipping && subtotal > 0) {
+            if (isCartEmpty) {
+                shippingEl.textContent = '₺0.00';
+                shippingEl.style.color = '';
+            } else if (isFreeShipping) {
                 shippingEl.textContent = 'ÜCRETSİZ ✨';
                 shippingEl.style.color = 'var(--aurora-green)';
             } else {
@@ -284,19 +290,19 @@ class CartPageAPI {
 
         // Update item count in summary
         const summaryRow = document.querySelector('.summary-row span');
-        if (summaryRow && summaryRow.textContent.includes('items')) {
-            summaryRow.textContent = `Subtotal (${totalItems} item${totalItems !== 1 ? 's' : ''}):`;
+        if (summaryRow) {
+            summaryRow.textContent = `Ara Toplam (${totalItems} ürün):`;
         }
 
         // Update checkout button
         const checkoutBtn = document.getElementById('checkoutBtn');
         if (checkoutBtn) {
-            if (this.cart.length === 0) {
+            if (isCartEmpty) {
                 checkoutBtn.disabled = true;
-                checkoutBtn.textContent = 'Cart is Empty';
+                checkoutBtn.textContent = 'Sepet Boş';
             } else {
                 checkoutBtn.disabled = false;
-                checkoutBtn.textContent = `Proceed to Checkout ($${total.toFixed(2)})`;
+                checkoutBtn.textContent = `⚡ Ödemeye Geç (₺${total.toFixed(2)})`;
             }
         }
 

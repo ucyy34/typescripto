@@ -1,0 +1,25 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noImplicitAny": true,
+        "strict": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictPropertyInitialization": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true
+    },
+    "include": [
+        "src/domain/**/*",
+        "src/infrastructure/**/*",
+        "src/application/**/*",
+        "src/shared/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+    ]
+}

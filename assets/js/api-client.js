@@ -12,6 +12,12 @@ class ApiClient {
     this.guestIdStorageKey = 'guest_session_id';
     this.cachedGuestId = null;
 
+    // Phase 7.2: Guest Key Lifecycle (cookie-first, memory fallback)
+    this.guestKeyHeader = 'X-Guest-Key';
+    this.guestKeyCookieName = 'guest_key';
+    this.guestKeyTTLDays = 7;
+    this._inMemoryGuestKey = null;
+
     try {
       if (typeof window !== 'undefined') {
         if (window.API_DEBUG === true) {
@@ -22,6 +28,162 @@ class ApiClient {
       }
     } catch (_) {
       this.debug = false;
+    }
+  }
+
+  // ==========================================
+  // COOKIE HELPERS (Phase 7.2)
+  // ==========================================
+
+  /**
+   * Get cookie value by name
+   */
+  getCookie(name) {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+  }
+
+  /**
+   * Set cookie with expiration days
+   */
+  setCookie(name, value, days) {
+    if (typeof document === 'undefined') return false;
+    try {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Delete cookie by name
+   */
+  deleteCookie(name) {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  }
+
+  /**
+   * Validate UUID format
+   */
+  isValidUUID(str) {
+    if (!str || typeof str !== 'string') return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+  }
+
+  // ==========================================
+  // GUEST KEY LIFECYCLE (Phase 7.2)
+  // ==========================================
+
+  /**
+   * Get or create guest key (cookie-first, memory fallback)
+   * @returns {string} UUID guest key
+   */
+  getGuestKey() {
+    // 1. Try cookie
+    const cookieKey = this.getCookie(this.guestKeyCookieName);
+    if (cookieKey && this.isValidUUID(cookieKey)) {
+      this._inMemoryGuestKey = cookieKey;
+      return cookieKey;
+    }
+
+    // 2. Use in-memory if exists
+    if (this._inMemoryGuestKey && this.isValidUUID(this._inMemoryGuestKey)) {
+      return this._inMemoryGuestKey;
+    }
+
+    // 3. Generate new key
+    let newKey;
+    try {
+      newKey = crypto.randomUUID();
+    } catch (_) {
+      newKey = this.generateGuestId(); // Fallback
+    }
+
+    // 4. Try save to cookie
+    const cookieSet = this.setCookie(this.guestKeyCookieName, newKey, this.guestKeyTTLDays);
+
+    // 5. Verify cookie was set, otherwise use memory
+    if (!cookieSet || this.getCookie(this.guestKeyCookieName) !== newKey) {
+      this._inMemoryGuestKey = newKey; // Cookie blocked, use memory
+      if (this.debug) {
+        console.log('[ApiClient] Cookie blocked, using in-memory guest key');
+      }
+    } else {
+      this._inMemoryGuestKey = newKey;
+    }
+
+    return newKey;
+  }
+
+  /**
+   * Clear guest key (cookie + memory)
+   */
+  clearGuestKey() {
+    this.deleteCookie(this.guestKeyCookieName);
+    this._inMemoryGuestKey = null;
+  }
+
+  /**
+   * Rotate guest key (generate new, overwrite cookie/memory)
+   * Called after successful merge
+   * @returns {string} New guest key
+   */
+  rotateGuestKey() {
+    let newKey;
+    try {
+      newKey = crypto.randomUUID();
+    } catch (_) {
+      newKey = this.generateGuestId();
+    }
+
+    this.setCookie(this.guestKeyCookieName, newKey, this.guestKeyTTLDays);
+    this._inMemoryGuestKey = newKey;
+
+    if (this.debug) {
+      console.log('[ApiClient] Guest key rotated:', newKey.substring(0, 8) + '...');
+    }
+
+    return newKey;
+  }
+
+  /**
+   * Merge guest cart into user cart (called after login)
+   * @param {string} authToken - JWT auth token
+   * @returns {Promise<Object>} Merge result
+   */
+  async mergeGuestCartOnLogin(authToken) {
+    const guestKey = this.getGuestKey();
+    if (!guestKey) {
+      return { success: true, message: 'No guest key to merge' };
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}/api/v2/cart/merge`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+          [this.guestKeyHeader]: guestKey
+        },
+        body: JSON.stringify({ guestKey })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.nextGuestKeyRequired) {
+        this.rotateGuestKey();
+      }
+
+      return data;
+    } catch (error) {
+      if (this.debug) {
+        console.error('[ApiClient] Merge failed:', error);
+      }
+      return { success: false, error: error.message };
     }
   }
 
@@ -43,9 +205,16 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Legacy guest ID (for backward compatibility)
     const guestId = this.getGuestId();
     if (guestId) {
       headers[this.guestIdHeader] = guestId;
+    }
+
+    // Phase 7.2: Guest Key (for Cart V2)
+    const guestKey = this.getGuestKey();
+    if (guestKey) {
+      headers[this.guestKeyHeader] = guestKey;
     }
 
     return headers;

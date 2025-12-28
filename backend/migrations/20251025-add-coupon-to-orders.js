@@ -24,7 +24,3 @@ module.exports = {
     await queryInterface.removeColumn('orders', 'coupon_discount');
   },
 };
-
-
-
-

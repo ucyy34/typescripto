@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Treasures - DostanWebCSS Nordic Marketplace</title>
+    <title>Tüm Ürünler - DostanWebCSS El Yapımı Pazaryeri</title>
     <meta name="description"
-        content="Explore our complete collection of handcrafted Nordic treasures with advanced filtering and AI-powered recommendations from Dostik">
+        content="El yapımı hazinelerin tamamını keşfedin. Dostik'in yapay zeka önerileri ile alışverişin keyfini çıkarın.">
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://dostanwebcss.com/pages/products.html">
@@ -302,27 +302,27 @@
         <div class="container">
             <!-- Page Header -->
             <div class="text-center mb-xl">
-                <h1>All Nordic Treasures</h1>
-                <p class="hero-text">Discover handcrafted masterpieces with Dostik's guidance</p>
+                <h1>Tüm Ürünler</h1>
+                <p class="hero-text">Dostik'in rehberliğinde el yapımı şaheserleri keşfedin</p>
             </div>
 
             <!-- Dostik's AI Recommendations -->
             <section class="dostik-recommendations" aria-labelledby="dostik-recommendations-title">
-                <h2 id="dostik-recommendations-title" style="margin-bottom: var(--space-md);">🐉 Dostik's Mystical
-                    Recommendations</h2>
+                <h2 id="dostik-recommendations-title" style="margin-bottom: var(--space-md);">🐉 Dostik'in Önerileri
+                </h2>
                 <p style="margin-bottom: var(--space-lg); opacity: 0.9;">
-                    Based on the Nordic winds and ancient wisdom, I sense these treasures calling to you today...
+                    Bugün size bu hazinelerin çağrıldığını hissediyorum...
                 </p>
                 <div style="display: flex; gap: var(--space-md); justify-content: center; flex-wrap: wrap;">
                     <span class="badge"
                         style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">🔥
-                        Trending</span>
+                        Trend</span>
                     <span class="badge"
                         style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">✨
-                        New Arrivals</span>
+                        Yeni Gelenler</span>
                     <span class="badge"
                         style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3);">👑
-                        Limited Edition</span>
+                        Sınırlı Sayıda</span>
                 </div>
             </section>
 
@@ -341,92 +341,79 @@
                 <aside class="filters-sidebar" id="filtersSidebar">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg);">
-                        <h3 style="margin: 0;">Mystical Filters</h3>
+                        <h3 style="margin: 0;">Filtreler</h3>
                         <button id="closeMobileFilters"
                             style="display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
                     </div>
 
                     <!-- Category Filter -->
                     <div class="filter-group">
-                        <h4>🏷️ Categories</h4>
+                        <h4>🏷️ Kategoriler</h4>
                         <div id="categoryFilters">
                             <!-- Categories will be loaded dynamically from API -->
-                            <p style="color: #666; font-size: 0.9rem;">Loading categories...</p>
+                            <p style="color: #666; font-size: 0.9rem;">Kategoriler yükleniyor...</p>
                         </div>
                     </div>
 
                     <!-- Price Range -->
                     <div class="filter-group">
-                        <h4>💰 Price Range</h4>
-                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="1000" value="500">
+                        <h4>💰 Fiyat Aralığı</h4>
+                        <input type="range" class="price-range-slider" id="priceRange" min="0" max="5000" value="2500">
                         <div
                             style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--warm-brown);">
-                            <span>$0</span>
-                            <span id="priceValue">$500</span>
-                            <span>$1000+</span>
+                            <span>0 ₺</span>
+                            <span id="priceValue">2500 ₺</span>
+                            <span>5000+ ₺</span>
                         </div>
                     </div>
 
                     <!-- Artisan Filter -->
                     <div class="filter-group">
-                        <h4>🎨 Artisan</h4>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="erik">
-                            <span>Erik Nordström</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="astrid">
-                            <span>Astrid Björk</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="magnus">
-                            <span>Magnus Eriksson</span>
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" name="artisan" value="ingrid">
-                            <span>Ingrid Svensson</span>
-                        </label>
+                        <h4>🎨 Ustalar</h4>
+                        <div id="artisanFilters">
+                            <p style="color: #666; font-size: 0.9rem;">Ustalar API'den yüklenecek</p>
+                        </div>
                     </div>
 
                     <!-- Rating Filter -->
                     <div class="filter-group">
-                        <h4>⭐ Rating</h4>
+                        <h4>⭐ Değerlendirme</h4>
                         <label class="filter-option">
                             <input type="radio" name="rating" value="5">
-                            <span>★★★★★ 5 Stars</span>
+                            <span>★★★★★ 5 Yıldız</span>
                         </label>
                         <label class="filter-option">
                             <input type="radio" name="rating" value="4">
-                            <span>★★★★☆ 4+ Stars</span>
+                            <span>★★★★☆ 4+ Yıldız</span>
                         </label>
                         <label class="filter-option">
                             <input type="radio" name="rating" value="3">
-                            <span>★★★☆☆ 3+ Stars</span>
+                            <span>★★★☆☆ 3+ Yıldız</span>
                         </label>
                         <label class="filter-option">
                             <input type="radio" name="rating" value="">
-                            <span>All Ratings</span>
+                            <span>Tümü</span>
                         </label>
                     </div>
 
                     <!-- Material Filter -->
                     <div class="filter-group">
-                        <h4>🌿 Materials</h4>
+                        <h4>🌿 Malzemeler</h4>
                         <label class="filter-option">
-                            <input type="checkbox" name="material" value="wood">
-                            <span>Wood</span>
+                            <input type="checkbox" name="material" value="ahsap">
+                            <span>Ahşap</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="material" value="glass">
-                            <span>Glass</span>
+                            <input type="checkbox" name="material" value="cam">
+                            <span>Cam</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="material" value="leather">
-                            <span>Leather</span>
+                            <input type="checkbox" name="material" value="deri">
+                            <span>Deri</span>
                         </label>
                         <label class="filter-option">
-                            <input type="checkbox" name="material" value="ceramic">
-                            <span>Ceramic</span>
+                            <input type="checkbox" name="material" value="seramik">
+                            <span>Seramik</span>
                         </label>
                         <label class="filter-option">
                             <input type="checkbox" name="material" value="metal">
@@ -436,7 +423,7 @@
 
                     <!-- Clear Filters -->
                     <button class="btn btn-secondary" id="clearFilters" style="width: 100%;">
-                        🧹 Clear All Filters
+                        🧹 Filtreleri Temizle
                     </button>
                 </aside>
 
@@ -445,18 +432,18 @@
                     <!-- Sort Controls -->
                     <div class="sort-controls">
                         <div class="results-info">
-                            <span id="resultsCount">Showing all treasures</span>
+                            <span id="resultsCount">Tüm ürünler gösteriliyor</span>
                         </div>
 
                         <div style="display: flex; gap: var(--space-md); align-items: center;">
                             <select id="sortSelect"
                                 style="padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--glass-bg);">
-                                <option value="featured">🌟 Featured</option>
-                                <option value="price-low">💰 Price: Low to High</option>
-                                <option value="price-high">💰 Price: High to Low</option>
-                                <option value="rating">⭐ Highest Rated</option>
-                                <option value="newest">🆕 Newest First</option>
-                                <option value="popular">🔥 Most Popular</option>
+                                <option value="featured">🌟 Öne Çıkanlar</option>
+                                <option value="price-low">💰 Fiyat: Düşükten Yükseğe</option>
+                                <option value="price-high">💰 Fiyat: Yüksekten Düşüğe</option>
+                                <option value="rating">⭐ En Yüksek Puanlı</option>
+                                <option value="newest">🆕 En Yeniler</option>
+                                <option value="popular">🔥 En Popüler</option>
                             </select>
 
                             <div class="view-toggle">

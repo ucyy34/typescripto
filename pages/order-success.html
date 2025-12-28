@@ -189,9 +189,12 @@
     <script src="../assets/js/api-config.js"></script>
     <script src="../assets/js/api-client.js"></script>
     <script>
-        // Get order ID from URL
+        // Phase 8.0: Handle both single orderId and multiple orderIds
         const urlParams = new URLSearchParams(window.location.search);
-        const orderId = urlParams.get('orderId');
+        const orderIdsParam = urlParams.get('orderIds');
+        const singleOrderId = urlParams.get('orderId');
+        const orderIds = orderIdsParam ? orderIdsParam.split(',').filter(id => id && id !== 'null') : (singleOrderId && singleOrderId !== 'null') ? [singleOrderId] : [];
+        const orderId = orderIds[0] || null;
 
         async function loadOrderDetails() {
             console.log('[Order Success] orderId from URL:', orderId);

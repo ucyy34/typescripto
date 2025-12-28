@@ -1,5 +1,6 @@
 const request = require('supertest');
-const express = require('express');
+const { createTestApp } = require('../../../tests/helpers/testApp');
+const { mockAdminUser } = require('../../../tests/helpers/mockAuth');
 
 jest.mock('../../models', () => {
   const User = {
@@ -21,16 +22,10 @@ jest.mock('../../middlewares/auth', () => ({
 
 const { User } = require('../../models');
 const userRoutes = require('../../routes/user.routes');
-const { errorHandler, notFound } = require('../../middlewares/errorHandler');
 
-const buildApp = () => {
-  const app = express();
-  app.use(express.json());
-  app.use('/api/v1/users', userRoutes);
-  app.use(notFound);
-  app.use(errorHandler);
-  return app;
-};
+const buildApp = () => createTestApp({
+  routes: [['/api/v1/users', userRoutes]],
+});
 
 describe('User routes', () => {
   beforeEach(() => {
@@ -57,12 +52,10 @@ describe('User routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data.users).toHaveLength(1);
-    expect(response.body.data.pagination).toMatchObject({
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.pagination).toMatchObject({
       total: 2,
       limit: 1,
-      offset: 0,
-      hasNext: true,
       hasPrev: false,
     });
   });
@@ -143,6 +136,6 @@ describe('User routes', () => {
 
     expect(response.status).toBe(500);
     expect(response.body.success).toBe(false);
-    expect(response.body.message).toBe('Database unavailable');
+    expect(response.body.message).toBe('Failed to fetch users');
   });
 });

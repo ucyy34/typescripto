@@ -1,8 +1,10 @@
-const notificationService = require('../notification.service');
+const notificationService = require('../notification.service').default || require('../notification.service');
 
 describe('NotificationService', () => {
   beforeEach(() => {
-    notificationService.reset();
+    // Reset internal state by clearing maps
+    notificationService.sentNotifications.clear();
+    notificationService.finalizedOrders.clear();
   });
 
   afterEach(() => {
@@ -11,7 +13,8 @@ describe('NotificationService', () => {
         return null;
       },
     });
-    notificationService.reset();
+    notificationService.sentNotifications.clear();
+    notificationService.finalizedOrders.clear();
   });
 
   it('sends store and customer notifications once per event type', async () => {

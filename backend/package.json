@@ -2,19 +2,27 @@
   "name": "dostan-marketplace-backend",
   "version": "1.0.0",
   "description": "Production-ready marketplace backend for 1000-2000 stores with 50K daily traffic",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
+    "dev:ts": "dotenv -e .env.ts -- nodemon --config nodemon.json src/bootstrap.ts",
+    "build": "tsc",
     "test": "jest --coverage --verbose",
     "test:watch": "jest --watch",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
-    "seed": "node src/scripts/clean-and-seed.js",
+    "seed": "echo 'Use seed:dev for safety' && exit 1",
+    "seed:dev": "dotenv -e .env.ts -- node src/scripts/clean-and-seed.js",
     "seed:siftah": "node src/scripts/seed-siftah-test.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-    "format": "prettier --write \"src/**/*.{js,json}\""
+    "format": "prettier --write \"src/**/*.{js,json}\"",
+    "typecheck": "tsc --noEmit",
+    "typecheck:strict": "tsc --project tsconfig.strict.json --noEmit",
+    "smoke:reset": "dotenv -e .env.ts -- node src/scripts/reset-test-data.js",
+    "smoke:test": "npm run smoke:reset && dotenv -e .env.ts -- node src/scripts/smoke-test-ts.js",
+    "guest:cleanup": "dotenv -e .env.ts -- node src/scripts/cleanup-guest-carts.js"
   },
   "keywords": [
     "marketplace",
@@ -45,11 +53,23 @@
     "sequelize": "^6.35.1",
     "slugify": "^1.6.6",
     "uuid": "^9.0.1",
-    "winston": "^3.13.0"
+    "winston": "^3.13.0",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "sequelize-cli": "^6.6.2"
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "@types/sequelize": "^4.28.20",
+    "dotenv-cli": "^11.0.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "sequelize-cli": "^6.6.2",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0",

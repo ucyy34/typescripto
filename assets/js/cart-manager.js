@@ -170,13 +170,36 @@ class CartManager {
     }
 
     /**
-     * Merge guest cart into user cart after login
+     * Merge guest cart into user cart after login (V2 API)
+     * Sends X-Guest-Key header and rotates guest key after successful merge
      */
     async mergeGuestCart() {
         try {
-            const response = await this.apiClient.post(API_CONFIG.ENDPOINTS.CART.MERGE);
-            if (response.success && response.data) {
-                this._applyCartResponse(response.data);
+            // Get current guest key from cookie/memory
+            const guestKey = this.apiClient.getGuestKey ? this.apiClient.getGuestKey() : null;
+
+            if (!guestKey) {
+                console.log('[CartManager] No guest key found, skipping merge');
+                return true; // No guest cart to merge
+            }
+
+            // Use V2 merge endpoint with X-Guest-Key header
+            const endpoint = API_CONFIG.ENDPOINTS.CART_V2?.MERGE || '/v2/cart/merge';
+            const response = await this.apiClient.post(endpoint, {}, {
+                headers: { 'X-Guest-Key': guestKey }
+            });
+
+            if (response.success || response.data) {
+                // Rotate guest key after successful merge
+                if (response.nextGuestKeyRequired || response.data?.nextGuestKeyRequired) {
+                    if (this.apiClient.rotateGuestKey) {
+                        this.apiClient.rotateGuestKey();
+                        console.log('[CartManager] Guest key rotated after merge');
+                    }
+                }
+
+                this._applyCartResponse(response.data || response);
+                console.log('[CartManager] Guest cart merged successfully');
                 return true;
             }
 

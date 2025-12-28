@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sayfa Bulunamadı - DostanWebCSS</title>
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --forest-deep: #1a4a3a;
+            --forest-medium: #2d6853;
+            --forest-light: #4a8b6c;
+            --bark-brown: #8b6d47;
+            --warm-brown: #a0845c;
+            --cream-soft: #f5f2eb;
+            --cream-warm: #ede7d9;
+            --aurora-green: linear-gradient(135deg, #4a8b6c 0%, #2d6853 100%);
+        }
+
+        [data-theme="dark"] {
+            --cream-soft: #1a1f2e;
+            --cream-warm: #252a3a;
+            --forest-deep: #4a8b6c;
+            --forest-medium: #6ba085;
+            --bark-brown: #c4a574;
+            --warm-brown: #d4b883;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--cream-soft);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+            transition: background 0.3s ease;
+        }
+
+        .error-container {
+            max-width: 600px;
+        }
+
+        .error-code {
+            font-size: clamp(6rem, 20vw, 12rem);
+            font-weight: 800;
+            background: var(--aurora-green);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 1rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .error-dragon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            animation: wiggle 2s ease-in-out infinite;
+        }
+
+        @keyframes wiggle {
+
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+
+            25% {
+                transform: rotate(-5deg);
+            }
+
+            75% {
+                transform: rotate(5deg);
+            }
+        }
+
+        .error-title {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            color: var(--forest-deep);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .error-message {
+            font-size: 1.1rem;
+            color: var(--warm-brown);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--aurora-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(45, 104, 83, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--forest-deep);
+            border: 2px solid var(--forest-light);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(74, 139, 108, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .suggestions {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(139, 109, 71, 0.2);
+        }
+
+        .suggestions-title {
+            font-size: 1rem;
+            color: var(--bark-brown);
+            margin-bottom: 1rem;
+        }
+
+        .suggestions-links {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .suggestions-links a {
+            color: var(--forest-medium);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .suggestions-links a:hover {
+            color: var(--forest-deep);
+            text-decoration: underline;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: rgba(255, 255, 255, 0.8);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] .theme-toggle {
+            background: rgba(30, 35, 50, 0.8);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        /* Floating particles effect */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: rgba(74, 139, 108, 0.1);
+            border-radius: 50%;
+            animation: rise 10s infinite ease-in-out;
+        }
+
+        @keyframes rise {
+            0% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-100vh) scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Tema değiştir">🌙</button>
+
+    <!-- Particles -->
+    <div class="particles" id="particles"></div>
+
+    <div class="error-container">
+        <div class="error-dragon">🐉</div>
+        <div class="error-code">404</div>
+        <h1 class="error-title">Sayfa Kaybolmuş!</h1>
+        <p class="error-message">
+            Dostik baktı baktı ama bu sayfayı bulamadı. Belki yanlış bir yola saptınız,
+            ya da sayfa taşınmış olabilir. Endişelenmeyin, sizi doğru yere yönlendirelim!
+        </p>
+
+        <div class="error-actions">
+            <a href="../index.html" class="btn btn-primary">
+                🏠 Ana Sayfaya Dön
+            </a>
+            <a href="products.html" class="btn btn-secondary">
+                📦 Ürünlere Göz At
+            </a>
+        </div>
+
+        <div class="suggestions">
+            <p class="suggestions-title">Belki bunları arıyordunuz:</p>
+            <div class="suggestions-links">
+                <a href="products.html">Ürünler</a>
+                <a href="artisan.html">Ustalar</a>
+                <a href="cart.html">Sepetim</a>
+                <a href="profile.html">Profilim</a>
+                <a href="order-tracking.html">Sipariş Takip</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+
+        themeToggle.addEventListener('click', () => {
+            const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        });
+
+        // Create floating particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 15; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 10 + 's';
+            particle.style.animationDuration = (8 + Math.random() * 6) + 's';
+            particle.style.width = (5 + Math.random() * 10) + 'px';
+            particle.style.height = particle.style.width;
+            particlesContainer.appendChild(particle);
+        }
+
+        // Go back function
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '../index.html';
+            }
+        }
+    </script>
+</body>
+
+</html>

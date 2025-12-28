@@ -13,14 +13,20 @@ class ProductsPageAPI {
         this.currentPage = 1;
         this.totalPages = 1;
         this.urlParams = new URLSearchParams(window.location.search);
+
+        // Parse clean URL for category (e.g., /kategori/seramik or /category/ceramics)
+        this.categorySlugFromUrl = this.parseCategoryFromUrl();
+
         this.filters = {
             categories: [],
+            categorySlug: this.categorySlugFromUrl, // Add slug filter
             priceRange: 1000,
             rating: '',
             search: '',
             sort: 'featured',
             storeId: this.urlParams.get('store') || null,
         };
+
         const initialSearch = this.urlParams.get('search');
         if (initialSearch) {
             this.filters.search = initialSearch.trim();
@@ -30,7 +36,33 @@ class ProductsPageAPI {
             : null;
 
         console.log('[Products Page API] Initializing...');
+        if (this.categorySlugFromUrl) {
+            console.log('[Products Page API] Category from URL:', this.categorySlugFromUrl);
+        }
         this.init();
+    }
+
+    /**
+     * Parse category slug from clean URL paths
+     * Supports: /kategori/:slug, /category/:slug, ?category=slug
+     */
+    parseCategoryFromUrl() {
+        const path = window.location.pathname;
+
+        // Check for /kategori/:slug pattern
+        const kategoriMatch = path.match(/\/kategori\/([^\/]+)/);
+        if (kategoriMatch) {
+            return kategoriMatch[1];
+        }
+
+        // Check for /category/:slug pattern
+        const categoryMatch = path.match(/\/category\/([^\/]+)/);
+        if (categoryMatch) {
+            return categoryMatch[1];
+        }
+
+        // Fallback to query parameter
+        return this.urlParams.get('category') || null;
     }
 
     async init() {
@@ -88,6 +120,9 @@ class ProductsPageAPI {
             // Add category filter
             if (this.filters.categories.length > 0) {
                 params.category_id = this.filters.categories[0]; // Backend expects single category for now
+            } else if (this.filters.categorySlug) {
+                // Use category slug from clean URL (e.g., /kategori/seramik)
+                params.category_slug = this.filters.categorySlug;
             }
 
             // Add price filter

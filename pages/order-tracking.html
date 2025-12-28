@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sipariş Takip - DostanWebCSS</title>
+    <meta name="description" content="Siparişlerinizi takip edin ve durumunu öğrenin.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+
+    <style>
+        .order-tracking-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: var(--space-xl) var(--space-lg);
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: var(--space-xxl);
+        }
+
+        .page-header h1 {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            margin-bottom: var(--space-sm);
+        }
+
+        .page-header p {
+            color: var(--warm-brown);
+            font-size: 1.1rem;
+        }
+
+        /* Search Box */
+        .order-search-box {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-backdrop);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+
+        .search-form {
+            display: flex;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+        }
+
+        .search-form input {
+            flex: 1;
+            min-width: 200px;
+            padding: var(--space-md) var(--space-lg);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            background: var(--cream-soft);
+            color: var(--forest-deep);
+            transition: all 0.3s ease;
+        }
+
+        .search-form input:focus {
+            outline: none;
+            border-color: var(--forest-medium);
+            box-shadow: 0 0 0 3px rgba(74, 139, 108, 0.1);
+        }
+
+        .search-form button {
+            padding: var(--space-md) var(--space-xl);
+            background: var(--aurora-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        /* Order Card */
+        .order-card {
+            background: var(--cream-soft);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            margin-bottom: var(--space-lg);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-lg);
+            background: linear-gradient(135deg, rgba(74, 139, 108, 0.08), rgba(245, 242, 235, 0.5));
+            border-bottom: 1px solid var(--glass-border);
+            flex-wrap: wrap;
+            gap: var(--space-md);
+        }
+
+        .order-number {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--forest-deep);
+        }
+
+        .order-date {
+            color: var(--warm-brown);
+            font-size: 0.9rem;
+        }
+
+        .order-status {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) var(--space-md);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .order-status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .order-status.processing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .order-status.shipped {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .order-status.delivered {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .order-status.cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Timeline */
+        .order-timeline {
+            padding: var(--space-xl) var(--space-lg);
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: var(--space-xl);
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 10%;
+            right: 10%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+        }
+
+        .timeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+            flex: 1;
+        }
+
+        .timeline-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: var(--space-sm);
+            transition: all 0.3s ease;
+            border: 3px solid var(--cream-soft);
+        }
+
+        .timeline-step.completed .timeline-icon {
+            background: var(--aurora-green);
+            color: white;
+        }
+
+        .timeline-step.current .timeline-icon {
+            background: #3b82f6;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .timeline-label {
+            font-size: 0.8rem;
+            color: var(--warm-brown);
+            text-align: center;
+            max-width: 80px;
+        }
+
+        .timeline-step.completed .timeline-label,
+        .timeline-step.current .timeline-label {
+            color: var(--forest-deep);
+            font-weight: 600;
+        }
+
+        /* Order Items */
+        .order-items {
+            padding: 0 var(--space-lg) var(--space-lg);
+        }
+
+        .order-item {
+            display: flex;
+            gap: var(--space-md);
+            padding: var(--space-md);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-sm);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .order-item-image {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            background: #f3f4f6;
+        }
+
+        .order-item-details {
+            flex: 1;
+        }
+
+        .order-item-title {
+            font-weight: 600;
+            color: var(--forest-deep);
+            margin-bottom: 4px;
+        }
+
+        .order-item-meta {
+            font-size: 0.85rem;
+            color: var(--warm-brown);
+        }
+
+        .order-item-price {
+            font-weight: 700;
+            color: var(--forest-medium);
+        }
+
+        /* Order Summary */
+        .order-summary {
+            padding: var(--space-lg);
+            background: rgba(74, 139, 108, 0.05);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-sm);
+            font-size: 0.95rem;
+        }
+
+        .summary-row.total {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--forest-deep);
+            padding-top: var(--space-sm);
+            border-top: 1px dashed var(--glass-border);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: var(--space-xxl);
+            color: var(--warm-brown);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: var(--space-lg);
+            opacity: 0.5;
+        }
+
+        /* Loading */
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(74, 139, 108, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--forest-medium);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .timeline {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-md);
+            }
+
+            .timeline::before {
+                top: 0;
+                bottom: 0;
+                left: 22px;
+                right: auto;
+                width: 4px;
+                height: auto;
+            }
+
+            .timeline-step {
+                flex-direction: row;
+                gap: var(--space-md);
+            }
+
+            .timeline-label {
+                text-align: left;
+                max-width: none;
+            }
+        }
+
+        /* Tracking Info Card */
+        .tracking-info-card {
+            background: linear-gradient(135deg, rgba(74, 139, 108, 0.1), rgba(245, 242, 235, 0.5));
+            border: 1px solid rgba(74, 139, 108, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            margin: 0 var(--space-lg) var(--space-lg);
+        }
+
+        .tracking-info-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }
+
+        .tracking-info-header h4 {
+            margin: 0;
+            color: var(--forest-deep);
+            font-size: 1rem;
+        }
+
+        .tracking-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-md);
+        }
+
+        .tracking-field {
+            background: white;
+            padding: var(--space-md);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--glass-border);
+        }
+
+        .tracking-field-label {
+            font-size: 0.75rem;
+            color: var(--warm-brown);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-xs);
+        }
+
+        .tracking-field-value {
+            font-weight: 600;
+            color: var(--forest-deep);
+            font-size: 1rem;
+        }
+
+        .tracking-field-value.monospace {
+            font-family: 'Courier New', monospace;
+            background: rgba(74, 139, 108, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        /* Dark mode */
+        [data-theme="dark"] .order-card {
+            background: var(--dark-surface);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="dark"] .order-header {
+            background: linear-gradient(135deg, rgba(74, 139, 108, 0.15), rgba(26, 31, 46, 0.8));
+        }
+
+        [data-theme="dark"] .order-item {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        [data-theme="dark"] .search-form input {
+            background: var(--dark-surface);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: var(--dark-text);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Header -->
+    <header class="header glass-card" role="banner">
+        <nav class="navbar container">
+            <div class="nav-brand">
+                <a href="../index.html">
+                    <h1>🐉 DostanWebCSS</h1>
+                </a>
+            </div>
+            <div class="nav-actions">
+                <a href="products.html" class="nav-link">Ürünler</a>
+                <a href="artisan.html" class="nav-link">Ustalar</a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Tema değiştir">🌙</button>
+                <a href="profile.html" class="profile-btn">👤</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="order-tracking-container">
+        <div class="page-header">
+            <h1>📦 Sipariş Takip</h1>
+            <p>Siparişlerinizin güncel durumunu takip edin</p>
+        </div>
+
+        <!-- Search Box -->
+        <div class="order-search-box">
+            <form class="search-form" id="orderSearchForm">
+                <input type="text" id="orderNumberInput" placeholder="Sipariş numaranızı girin (örn: ORD-2024-00001)"
+                    required>
+                <button type="submit">🔍 Ara</button>
+            </form>
+        </div>
+
+        <!-- Orders Container -->
+        <div id="ordersContainer">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-state-icon">📋</div>
+                <h3>Sipariş Bulunamadı</h3>
+                <p>Sipariş numaranızı girerek durumunu kontrol edebilirsiniz.</p>
+                <p style="margin-top: 1rem; font-size: 0.9rem;">
+                    <a href="profile.html" style="color: var(--forest-medium);">Profilinizden</a> tüm siparişlerinizi
+                    görebilirsiniz.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../assets/js/api-config.js"></script>
+    <script src="../assets/js/api-client.js"></script>
+    <script src="../assets/js/auth-manager.js"></script>
+    <script src="../assets/js/toast.js"></script>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+
+        themeToggle.addEventListener('click', () => {
+            const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        });
+
+        // Order tracking functionality
+        const apiClient = new ApiClient();
+        const ordersContainer = document.getElementById('ordersContainer');
+        const orderSearchForm = document.getElementById('orderSearchForm');
+        const orderNumberInput = document.getElementById('orderNumberInput');
+
+        const statusLabels = {
+            'pending': { label: 'Beklemede', icon: '⏳', class: 'pending' },
+            'confirmed': { label: 'Onaylandı', icon: '✓', class: 'processing' },
+            'processing': { label: 'Hazırlanıyor', icon: '📦', class: 'processing' },
+            'shipped': { label: 'Kargoya Verildi', icon: '🚚', class: 'shipped' },
+            'delivered': { label: 'Teslim Edildi', icon: '✅', class: 'delivered' },
+            'cancelled': { label: 'İptal Edildi', icon: '❌', class: 'cancelled' },
+            'refunded': { label: 'İade Edildi', icon: '💰', class: 'cancelled' }
+        };
+
+        const timelineSteps = [
+            { status: 'pending', icon: '📝', label: 'Sipariş Alındı' },
+            { status: 'confirmed', icon: '✓', label: 'Onaylandı' },
+            { status: 'processing', icon: '📦', label: 'Hazırlanıyor' },
+            { status: 'shipped', icon: '🚚', label: 'Kargoda' },
+            { status: 'delivered', icon: '🏠', label: 'Teslim Edildi' }
+        ];
+
+        function getStatusIndex(status) {
+            const index = timelineSteps.findIndex(s => s.status === status);
+            return index === -1 ? 0 : index;
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('tr-TR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatPrice(price) {
+            return Number(price).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+        }
+
+        function renderOrder(order) {
+            const statusInfo = statusLabels[order.status] || statusLabels.pending;
+            const currentStepIndex = getStatusIndex(order.status);
+
+            const timelineHTML = timelineSteps.map((step, index) => {
+                let stepClass = '';
+                if (index < currentStepIndex) stepClass = 'completed';
+                else if (index === currentStepIndex) stepClass = 'current';
+
+                return `
+                    <div class="timeline-step ${stepClass}">
+                        <div class="timeline-icon">${step.icon}</div>
+                        <div class="timeline-label">${step.label}</div>
+                    </div>
+                `;
+            }).join('');
+
+            const itemsHTML = (order.items || []).map(item => `
+                <div class="order-item">
+                    <img src="${item.product_snapshot?.images?.[0] || 'https://via.placeholder.com/60'}" 
+                         alt="${item.product_snapshot?.title || 'Ürün'}" 
+                         class="order-item-image">
+                    <div class="order-item-details">
+                        <div class="order-item-title">${item.product_snapshot?.title || 'Ürün'}</div>
+                        <div class="order-item-meta">Adet: ${item.quantity}</div>
+                    </div>
+                    <div class="order-item-price">${formatPrice(item.price)}</div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="order-card">
+                    <div class="order-header">
+                        <div>
+                            <div class="order-number">${order.order_number || order.id}</div>
+                            <div class="order-date">${formatDate(order.created_at)}</div>
+                        </div>
+                        <span class="order-status ${statusInfo.class}">
+                            ${statusInfo.icon} ${statusInfo.label}
+                        </span>
+                    </div>
+                    
+                    <div class="order-timeline">
+                        <div class="timeline">
+                            ${timelineHTML}
+                        </div>
+                    </div>
+
+                    ${order.tracking_number || order.trackingNumber ? `
+                    <div class="tracking-info-card">
+                        <div class="tracking-info-header">
+                            <span style="font-size: 1.2rem;">🚚</span>
+                            <h4>Kargo Takip Bilgisi</h4>
+                        </div>
+                        <div class="tracking-details">
+                            <div class="tracking-field">
+                                <div class="tracking-field-label">Kargo Firması</div>
+                                <div class="tracking-field-value">${order.carrier || 'Belirtilmedi'}</div>
+                            </div>
+                            <div class="tracking-field">
+                                <div class="tracking-field-label">Takip Numarası</div>
+                                <div class="tracking-field-value monospace">${order.tracking_number || order.trackingNumber}</div>
+                            </div>
+                            ${order.shipped_at || order.shippedAt ? `
+                            <div class="tracking-field">
+                                <div class="tracking-field-label">Kargoya Verildi</div>
+                                <div class="tracking-field-value">${formatDate(order.shipped_at || order.shippedAt)}</div>
+                            </div>
+                            ` : ''}
+                            ${order.delivered_at || order.deliveredAt ? `
+                            <div class="tracking-field">
+                                <div class="tracking-field-label">Teslim Edildi</div>
+                                <div class="tracking-field-value">${formatDate(order.delivered_at || order.deliveredAt)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="order-items">
+                        ${itemsHTML}
+                    </div>
+
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span>Ara Toplam</span>
+                            <span>${formatPrice(order.subtotal || order.total)}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Kargo</span>
+                            <span>${formatPrice(order.shipping_fee || 0)}</span>
+                        </div>
+                        ${order.coupon_discount ? `
+                        <div class="summary-row">
+                            <span>İndirim</span>
+                            <span style="color: #10b981;">-${formatPrice(order.coupon_discount)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="summary-row total">
+                            <span>Toplam</span>
+                            <span>${formatPrice(order.total)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function searchOrder(orderNumber) {
+            ordersContainer.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="loading-spinner"></div><p>Sipariş aranıyor...</p></div>';
+
+            try {
+                const response = await apiClient.get(`/orders/track/${orderNumber}`);
+
+                if (response.success && response.data) {
+                    ordersContainer.innerHTML = renderOrder(response.data);
+                } else {
+                    ordersContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <h3>Sipariş Bulunamadı</h3>
+                            <p>Bu numaraya ait sipariş bulunamadı. Lütfen sipariş numaranızı kontrol edin.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Order search error:', error);
+                ordersContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>Bir Hata Oluştu</h3>
+                        <p>${error.message || 'Sipariş bilgisi alınamadı.'}</p>
+                    </div>
+                `;
+            }
+        }
+
+        orderSearchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const orderNumber = orderNumberInput.value.trim();
+            if (orderNumber) {
+                searchOrder(orderNumber);
+            }
+        });
+
+        // Check URL params for order number
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderFromUrl = urlParams.get('order');
+        if (orderFromUrl) {
+            orderNumberInput.value = orderFromUrl;
+            searchOrder(orderFromUrl);
+        }
+
+        // Load user's recent orders if logged in
+        async function loadUserOrders() {
+            if (!AuthManager.isLoggedIn()) return;
+
+            try {
+                const response = await apiClient.get('/orders/my-orders?limit=5');
+                if (response.success && response.data?.orders?.length > 0) {
+                    ordersContainer.innerHTML = `
+                        <h3 style="margin-bottom: var(--space-lg); color: var(--forest-deep);">📦 Son Siparişleriniz</h3>
+                        ${response.data.orders.map(order => renderOrder(order)).join('')}
+                    `;
+                }
+            } catch (error) {
+                console.log('Could not load user orders:', error.message);
+            }
+        }
+
+        // Load orders on page load
+        if (!orderFromUrl) {
+            loadUserOrders();
+        }
+    </script>
+</body>
+
+</html>

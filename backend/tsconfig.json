@@ -1,0 +1,30 @@
+{
+    "compilerOptions": {
+        "target": "ES2018",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "strict": false,
+        "allowJs": true,
+        "checkJs": false,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "noImplicitAny": false,
+        "resolveJsonModule": true
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "tests",
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "src/__tests__/**/*",
+        "src/models/index.js"
+    ]
+}

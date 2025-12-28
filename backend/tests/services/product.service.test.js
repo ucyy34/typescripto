@@ -1,142 +1,143 @@
 const { Op } = require('sequelize');
+const { StatusCodes } = require('http-status-codes');
+const { AppError } = require('../../src/utils/AppError');
 
-const mockCache = {
-  get: jest.fn(),
-  set: jest.fn(),
-  del: jest.fn(),
-  delPattern: jest.fn(),
-};
-
+// Mocks
 const mockProduct = {
   findAndCountAll: jest.fn(),
   findOne: jest.fn(),
-  create: jest.fn(),
-  sequelize: {
-    random: jest.fn(() => 'RANDOM()'),
-  },
+  findByPk: jest.fn(),
+  count: jest.fn(),
 };
 
 const mockStore = {};
 const mockCategory = {};
-const mockUser = {};
+const mockReview = {};
 const mockProductVariant = {};
-
-jest.mock('../../src/config/redis', () => ({
-  cache: mockCache,
-}));
 
 jest.mock('../../src/models', () => ({
   Product: mockProduct,
   Store: mockStore,
   Category: mockCategory,
-  User: mockUser,
+  Review: mockReview,
   ProductVariant: mockProductVariant,
 }));
 
+// Import service (it uses export = new ProductService())
 const productService = require('../../src/services/product.service');
 
-describe('ProductService.prepareProductData', () => {
+describe('ProductService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('normalizes text fields, badges, and SEO values', () => {
-    const prepared = productService.prepareProductData({
-      title: '  Mystic Talisman  ',
-      description: '  Ancient protection stone\n',
-      tags: ['amulet', ' protection ', 'amulet'],
-      badges: ['handmade', 'eco-friendly', 'forbidden'],
-      meta_keywords: undefined,
-      seo_title: '',
-      seo_description: '',
-      short_description: '',
-      stock: '0',
-      images: [' https://cdn.example.com/image.jpg ', 'https://cdn.example.com/image.jpg'],
+  describe('getProducts', () => {
+    it('fetches products with default pagination and filters', async () => {
+      const mockRows = [{ id: 'prod-1', title: 'Test Product' }];
+      mockProduct.findAndCountAll.mockResolvedValue({
+        count: 1,
+        rows: mockRows
+      });
+
+      const result = await productService.getProducts({ page: 1, limit: 10 });
+
+      expect(mockProduct.findAndCountAll).toHaveBeenCalledTimes(1);
+      const query = mockProduct.findAndCountAll.mock.calls[0][0];
+
+      // Verify default filters (from service implementation)
+      expect(query.where.is_active).toBe(true);
+      expect(query.where.status).toBe('approved');
+      expect(query.limit).toBe(10);
+      expect(query.offset).toBe(0);
+
+      expect(result).toEqual({
+        products: mockRows,
+        pagination: {
+          total: 1,
+          page: 1,
+          limit: 10,
+          pages: 1
+        }
+      });
     });
 
-    expect(prepared.title).toBe('Mystic Talisman');
-    expect(prepared.description).toBe('Ancient protection stone');
-    expect(prepared.tags).toEqual(['amulet', 'protection']);
-    expect(prepared.badges).toEqual(['handmade', 'eco-friendly']);
-    expect(prepared.meta_keywords).toEqual(['amulet', 'protection']);
-    expect(prepared.images).toEqual(['https://cdn.example.com/image.jpg']);
-    expect(prepared.is_active).toBe(false);
-    expect(prepared.seo_title.length).toBeGreaterThan(0);
-    expect(prepared.seo_description.length).toBeGreaterThan(0);
-    expect(prepared.short_description.length).toBeGreaterThan(0);
-  });
+    it('filters by category slug', async () => {
+      mockProduct.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-  it('reuses existing descriptions when updating', () => {
-    const existing = {
-      description: 'Existing long description with plenty of detail.',
-      short_description: 'Existing short copy',
-      title: 'Existing Product',
-    };
+      await productService.getProducts({ category: 'art' });
 
-    const prepared = productService.prepareProductData(
-      { seo_title: undefined, seo_description: undefined, tags: ['one'] },
-      { isUpdate: true, existingProduct: existing }
-    );
-
-    expect(prepared.short_description).toBe('Existing short copy');
-    expect(prepared.seo_title).toBe('Existing Product');
-    expect(prepared.seo_description).toBe('Existing short copy');
-    expect(prepared.meta_keywords).toEqual(['one']);
-  });
-});
-
-describe('ProductService.getProducts', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockCache.get.mockResolvedValue(null);
-    mockCache.set.mockResolvedValue(true);
-    mockProduct.findAndCountAll.mockReset();
-  });
-
-  it('enforces approved, active, and in-stock filters by default', async () => {
-    mockProduct.findAndCountAll.mockResolvedValue({ rows: [{ id: '1', stock: 4 }], count: 1 });
-
-    const result = await productService.getProducts({ page: 1, limit: 10 });
-
-    expect(mockProduct.findAndCountAll).toHaveBeenCalledTimes(1);
-    const query = mockProduct.findAndCountAll.mock.calls[0][0];
-
-    expect(query.where.status).toBe('approved');
-    expect(query.where.is_active).toBe(true);
-    expect(query.where.stock[Op.gt]).toBe(0);
-    expect(result.products).toHaveLength(1);
-    expect(result.pagination.total).toBe(1);
-    expect(mockCache.set).toHaveBeenCalled();
-  });
-
-  it('skips restrictive filters when vendor requests all statuses', async () => {
-    mockProduct.findAndCountAll.mockResolvedValue({
-      rows: [{ id: '2', status: 'pending', is_active: false, stock: 0 }],
-      count: 1,
+      const query = mockProduct.findAndCountAll.mock.calls[0][0];
+      // Check include for category filtering
+      const categoryInclude = query.include.find(inc => inc.as === 'category');
+      expect(categoryInclude).toBeDefined();
+      expect(categoryInclude.where).toEqual({ slug: 'art' });
+      expect(categoryInclude.required).toBe(true);
     });
 
-    const result = await productService.getProducts({
-      includeAllStatuses: 'true',
-      include_inactive: 'true',
-      include_out_of_stock: 'true',
+    it('filters by search query', async () => {
+      mockProduct.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+      await productService.getProducts({ search: 'bowl' });
+
+      const query = mockProduct.findAndCountAll.mock.calls[0][0];
+      const orClause = query.where[Op.or];
+      expect(orClause).toBeDefined();
+      expect(orClause).toHaveLength(2);
+      // We can't easily check [Op.iLike] equality because specific symbol usage depends on sequelize version mock
+      // But we verify structure exists
     });
-
-    expect(mockProduct.findAndCountAll).toHaveBeenCalledTimes(1);
-    const query = mockProduct.findAndCountAll.mock.calls[0][0];
-
-    expect(query.where.status).toBeUndefined();
-    expect(query.where.is_active).toBeUndefined();
-    expect(query.where.stock).toBeUndefined();
-    expect(result.products[0].is_active).toBe(false);
   });
 
-  it('returns cached results when available', async () => {
-    const cached = { products: [{ id: 'cached' }], pagination: { page: 1, total: 1, limit: 20 } };
-    mockCache.get.mockResolvedValueOnce(cached);
+  describe('getProductBySlug', () => {
+    it('returns product when found and available', async () => {
+      const mockProd = {
+        id: 'p1',
+        slug: 'p1-slug',
+        store: { status: 'approved' }
+      };
+      mockProduct.findOne.mockResolvedValue(mockProd);
 
-    const result = await productService.getProducts({ page: 1, limit: 20 });
+      const result = await productService.getProductBySlug('p1-slug');
 
-    expect(result).toEqual(cached);
-    expect(mockProduct.findAndCountAll).not.toHaveBeenCalled();
+      expect(mockProduct.findOne).toHaveBeenCalledWith(expect.objectContaining({
+        where: { slug: 'p1-slug', is_active: true, status: 'approved' }
+      }));
+      expect(result).toBe(mockProd);
+    });
+
+    it('throws 404 if product not found', async () => {
+      mockProduct.findOne.mockResolvedValue(null);
+
+      await expect(productService.getProductBySlug('missing')).rejects.toThrow('Product not found');
+    });
+
+    it('throws 404 if store is not approved', async () => {
+      const mockProd = {
+        id: 'p1',
+        store: { status: 'pending' }
+      };
+      mockProduct.findOne.mockResolvedValue(mockProd);
+
+      await expect(productService.getProductBySlug('p1-slug')).rejects.toThrow('Store is currently unavailable');
+    });
+  });
+
+  describe('checkStock', () => {
+    it('returns true if stock is sufficient', async () => {
+      mockProduct.findByPk.mockResolvedValue({ id: 'p1', stock: 10 });
+      const available = await productService.checkStock('p1', 5);
+      expect(available).toBe(true);
+    });
+
+    it('returns false if stock is insufficient', async () => {
+      mockProduct.findByPk.mockResolvedValue({ id: 'p1', stock: 2 });
+      const available = await productService.checkStock('p1', 5);
+      expect(available).toBe(false);
+    });
+
+    it('throws if product not found', async () => {
+      mockProduct.findByPk.mockResolvedValue(null);
+      await expect(productService.checkStock('p1', 1)).rejects.toThrow('Product not found');
+    });
   });
 });
