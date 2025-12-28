@@ -13,6 +13,10 @@ import {
     ProductListQuery,
     ProductResponseDTO,
     ProductListItemDTO,
+    ProductIdParams,
+    ProductListResponseDTO,
+    ProductDetailResponseDTO,
+    ProductCreateResponseDTO,
 } from '../schemas/product.schema';
 import { IProduct } from '../../domain/types/product.types';
 
@@ -134,14 +138,16 @@ export async function listProducts(
 
         const items = result.items.map(toListItemDTO);
 
-        return res.status(200).json({
+        const response: ProductListResponseDTO = {
             success: true,
             message: 'Products retrieved successfully',
             data: {
                 items,
                 pagination: result.pagination,
             },
-        });
+        };
+
+        return res.status(200).json(response);
     } catch (error) {
         next(error);
     }
@@ -157,7 +163,7 @@ export async function getProduct(
     next: NextFunction
 ): Promise<Response | void> {
     try {
-        const { id } = req.params;
+        const { id }: ProductIdParams = req.params;
 
         const product = await productRepo.findById(id);
 
@@ -165,13 +171,15 @@ export async function getProduct(
             throw new NotFoundError('Product', id);
         }
 
-        const response = toResponseDTO(product);
+        const productResponse = toResponseDTO(product);
 
-        return res.status(200).json({
+        const response: ProductDetailResponseDTO = {
             success: true,
             message: 'Product retrieved successfully',
-            data: response,
-        });
+            data: productResponse,
+        };
+
+        return res.status(200).json(response);
     } catch (error) {
         next(error);
     }
@@ -239,13 +247,15 @@ export async function createProduct(
 
         const product = await productRepo.create(productData);
 
-        const response = toResponseDTO(product);
+        const productResponse = toResponseDTO(product);
 
-        return res.status(201).json({
+        const response: ProductCreateResponseDTO = {
             success: true,
             message: 'Product created successfully',
-            data: response,
-        });
+            data: productResponse,
+        };
+
+        return res.status(201).json(response);
     } catch (error) {
         next(error);
     }

@@ -74,10 +74,22 @@ export const CheckoutConfirmRequestSchema = z.object({
 export const CheckoutConfirmResponseSchema = z.object({
     success: z.literal(true),
     data: z.object({
+        orderIds: z.array(z.string().uuid()),
+        orderNumbers: z.array(z.string()),
+        orders: z.array(z.object({
+            orderId: z.string().uuid(),
+            orderNumber: z.string(),
+            status: z.string(),
+            storeId: z.string().uuid(),
+            storeName: z.string(),
+            subtotal: z.number(),
+            shipping: z.number(),
+            total: z.number(),
+        })),
+        totals: CheckoutTotalsSchema,
         orderId: z.string().uuid(),
         orderNumber: z.string(),
         status: z.string(),
-        totals: CheckoutTotalsSchema,
     }),
     idempotencyKey: z.string(),
     createdAt: z.string().datetime(),
@@ -89,6 +101,18 @@ export const CheckoutConfirmResponseSchema = z.object({
 
 export const CheckoutStatusParamSchema = z.object({
     idempotencyKey: z.string().min(16),
+});
+
+export const CheckoutStatusResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.object({
+        orderId: z.string().uuid(),
+        orderNumber: z.string(),
+        status: z.string(),
+        totals: CheckoutTotalsSchema,
+    }),
+    idempotencyKey: z.string(),
+    createdAt: z.string().datetime(),
 });
 
 // ==========================================
@@ -107,3 +131,4 @@ export type CheckoutConfirmRequestDTO = z.infer<typeof CheckoutConfirmRequestSch
 export type CheckoutConfirmResponseDTO = z.infer<typeof CheckoutConfirmResponseSchema>;
 
 export type CheckoutStatusParamDTO = z.infer<typeof CheckoutStatusParamSchema>;
+export type CheckoutStatusResponseDTO = z.infer<typeof CheckoutStatusResponseSchema>;

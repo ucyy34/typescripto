@@ -10,9 +10,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { getOrderRepository } from '../../infrastructure/repositories/SequelizeOrderRepository';
 import { getProductRepository } from '../../infrastructure/repositories/SequelizeProductRepository';
-import { OrderDTOMapper, CreateOrderDTO, UpdateOrderStatusDTO } from '../../application/dtos/order.dto';
+import { OrderDTOMapper } from '../../application/dtos/order.dto';
 import { OrderStatus, PaymentStatus, IOrderItem } from '../../domain/types/order.types';
 import type { IOrder } from '../../domain/types/order.types';
+import type {
+    CreateOrderDTO as CreateOrderSchemaDTO,
+    UpdateOrderStatusDTO as UpdateOrderStatusSchemaDTO,
+    OrderIdParams,
+    OrderCreateResponseDTO,
+    OrderGetResponseDTO,
+    OrderStatusUpdateResponseDTO,
+} from '../schemas/order.schema';
 import {
     ValidationError,
     NotFoundError,
@@ -87,7 +95,7 @@ async function assertSellerCanModifyOrder(
 export async function createOrder(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
         const userId = (req as any).user?.id || null;
-        const body: CreateOrderDTO = req.body;
+        const body: CreateOrderSchemaDTO = req.body;
 
         // Validate required fields
         if (!body.storeId) {
@@ -197,13 +205,15 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         }
 
         // Map to response DTO
-        const response = OrderDTOMapper.toResponse(order);
+        const orderResponse = OrderDTOMapper.toResponse(order);
 
-        return res.status(201).json({
+        const response: OrderCreateResponseDTO = {
             success: true,
             message: 'Order created successfully',
-            data: response,
-        });
+            data: orderResponse,
+        };
+
+        return res.status(201).json(response);
 
     } catch (error) {
         next(error);
@@ -222,8 +232,8 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
  */
 export async function updateOrderStatus(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-        const { id } = req.params;
-        const { status, cancellationReason } = req.body as UpdateOrderStatusDTO;
+        const { id }: OrderIdParams = req.params;
+        const { status, cancellationReason } = req.body as UpdateOrderStatusSchemaDTO;
         const user = (req as any).user;
 
         // Auth check
@@ -289,13 +299,15 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
         }
 
         // Map to response
-        const response = OrderDTOMapper.toResponse(updatedOrder);
+        const orderResponse = OrderDTOMapper.toResponse(updatedOrder);
 
-        return res.status(200).json({
+        const response: OrderStatusUpdateResponseDTO = {
             success: true,
             message: `Order status updated to ${status}`,
-            data: response,
-        });
+            data: orderResponse,
+        };
+
+        return res.status(200).json(response);
 
     } catch (error) {
         next(error);
@@ -308,7 +320,7 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
  */
 export async function getOrder(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-        const { id } = req.params;
+        const { id }: OrderIdParams = req.params;
         const user = (req as any).user;
 
         const order = await orderRepo.findById(id);
@@ -334,13 +346,15 @@ export async function getOrder(req: Request, res: Response, next: NextFunction):
             throw new ForbiddenError('You are not authorized to view this order');
         }
 
-        const response = OrderDTOMapper.toResponse(order);
+        const orderResponse = OrderDTOMapper.toResponse(order);
 
-        return res.status(200).json({
+        const response: OrderGetResponseDTO = {
             success: true,
             message: 'Order retrieved successfully',
-            data: response,
-        });
+            data: orderResponse,
+        };
+
+        return res.status(200).json(response);
 
     } catch (error) {
         next(error);
@@ -351,10 +365,10 @@ export async function getOrder(req: Request, res: Response, next: NextFunction):
 // PHASE 8.1: FULFILLMENT ENDPOINTS (V2)
 // ==========================================
 
-import {
-    OrderIdParamSchema,
-    UpdateOrderStatusSchema,
-    UpdateOrderTrackingSchema,
+import type {
+    OrderIdParamDTO,
+    UpdateOrderStatusDTO as UpdateOrderStatusDTOv2,
+    UpdateOrderTrackingDTO,
 } from '../schemas/order-fulfillment.schema';
 import { ALLOWED_STATUS_TRANSITIONS } from '../../domain/types/order.types';
 
@@ -368,19 +382,8 @@ import { ALLOWED_STATUS_TRANSITIONS } from '../../domain/types/order.types';
  */
 export async function updateStatusV2(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-        // Validate params
-        const paramResult = OrderIdParamSchema.safeParse(req.params);
-        if (!paramResult.success) {
-            throw new ValidationError('Invalid order ID', { errors: paramResult.error.flatten() });
-        }
-        const { id } = paramResult.data;
-
-        // Validate body
-        const bodyResult = UpdateOrderStatusSchema.safeParse(req.body);
-        if (!bodyResult.success) {
-            throw new ValidationError('Invalid status', { errors: bodyResult.error.flatten() });
-        }
-        const { status: newStatusStr } = bodyResult.data;
+        const { id }: OrderIdParamDTO = req.params;
+        const { status: newStatusStr }: UpdateOrderStatusDTOv2 = req.body;
 
         // Cast to enum
         const newStatus = newStatusStr.toUpperCase() as keyof typeof OrderStatus;
@@ -457,19 +460,8 @@ export async function updateStatusV2(req: Request, res: Response, next: NextFunc
  */
 export async function updateTracking(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-        // Validate params
-        const paramResult = OrderIdParamSchema.safeParse(req.params);
-        if (!paramResult.success) {
-            throw new ValidationError('Invalid order ID', { errors: paramResult.error.flatten() });
-        }
-        const { id } = paramResult.data;
-
-        // Validate body
-        const bodyResult = UpdateOrderTrackingSchema.safeParse(req.body);
-        if (!bodyResult.success) {
-            throw new ValidationError('Invalid tracking data', { errors: bodyResult.error.flatten() });
-        }
-        const { carrier, trackingNumber } = bodyResult.data;
+        const { id }: OrderIdParamDTO = req.params;
+        const { carrier, trackingNumber }: UpdateOrderTrackingDTO = req.body;
 
         // Get user and check role
         const user = (req as any).user;

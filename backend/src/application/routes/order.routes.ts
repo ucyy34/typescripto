@@ -13,6 +13,11 @@ import {
     UpdateOrderStatusSchema,
     OrderIdParamSchema
 } from '../schemas/order.schema';
+import {
+    OrderIdParamSchema as OrderIdParamSchemaV2,
+    UpdateOrderStatusSchema as UpdateOrderStatusSchemaV2,
+    UpdateOrderTrackingSchema,
+} from '../schemas/order-fulfillment.schema';
 
 // Import auth middleware (existing)
 const { authenticate, optionalAuth } = require('../../middlewares/auth');
@@ -81,6 +86,10 @@ import { updateStatusV2, updateTracking } from '../controllers/order.controller'
 router.patch(
     '/:id/status/v2',
     authenticate,
+    validateMultiple([
+        { schema: OrderIdParamSchemaV2, target: 'params' },
+        { schema: UpdateOrderStatusSchemaV2, target: 'body' },
+    ]),
     updateStatusV2
 );
 
@@ -95,6 +104,10 @@ router.patch(
 router.patch(
     '/:id/tracking',
     authenticate,
+    validateMultiple([
+        { schema: OrderIdParamSchemaV2, target: 'params' },
+        { schema: UpdateOrderTrackingSchema, target: 'body' },
+    ]),
     updateTracking
 );
 

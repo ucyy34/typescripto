@@ -35,6 +35,9 @@ export const CartResponseSchema = z.object({
 
 export const GuestKeyHeaderSchema = z.string().min(1, { message: 'X-Guest-Key header is required' });
 
+export const EmptyBodySchema = z.object({}).passthrough().default({});
+export const EmptyQuerySchema = z.object({}).passthrough().default({});
+
 export const MergeCartSchema = z.object({
     guestKey: z.string().min(1)
 });
@@ -59,6 +62,35 @@ export const CartItemIdParamSchema = z.object({
 });
 
 // ==========================================
+// ENDPOINT REQUEST/RESPONSE SCHEMAS
+// ==========================================
+
+export const GetCartRequestSchema = EmptyQuerySchema;
+export const GetCartResponseSchema = CartResponseSchema;
+
+export const AddToCartRequestSchema = AddToCartSchema;
+export const AddToCartResponseSchema = CartResponseSchema;
+
+export const UpdateCartItemRequestSchema = UpdateCartItemSchema;
+export const UpdateCartItemResponseSchema = CartResponseSchema;
+
+export const RemoveCartItemResponseSchema = CartResponseSchema;
+export const ClearCartResponseSchema = CartResponseSchema;
+
+export const MergeCartRequestSchema = MergeCartSchema;
+export const MergeCartResponseSchema = CartResponseSchema.extend({
+    nextGuestKeyRequired: z.boolean(),
+    mergedItemsCount: z.number().int().min(0),
+});
+
+export const GetGuestCartRequestSchema = EmptyQuerySchema;
+export const GetGuestCartResponseSchema = CartResponseSchema;
+export const AddGuestCartItemResponseSchema = CartResponseSchema;
+export const UpdateGuestCartItemResponseSchema = CartResponseSchema;
+export const RemoveGuestCartItemResponseSchema = CartResponseSchema;
+export const ClearGuestCartResponseSchema = CartResponseSchema;
+
+// ==========================================
 // TYPES
 // ==========================================
 
@@ -66,3 +98,5 @@ export type CartItemResponseDTO = z.infer<typeof CartItemResponseSchema>;
 export type CartResponseDTO = z.infer<typeof CartResponseSchema>;
 export type AddToCartDTO = z.infer<typeof AddToCartSchema>;
 export type UpdateCartItemDTO = z.infer<typeof UpdateCartItemSchema>;
+export type CartItemIdParamDTO = z.infer<typeof CartItemIdParamSchema>;
+export type MergeCartResponseDTO = z.infer<typeof MergeCartResponseSchema>;

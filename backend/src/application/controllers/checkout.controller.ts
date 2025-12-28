@@ -4,17 +4,15 @@
  */
 
 import { Response, NextFunction } from 'express';
-import { Transaction } from 'sequelize';
 import {
-    CheckoutInitRequestSchema,
-    CheckoutConfirmRequestSchema,
-    CheckoutStatusParamSchema,
+    CheckoutConfirmRequestDTO,
+    CheckoutStatusParamDTO,
     CheckoutInitResponseDTO,
     CheckoutConfirmResponseDTO,
     CheckoutTotalsDTO,
+    CheckoutStatusResponseDTO,
 } from '../schemas/checkout.schema';
 import { AuthenticatedRequest } from '../../domain/types/common.types';
-import { ValidationError, StockError } from '../../shared/errors';
 import { SequelizeCartRepository } from '../../infrastructure/repositories/SequelizeCartRepository';
 import { SequelizeProductRepository } from '../../infrastructure/repositories/SequelizeProductRepository';
 
@@ -32,16 +30,6 @@ export class CheckoutController {
      */
     static async init(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            // Validate request (optional fields)
-            const parseResult = CheckoutInitRequestSchema.safeParse(req.body);
-            if (!parseResult.success) {
-                return res.status(422).json({
-                    success: false,
-                    message: 'Validation failed',
-                    errors: parseResult.error.issues,
-                });
-            }
-
             const userId = req.user!.id;
             const cart = await cartRepo.findByUserId(userId);
 
@@ -99,17 +87,7 @@ export class CheckoutController {
      */
     static async confirm(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            // Validate request
-            const parseResult = CheckoutConfirmRequestSchema.safeParse(req.body);
-            if (!parseResult.success) {
-                return res.status(422).json({
-                    success: false,
-                    message: 'Validation failed',
-                    errors: parseResult.error.issues,
-                });
-            }
-
-            const { idempotencyKey, shippingAddress, paymentMethod, notes } = parseResult.data;
+            const { idempotencyKey, shippingAddress, paymentMethod, notes }: CheckoutConfirmRequestDTO = req.body;
             const userId = req.user!.id;
 
             // Import order service for multi-store atomicity
@@ -177,7 +155,7 @@ export class CheckoutController {
                 currency: 'TRY',
             };
 
-            const response = {
+            const response: CheckoutConfirmResponseDTO = {
                 success: true,
                 data: {
                     // Multi-store: return arrays
@@ -225,16 +203,7 @@ export class CheckoutController {
      */
     static async status(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            const parseResult = CheckoutStatusParamSchema.safeParse(req.params);
-            if (!parseResult.success) {
-                return res.status(422).json({
-                    success: false,
-                    message: 'Invalid idempotency key',
-                    errors: parseResult.error.issues,
-                });
-            }
-
-            const { idempotencyKey } = parseResult.data;
+            const { idempotencyKey }: CheckoutStatusParamDTO = req.params;
             const userId = req.user!.id;
 
             const order = await Order.findOne({
@@ -249,7 +218,7 @@ export class CheckoutController {
                 });
             }
 
-            return res.json({
+            const response: CheckoutStatusResponseDTO = {
                 success: true,
                 data: {
                     orderId: order.id,
@@ -265,7 +234,9 @@ export class CheckoutController {
                 },
                 idempotencyKey,
                 createdAt: order.created_at.toISOString(),
-            });
+            };
+
+            return res.json(response);
         } catch (error) {
             return next(error);
         }

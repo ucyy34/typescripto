@@ -70,12 +70,15 @@ export type UpdateOrderTrackingDTO = z.infer<typeof UpdateOrderTrackingSchema>;
  */
 export const OrderStatusResponseSchema = z.object({
     success: z.boolean(),
+    message: z.string(),
     data: z.object({
         orderId: z.string(),
         orderNumber: z.string(),
         previousStatus: z.string(),
         newStatus: z.string(),
         updatedAt: z.string(),
+        shippedAt: z.string().nullable(),
+        deliveredAt: z.string().nullable(),
     }),
 });
 
@@ -86,6 +89,7 @@ export type OrderStatusResponseDTO = z.infer<typeof OrderStatusResponseSchema>;
  */
 export const OrderTrackingResponseSchema = z.object({
     success: z.boolean(),
+    message: z.string(),
     data: z.object({
         orderId: z.string(),
         orderNumber: z.string(),

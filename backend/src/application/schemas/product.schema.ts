@@ -195,6 +195,34 @@ export const ProductListItemSchema = z.object({
 });
 
 // ============================================
+// RESPONSE ENVELOPES
+// ============================================
+
+export const PaginationSchema = z.object({
+    total: z.number().int(),
+    page: z.number().int(),
+    limit: z.number().int(),
+    pages: z.number().int(),
+});
+
+export const ProductListResponseSchema = z.object({
+    success: z.literal(true),
+    message: z.string(),
+    data: z.object({
+        items: z.array(ProductListItemSchema),
+        pagination: PaginationSchema,
+    }),
+});
+
+export const ProductDetailResponseSchema = z.object({
+    success: z.literal(true),
+    message: z.string(),
+    data: ProductResponseSchema,
+});
+
+export const ProductCreateResponseSchema = ProductDetailResponseSchema;
+
+// ============================================
 // INFERRED TYPES (Single Source)
 // ============================================
 
@@ -212,6 +240,10 @@ export type ProductResponseDTO = z.infer<typeof ProductResponseSchema>;
 
 /** Product list item */
 export type ProductListItemDTO = z.infer<typeof ProductListItemSchema>;
+export type PaginationDTO = z.infer<typeof PaginationSchema>;
+export type ProductListResponseDTO = z.infer<typeof ProductListResponseSchema>;
+export type ProductDetailResponseDTO = z.infer<typeof ProductDetailResponseSchema>;
+export type ProductCreateResponseDTO = z.infer<typeof ProductCreateResponseSchema>;
 
 /** Product status values */
 export type ProductStatusValue = z.infer<typeof ProductStatusEnum>;
