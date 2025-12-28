@@ -21,6 +21,7 @@ import {
     BusinessRuleError,
     StockError,
 } from '../../shared/errors';
+import { OptionalAuthRequest } from '../../domain/types/common.types';
 
 // Import Store model for seller ownership check
 const { Store } = require('../../models');
@@ -84,9 +85,9 @@ async function assertSellerCanModifyOrder(
  *   idempotencyKey?: string
  * }
  */
-export async function createOrder(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+export async function createOrder(req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-        const userId = (req as any).user?.id || null;
+        const userId = req.user?.id || null;
         const body: CreateOrderDTO = req.body;
 
         // Validate required fields
@@ -220,11 +221,11 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
  *   cancellationReason?: string
  * }
  */
-export async function updateOrderStatus(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+export async function updateOrderStatus(req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<Response | void> {
     try {
         const { id } = req.params;
         const { status, cancellationReason } = req.body as UpdateOrderStatusDTO;
-        const user = (req as any).user;
+        const user = req.user;
 
         // Auth check
         if (!user) {
@@ -306,10 +307,10 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
  * Get order by ID (using new architecture)
  * GET /api/v1/orders/v2/:id
  */
-export async function getOrder(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+export async function getOrder(req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<Response | void> {
     try {
         const { id } = req.params;
-        const user = (req as any).user;
+        const user = req.user;
 
         const order = await orderRepo.findById(id);
         if (!order) {
@@ -366,7 +367,7 @@ import { ALLOWED_STATUS_TRANSITIONS } from '../../domain/types/order.types';
  * - Admin/seller only (buyer gets 403)
  * - Auto-sets timestamps (shippedAt, deliveredAt, cancelledAt)
  */
-export async function updateStatusV2(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+export async function updateStatusV2(req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<Response | void> {
     try {
         // Validate params
         const paramResult = OrderIdParamSchema.safeParse(req.params);
@@ -391,7 +392,7 @@ export async function updateStatusV2(req: Request, res: Response, next: NextFunc
         }
 
         // Get user and check role
-        const user = (req as any).user;
+        const user = req.user;
         if (!user) {
             throw new ForbiddenError('Authentication required');
         }
@@ -455,7 +456,7 @@ export async function updateStatusV2(req: Request, res: Response, next: NextFunc
  * - Auto-sets status to shipped if not already
  * - Admin/seller only (buyer gets 403)
  */
-export async function updateTracking(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+export async function updateTracking(req: OptionalAuthRequest, res: Response, next: NextFunction): Promise<Response | void> {
     try {
         // Validate params
         const paramResult = OrderIdParamSchema.safeParse(req.params);
@@ -472,7 +473,7 @@ export async function updateTracking(req: Request, res: Response, next: NextFunc
         const { carrier, trackingNumber } = bodyResult.data;
 
         // Get user and check role
-        const user = (req as any).user;
+        const user = req.user;
         if (!user) {
             throw new ForbiddenError('Authentication required');
         }

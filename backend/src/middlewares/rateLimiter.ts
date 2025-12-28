@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import { StatusCodes } from 'http-status-codes';
+import { OptionalAuthRequest } from '../domain/types/common.types';
 
 // Allow disabling all rate limiting via env for local testing
 const DISABLED = process.env.RATE_LIMIT_DISABLED === 'true';
@@ -26,9 +27,9 @@ const generalLimiterImpl = rateLimit({
     statusCode: StatusCodes.TOO_MANY_REQUESTS,
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    skip: (req: Request): boolean => {
+    skip: (req: OptionalAuthRequest): boolean => {
         // Skip rate limiting for admin users
-        const user = (req as any).user;
+        const user = req.user;
         return !!(user && user.role === 'admin');
     },
 });

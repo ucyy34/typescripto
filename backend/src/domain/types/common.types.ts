@@ -5,14 +5,53 @@
 
 import { Request } from 'express';
 
+export interface AuthenticatedUser {
+    id: string;
+    email?: string;
+    role: string;
+    [key: string]: any;
+}
+
+export interface CartContext {
+    userId: string | null;
+    guestId: string | null;
+}
+
 export interface AuthenticatedRequest extends Request {
-    user?: {
-        id: string;
-        email?: string;
-        role: string;
-        [key: string]: any;
-    };
+    user: AuthenticatedUser;
     guestId?: string;
+    cartContext?: CartContext;
+}
+
+export interface OptionalAuthRequest extends Request {
+    user?: AuthenticatedUser;
+    guestId?: string;
+    cartContext?: CartContext;
+}
+
+export interface GuestRequest extends Request {
+    guestId: string;
+}
+
+export interface OptionalGuestRequest extends Request {
+    guestId?: string;
+}
+
+export interface CartContextRequest extends Request {
+    cartContext: CartContext;
+    user?: AuthenticatedUser;
+    guestId?: string;
+}
+
+declare global {
+    namespace Express {
+        interface Request {
+            user?: AuthenticatedUser;
+            guestId?: string;
+            cartContext?: CartContext;
+            store?: unknown;
+        }
+    }
 }
 
 /**

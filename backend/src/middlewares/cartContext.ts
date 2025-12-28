@@ -3,25 +3,13 @@
  * Attach cart context (user or guest) to request and ensure guest cookie exists.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
+import { CartContextRequest } from '../domain/types/common.types';
 
 const GUEST_COOKIE_NAME = 'guest_id';
 const GUEST_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 const GUEST_HEADER_NAME = 'x-guest-id';
-
-// Extend Express Request
-declare global {
-    namespace Express {
-        interface Request {
-            guestId?: string;
-            cartContext?: {
-                userId: string | null;
-                guestId: string | null;
-            };
-        }
-    }
-}
 
 const normalizeGuestId = (value: unknown): string | null => {
     if (!value || typeof value !== 'string') {
@@ -35,13 +23,13 @@ const normalizeGuestId = (value: unknown): string | null => {
 /**
  * Attach cart context (user or guest) to request and ensure guest cookie exists.
  */
-const attachCartContext = (req: Request, res: Response, next: NextFunction): void => {
-    const userId = (req as any).user?.id || null;
+const attachCartContext = (req: CartContextRequest, res: Response, next: NextFunction): void => {
+    const userId = req.user?.id || null;
     let guestId: string | null = null;
 
     if (!userId) {
         guestId =
-            normalizeGuestId((req as any).guestId) ||
+            normalizeGuestId(req.guestId) ||
             normalizeGuestId(req.headers?.[GUEST_HEADER_NAME]) ||
             normalizeGuestId(req.cookies?.[GUEST_COOKIE_NAME]) ||
             null;
@@ -60,13 +48,13 @@ const attachCartContext = (req: Request, res: Response, next: NextFunction): voi
         guestId = null;
     }
 
-    (req as any).cartContext = {
+    req.cartContext = {
         userId,
         guestId,
     };
 
-    if (!(req as any).guestId && guestId) {
-        (req as any).guestId = guestId;
+    if (!req.guestId && guestId) {
+        req.guestId = guestId;
     }
 
     next();

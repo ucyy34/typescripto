@@ -15,6 +15,7 @@ import {
     ProductListItemDTO,
 } from '../schemas/product.schema';
 import { IProduct } from '../../domain/types/product.types';
+import { OptionalAuthRequest } from '../../domain/types/common.types';
 
 // Repository instance
 const productRepo = new SequelizeProductRepository();
@@ -184,7 +185,7 @@ export async function getProduct(
  * MONEY CONTRACT: priceCents MUST be integer (cents)
  */
 export async function createProduct(
-    req: Request,
+    req: OptionalAuthRequest,
     res: Response,
     next: NextFunction
 ): Promise<Response | void> {
@@ -192,7 +193,7 @@ export async function createProduct(
         const body = req.body as CreateProductDTO;
 
         // Auth check
-        const user = (req as any).user;
+        const user = req.user;
         if (!user) {
             throw new UnauthorizedError('Authentication required to create products');
         }
