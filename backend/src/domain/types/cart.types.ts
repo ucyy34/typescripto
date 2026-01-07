@@ -22,7 +22,19 @@ export interface ICartItem {
     productTitle?: string;
     productSlug?: string;
     productImage?: string;
-    variant?: any; // Phase 8.1: Variant Entegrasyonu
+    variant?: ICartItemVariant | null; // Phase 8.1: Variant Entegrasyonu
+}
+
+export interface ICartVariantSelection {
+    [optionName: string]: string;
+}
+
+export interface ICartItemVariant {
+    id?: string;
+    sku?: string;
+    price?: number;
+    stock?: number;
+    selection?: ICartVariantSelection;
 }
 
 // Domain Interface
@@ -38,6 +50,68 @@ export interface ICart {
 
     createdAt: Date | string;
     updatedAt: Date | string;
+}
+
+// Redis-backed cart state (snake_case keys)
+export interface ICartStoredItem {
+    id: string;
+    product_id: string;
+    quantity: number;
+    price: number;
+    variant?: ICartItemVariant | null;
+}
+
+export interface ICartTotals {
+    subtotal: number;
+    item_count: number;
+}
+
+export interface ICartMetadata {
+    updated_at?: string;
+}
+
+export interface ICartState {
+    key: string | null;
+    items: ICartStoredItem[];
+    metadata: ICartMetadata;
+}
+
+export interface ICartStoreReference {
+    id: string;
+    name?: string;
+    slug?: string;
+}
+
+export interface ICartCategoryReference {
+    id: string;
+    name?: string;
+    slug?: string;
+}
+
+export interface ICartEnrichedItem extends ICartStoredItem {
+    title: string;
+    slug: string;
+    compare_price?: number | null;
+    images: string[];
+    image?: string | null;
+    stock: number | null;
+    is_available: boolean;
+    store?: ICartStoreReference;
+    category?: ICartCategoryReference;
+    item_total: number;
+}
+
+export interface ICartCheckoutItem extends ICartStoredItem {
+    store?: ICartStoreReference;
+    store_id?: string;
+    storeId?: string;
+    item_total?: number;
+}
+
+export interface ICartCheckoutPayload {
+    id?: string;
+    items: ICartCheckoutItem[];
+    totals?: ICartTotals;
 }
 
 // Service Inputs

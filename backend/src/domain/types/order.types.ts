@@ -15,9 +15,11 @@ import { IEntity, IShippingAddress } from './common.types';
 export enum OrderStatus {
     DRAFT = 'draft',           // Legacy, keep for backward compatibility
     PENDING = 'pending',       // Order placed, awaiting processing
-    PROCESSING = 'processing', // Being prepared for shipment
+    PROCESSING = 'processing', // Legacy alias for preparing
+    PREPARING = 'preparing',   // Being prepared for shipment
     SHIPPED = 'shipped',       // In transit to customer
     DELIVERED = 'delivered',   // Successfully delivered
+    COMPLETED = 'completed',   // Order completed (legacy flow)
     CONFIRMED = 'confirmed',   // Legacy alias (maps to processing)
     CANCELLED = 'cancelled',   // Order cancelled
 }
@@ -27,11 +29,13 @@ export enum OrderStatus {
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     [OrderStatus.DRAFT]: [OrderStatus.PENDING],
-    [OrderStatus.PENDING]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.PREPARING, OrderStatus.CANCELLED],
     [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+    [OrderStatus.PREPARING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
     [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
-    [OrderStatus.DELIVERED]: [],
-    [OrderStatus.CONFIRMED]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED], // Legacy
+    [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
+    [OrderStatus.COMPLETED]: [],
+    [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.SHIPPED, OrderStatus.CANCELLED], // Legacy
     [OrderStatus.CANCELLED]: [],
 };
 
@@ -61,13 +65,24 @@ export interface IOrderItem {
     productSnapshot: IProductSnapshot;
 }
 
+export interface IOrderItemVariantSnapshot {
+    id?: string;
+    sku?: string;
+    price?: number;
+    stock?: number;
+    selection?: Record<string, string>;
+}
+
 /**
  * Minimal product info stored with order for historical reference
  */
 export interface IProductSnapshot {
     title: string;
     sku?: string;
+    slug?: string;
     imageUrl?: string;
+    image?: string | null;
+    variant?: IOrderItemVariantSnapshot | null;
 }
 
 /**
@@ -120,6 +135,23 @@ export interface IOrder extends IEntity {
 
     // Idempotency
     idempotencyKey?: string;
+}
+
+/**
+ * Persistence-facing order model shape (snake_case from ORM)
+ */
+export interface IOrderRecord {
+    id: string;
+    store_id: string;
+    user_id: string | null;
+    status: OrderStatus;
+    payment_status?: string;
+    payment_details?: Record<string, unknown>;
+    total?: number | string;
+    cancellation_reason?: string | null;
+    cancelled_at?: Date | null;
+    save: () => Promise<void>;
+    reload: () => Promise<void>;
 }
 
 /**
